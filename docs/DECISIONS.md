@@ -2,29 +2,36 @@
 
 ADR-001 … ADR-008 were made during Phase 1 and are listed in [`architecture/overview.md` §7](architecture/overview.md#7-architecture-decisions).
 
+ADR-027 … ADR-031 record the Phase 2 implementation decisions P2-1 … P2-5, approved with the [Phase 2 plan](plans/phase-2-tenancy.md) on 2026-11-05.
+
 ADR-009 … ADR-026 record the owner's answers to decisions D-1 … D-18 of the [Architecture Review](architecture/review.md). They were **accepted on 2026-11-05**, with every recommendation taken as written. The review holds the full reasoning. Each entry below gives the decision and the reason in short form.
 
-| ADR | Review ID | Title                                      | Status                                              |
-| --- | --------- | ------------------------------------------ | --------------------------------------------------- |
-| 007 | —         | Multi-tenancy model (Phase 1 placeholder)  | **Superseded** by ADR-009, ADR-010 and review §5–§6 |
-| 009 | D-1       | Ownership of individual-customer records   | Accepted                                            |
-| 010 | D-2       | Cross-tenant access for assigned providers | Accepted                                            |
-| 011 | D-3       | Session model                              | Accepted                                            |
-| 012 | D-4       | `Service` vs `ServiceListing`              | Accepted                                            |
-| 013 | D-5       | Who chooses the provider                   | Accepted                                            |
-| 014 | D-6       | Prepay vs postpay                          | Accepted                                            |
-| 015 | D-7       | Roadmap adjustments                        | Accepted                                            |
-| 016 | D-8       | Revenue model                              | Accepted                                            |
-| 017 | D-9       | Tax                                        | Accepted, **pending advisor confirmation**          |
-| 018 | D-10      | Data protection                            | Accepted, **pending legal confirmation**            |
-| 019 | D-11      | File storage                               | Accepted                                            |
-| 020 | D-12      | Monorepo tooling                           | Accepted (confirms ADR-001)                         |
-| 021 | D-13      | Public catalogue SEO                       | Accepted                                            |
-| 022 | D-14      | Accent colour & brand                      | Accepted, **colour still to be chosen**             |
-| 023 | D-15      | Hosting target                             | Accepted, **choice due by Phase 15**                |
-| 024 | D-16      | Languages                                  | Accepted                                            |
-| 025 | D-17      | SMS / email providers                      | Accepted, **vendors chosen at integration**         |
-| 026 | D-18      | Prisma + RLS performance                   | Accepted                                            |
+| ADR | Review ID | Title                                           | Status                                              |
+| --- | --------- | ----------------------------------------------- | --------------------------------------------------- |
+| 007 | —         | Multi-tenancy model (Phase 1 placeholder)       | **Superseded** by ADR-009, ADR-010 and review §5–§6 |
+| 009 | D-1       | Ownership of individual-customer records        | Accepted                                            |
+| 010 | D-2       | Cross-tenant access for assigned providers      | Accepted                                            |
+| 011 | D-3       | Session model                                   | Accepted                                            |
+| 012 | D-4       | `Service` vs `ServiceListing`                   | Accepted                                            |
+| 013 | D-5       | Who chooses the provider                        | Accepted                                            |
+| 014 | D-6       | Prepay vs postpay                               | Accepted                                            |
+| 015 | D-7       | Roadmap adjustments                             | Accepted                                            |
+| 016 | D-8       | Revenue model                                   | Accepted                                            |
+| 017 | D-9       | Tax                                             | Accepted, **pending advisor confirmation**          |
+| 018 | D-10      | Data protection                                 | Accepted, **pending legal confirmation**            |
+| 019 | D-11      | File storage                                    | Accepted                                            |
+| 020 | D-12      | Monorepo tooling                                | Accepted (confirms ADR-001)                         |
+| 021 | D-13      | Public catalogue SEO                            | Accepted                                            |
+| 022 | D-14      | Accent colour & brand                           | Accepted, **colour still to be chosen**             |
+| 023 | D-15      | Hosting target                                  | Accepted, **choice due by Phase 15**                |
+| 024 | D-16      | Languages                                       | Accepted                                            |
+| 025 | D-17      | SMS / email providers                           | Accepted, **vendors chosen at integration**         |
+| 026 | D-18      | Prisma + RLS performance                        | Accepted                                            |
+| 027 | P2-1      | Phase 2 proves isolation at DB + service layers | Accepted                                            |
+| 028 | P2-2      | FileService and MinIO move to Phase 3           | Accepted                                            |
+| 029 | P2-3      | URI versioning (`/api/v1`) from Phase 2         | Accepted                                            |
+| 030 | P2-4      | Minimal `app_user` table in Phase 2             | Accepted                                            |
+| 031 | P2-5      | UUIDv7 from PostgreSQL 18 `uuidv7()`            | Accepted                                            |
 
 ---
 
@@ -124,6 +131,31 @@ ADR-009 … ADR-026 record the owner's answers to decisions D-1 … D-18 of the 
 
 **Decision:** Accept the overhead of one interactive transaction per unit of work, which is needed to set transaction-local context. Revisit only if metrics show a problem.
 **Why:** Correctness comes first, and the spec mandates both Prisma and RLS.
+
+## ADR-027 — Phase 2 proves isolation at the database and service layers (P2-1)
+
+**Decision:** Phase 2 proves isolation with raw SQL as `ogs_app` and through `TenantDb` and services. The API-level isolation suite (review §13, Phase 2 row) moves to Phase 3, once real sessions exist.
+**Why:** The only alternative was a test-only "fake auth" header in production code. Database-level tests are also the stronger guarantee.
+
+## ADR-028 — FileService and MinIO move to Phase 3 (P2-2)
+
+**Decision:** File storage (ADR-019) is built in Phase 3, not Phase 2.
+**Why:** It keeps Phase 2 focused on isolation. The first upload (provider documents, Phase 5) is still well ahead.
+
+## ADR-029 — URI versioning from Phase 2 (P2-3)
+
+**Decision:** Every route is served under `/api/v1/` (Nest URI versioning, default version 1). `/api/health` became `/api/v1/health`.
+**Why:** Free before any client depends on the API, breaking afterwards.
+
+## ADR-030 — Minimal `app_user` in Phase 2 (P2-4)
+
+**Decision:** Phase 2 adds `app_user` with id, email (citext, unique), status and timestamps only. Phase 3 adds credentials, profile and MFA.
+**Why:** Memberships and user-owned RLS cannot be tested without users.
+
+## ADR-031 — UUIDv7 from PostgreSQL 18 (P2-5)
+
+**Decision:** Primary keys default to PostgreSQL 18's built-in `uuidv7()`. The application may still supply its own UUIDv7 when it needs an id before inserting.
+**Why:** Time-ordered ids with no extra dependency. This is a small change from the review's "generated in app".
 
 ---
 

@@ -1,6 +1,6 @@
 # Phase 2 Plan — Tenancy, RLS and Data Foundations
 
-**Status:** DRAFT. Waiting for "Phase 2 approved."
+**Status:** APPROVED by the owner on 2026-11-05, with all recommendations P2-1 … P2-5 accepted (ADR-027 … ADR-031). Implemented on branch `phase-2/tenancy`. See §9 for where the implementation differs from this plan.
 **Based on:** [Architecture Review](../architecture/review.md) §4–§6 and §13, ADR-009, ADR-010, ADR-015 (D-7) and ADR-026.
 **Starting point:** `main` @ `b01cf24` (Phase 1), plus `0d08dad` (decision records).
 
@@ -194,3 +194,11 @@ Work happens on branch `phase-2/tenancy` and is opened as a PR to `main`.
 - **Prisma interactive transactions with a driver adapter:** these add latency per request (accepted in ADR-026). T6 doubles as a smoke benchmark, and its p95 is recorded in the PR.
 - **Existing dev volumes:** the initdb hook does not run on them, so `pnpm db:roles` covers that case and the README calls it out.
 - **Prisma's generated migrations never contain RLS:** T5 is the safety net. Every migration that adds a table must hand-edit its policies (`--create-only`).
+
+## 9. Implementation notes (differences from this plan)
+
+- **Integration test database is never wiped automatically.** The plan implied a fresh test schema per run. Global setup instead runs `prisma migrate deploy` (non-destructive) on `ogs_test`, and every test creates its own uniquely named rows. Prisma CLI also refuses `migrate reset` when an AI agent invokes it. Developers recreate the test database by hand with `pnpm db:reset:test` (guarded: local server and `ogs_test*` names only).
+- **`ogs_app` has no default privileges.** §2.1 said default privileges would cover future tables. Only `ogs_readonly` and `ogs_maint` get default privileges. `ogs_app` gets explicit per-table grants in each migration, so a new table cannot be reached by the API until a migration deliberately grants it. `ogs_app` holds no DELETE anywhere: tenants, users and memberships are soft-deleted or ended.
+- **T6 reports throughput, not p95.** Submitting 200 units of work at once onto 5 connections makes per-unit latency mostly pool queueing. The test prints total time and the connection time per unit. Local result on Windows with Docker Desktop: 200 units in about 1.2–1.4 s, which is about 30 ms of connection time per unit (BEGIN, `set_config`, `pg_sleep(2 ms)`, two SELECTs, COMMIT, each a round trip through Docker's port forwarding). This is a smoke figure, not a benchmark. ADR-026 says to revisit only if production metrics show a problem.
+- **RLS isolates; it does not authorise.** Tenant-context writes to `tenant`/`membership` are allowed by RLS for the member's own tenant. Restricting them to admins is an API permission check (Phase 3/4).
+- **Delivered as four commits, not eight.** The commits are infrastructure and schema, application code, integration tests and CI, and docs, because shared files such as `package.json` changed in every step.
