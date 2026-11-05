@@ -38,6 +38,8 @@ export interface DbSessionSettings {
   readonly 'app.tenant_id': string;
   readonly 'app.is_platform': 'true' | 'false';
   readonly 'app.actor_kind': 'USER' | 'SYSTEM';
+  /** The job name of a `system` context ('' otherwise). Identity tables require an identity.* job. */
+  readonly 'app.job': string;
 }
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -67,6 +69,7 @@ export function toSessionSettings(ctx: DbContext): DbSessionSettings {
         'app.tenant_id': '',
         'app.is_platform': 'false',
         'app.actor_kind': 'USER',
+        'app.job': '',
       };
     case 'workspace':
       return {
@@ -74,6 +77,7 @@ export function toSessionSettings(ctx: DbContext): DbSessionSettings {
         'app.tenant_id': uuid(ctx.tenantId, 'tenantId'),
         'app.is_platform': 'false',
         'app.actor_kind': 'USER',
+        'app.job': '',
       };
     case 'platform': {
       const reason = ctx.reason.trim();
@@ -87,6 +91,7 @@ export function toSessionSettings(ctx: DbContext): DbSessionSettings {
         'app.tenant_id': ctx.tenantId === undefined ? '' : uuid(ctx.tenantId, 'tenantId'),
         'app.is_platform': 'true',
         'app.actor_kind': 'USER',
+        'app.job': '',
       };
     }
     case 'system':
@@ -98,6 +103,7 @@ export function toSessionSettings(ctx: DbContext): DbSessionSettings {
         'app.tenant_id': ctx.tenantId === undefined ? '' : uuid(ctx.tenantId, 'tenantId'),
         'app.is_platform': 'false',
         'app.actor_kind': 'SYSTEM',
+        'app.job': ctx.job,
       };
   }
 }

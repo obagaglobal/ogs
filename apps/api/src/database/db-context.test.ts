@@ -11,6 +11,7 @@ describe('toSessionSettings', () => {
       'app.tenant_id': '',
       'app.is_platform': 'false',
       'app.actor_kind': 'USER',
+      'app.job': '',
     });
   });
 
@@ -22,6 +23,7 @@ describe('toSessionSettings', () => {
       'app.tenant_id': TENANT,
       'app.is_platform': 'false',
       'app.actor_kind': 'USER',
+      'app.job': '',
     });
   });
 
@@ -46,6 +48,7 @@ describe('toSessionSettings', () => {
         'app.tenant_id': TENANT,
         'app.is_platform': 'false',
         'app.actor_kind': 'SYSTEM',
+        'app.job': 'outbox.dispatch',
       },
     );
     expect(() => toSessionSettings({ kind: 'system', job: 'Bad Job' })).toThrow(

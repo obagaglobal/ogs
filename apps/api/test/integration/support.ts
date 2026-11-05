@@ -36,6 +36,7 @@ export interface Settings {
   readonly tenantId?: string;
   readonly isPlatform?: boolean;
   readonly actorKind?: 'USER' | 'SYSTEM';
+  readonly job?: string;
 }
 
 /**
@@ -52,12 +53,14 @@ export async function withContext<T>(
   try {
     await client.query(
       `SELECT set_config('app.user_id', $1, true), set_config('app.tenant_id', $2, true),
-              set_config('app.is_platform', $3, true), set_config('app.actor_kind', $4, true)`,
+              set_config('app.is_platform', $3, true), set_config('app.actor_kind', $4, true),
+              set_config('app.job', $5, true)`,
       [
         settings.userId ?? '',
         settings.tenantId ?? '',
         settings.isPlatform === true ? 'true' : 'false',
         settings.actorKind ?? (settings.userId === undefined ? '' : 'USER'),
+        settings.job ?? '',
       ],
     );
     const result = await work();

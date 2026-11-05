@@ -39,17 +39,19 @@ enum TenantStatus {
 
 /// An organisation, a provider company, or the single PLATFORM tenant (OGS staff).
 model Tenant {
-  id          String       @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  id          String           @id @default(dbgenerated("uuidv7()")) @db.Uuid
   kind        TenantKind
-  status      TenantStatus @default(PENDING_APPROVAL)
-  name        String       @db.VarChar(200)
+  status      TenantStatus     @default(PENDING_APPROVAL)
+  name        String           @db.VarChar(200)
   /// Lower-case, URL-safe, globally unique (CHECK in SQL).
-  slug        String       @unique @db.VarChar(100)
-  version     Int          @default(0)
-  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt   DateTime?    @map("deleted_at") @db.Timestamptz(6)
+  slug        String           @unique @db.VarChar(100)
+  version     Int              @default(0)
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt   DateTime?        @map("deleted_at") @db.Timestamptz(6)
   memberships Membership[]
+  roles       Role[]
+  memberRoles MembershipRole[]
 
   @@map("tenant")
 }
@@ -72,6 +74,8 @@ model AppUser {
   updatedAt   DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt   DateTime?    @map("deleted_at") @db.Timestamptz(6)
   memberships Membership[]
+  credential  Credential?
+  tokens      UserToken[]
 
   @@map("app_user")
 }
@@ -96,6 +100,7 @@ model Membership {
   updatedAt DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   user      AppUser          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  roles     MembershipRole[]
 
   @@unique([tenantId, userId])
   @@index([userId])
@@ -151,4 +156,158 @@ model OutboxEvent {
 
   @@index([dispatchedAt, availableAt])
   @@map("outbox_event")
+}
+
+// ---------------------------------------------------------------------------
+// Identity (Phase 3A). Review §7, ADR-011, Phase 3 plan §2.
+// Reached only under `system` context with an `identity.*` job (see RLS in
+// the migration): login and registration happen before any user context exists.
+// ---------------------------------------------------------------------------
+
+/// One password credential per user. Argon2id PHC string (parameters inside).
+model Credential {
+  userId            String    @id @map("user_id") @db.Uuid
+  passwordHash      String    @map("password_hash") @db.VarChar(255)
+  passwordChangedAt DateTime  @default(now()) @map("password_changed_at") @db.Timestamptz(6)
+  failedAttempts    Int       @default(0) @map("failed_attempts")
+  lockedUntil       DateTime? @map("locked_until") @db.Timestamptz(6)
+  version           Int       @default(0)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user              AppUser   @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@map("credential")
+}
+
+enum UserTokenPurpose {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+/// Single-use emailed tokens. Only the SHA-256 of the token is stored.
+model UserToken {
+  id         String           @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId     String           @map("user_id") @db.Uuid
+  purpose    UserTokenPurpose
+  tokenHash  String           @unique @map("token_hash") @db.Char(64)
+  expiresAt  DateTime         @map("expires_at") @db.Timestamptz(6)
+  consumedAt DateTime?        @map("consumed_at") @db.Timestamptz(6)
+  createdAt  DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  user       AppUser          @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId, purpose])
+  @@map("user_token")
+}
+
+enum AuthEventKind {
+  REGISTERED
+  REGISTER_EXISTING_EMAIL
+  EMAIL_VERIFIED
+  LOGIN_SUCCEEDED
+  LOGIN_FAILED
+  LOGOUT
+  ACCOUNT_LOCKED
+  PASSWORD_RESET_REQUESTED
+  PASSWORD_RESET_COMPLETED
+  PASSWORD_CHANGED
+  SESSION_REVOKED
+}
+
+/// Append-only security log of authentication activity (trigger-protected).
+model AuthenticationEvent {
+  id         String        @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  occurredAt DateTime      @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  kind       AuthEventKind
+  userId     String?       @map("user_id") @db.Uuid
+  /// SHA-256 of the normalised email, to correlate attacks on unknown accounts without storing them.
+  emailHash  String?       @map("email_hash") @db.Char(64)
+  reason     String?       @db.VarChar(100)
+  ip         String?       @db.Inet
+  userAgent  String?       @map("user_agent") @db.VarChar(500)
+  requestId  String?       @map("request_id") @db.VarChar(100)
+
+  @@index([userId, occurredAt(sort: Desc)])
+  @@index([emailHash, occurredAt(sort: Desc)])
+  @@map("authentication_event")
+}
+
+enum DeliveryStatus {
+  PENDING
+  SENT
+}
+
+/// Idempotency record for outbound notifications: one row per outbox event.
+model NotificationDelivery {
+  eventId   String         @id @map("event_id") @db.Uuid
+  kind      String         @db.VarChar(100)
+  userId    String?        @map("user_id") @db.Uuid
+  status    DeliveryStatus @default(PENDING)
+  sentAt    DateTime?      @map("sent_at") @db.Timestamptz(6)
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("notification_delivery")
+}
+
+// ---------------------------------------------------------------------------
+// Authorisation (Phase 3A). Review §8. System roles and permissions are synced
+// from src/authz/catalogue.json; organisations may add custom roles.
+// ---------------------------------------------------------------------------
+
+/// Platform-defined permission code, usable only in the listed tenant kinds.
+model Permission {
+  code         String           @id @db.VarChar(100)
+  description  String           @db.VarChar(300)
+  allowedKinds TenantKind[]     @map("allowed_kinds")
+  roles        RolePermission[]
+
+  @@map("permission")
+}
+
+model Role {
+  id          String           @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  /// Null for system roles; the owning tenant for custom roles.
+  tenantId    String?          @map("tenant_id") @db.Uuid
+  /// The tenant kind this role may be granted in.
+  scope       TenantKind
+  code        String           @db.VarChar(100)
+  name        String           @db.VarChar(150)
+  description String?          @db.VarChar(300)
+  isSystem    Boolean          @default(false) @map("is_system")
+  version     Int              @default(0)
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  permissions RolePermission[]
+  memberships MembershipRole[]
+  tenant      Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  /// Custom roles: unique per tenant. System roles (tenant_id NULL): partial unique index in SQL.
+  @@unique([tenantId, code])
+  @@map("role")
+}
+
+model RolePermission {
+  roleId         String     @map("role_id") @db.Uuid
+  permissionCode String     @map("permission_code") @db.VarChar(100)
+  role           Role       @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  permission     Permission @relation(fields: [permissionCode], references: [code], onDelete: Restrict)
+
+  @@id([roleId, permissionCode])
+  @@map("role_permission")
+}
+
+/// A role granted to a membership. tenant_id is denormalised for RLS and kept
+/// consistent with the membership by trigger.
+model MembershipRole {
+  membershipId String     @map("membership_id") @db.Uuid
+  roleId       String     @map("role_id") @db.Uuid
+  tenantId     String     @map("tenant_id") @db.Uuid
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  membership   Membership @relation(fields: [membershipId], references: [id], onDelete: Restrict)
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@id([membershipId, roleId])
+  @@index([tenantId])
+  @@index([roleId])
+  @@map("membership_role")
 }
