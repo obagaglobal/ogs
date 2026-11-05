@@ -81,22 +81,24 @@ apps/api ─┘
 
 ## 6. Multi-tenancy (planned direction, not implemented)
 
-To be decided by an ADR in the phase that introduces the first tenant-scoped data. The current leaning is:
+Decided in the [Architecture Review](review.md) §4–§6 and ADR-009/010 ([`DECISIONS.md`](../DECISIONS.md)). It is implemented in Phase 2. In summary:
 
-- One PostgreSQL database with a `tenant_id` (organisation) column on every tenant-scoped table.
-- Tenant resolution in an API guard/interceptor, never trusted from the client body.
-- PostgreSQL Row-Level Security as defence in depth.
-- All tenant-scoped queries go through a repository layer that requires a tenant context.
+- One shared PostgreSQL schema. Each row has an explicit owner: platform, tenant (`tenant_id`) or user (`owner_user_id`/`customer_user_id`).
+- The server resolves the workspace from the `X-OGS-Workspace` request header by validating an active membership. The client's value is never trusted as fact.
+- RLS uses `ENABLE` + `FORCE` on every tenant table. The runtime role `ogs_app` has no BYPASSRLS. Context is set with transaction-local `set_config(..., true)` inside a `TenantDb` transaction, which makes it safe with connection pooling.
+- Assigned providers reach another tenant's rows only through an active-assignment RLS branch (ADR-010).
 
 ## 7. Architecture decisions
 
-| ID  | Decision                                                                  | Status   |
-| --- | ------------------------------------------------------------------------- | -------- |
-| 001 | pnpm workspace monorepo (apps + packages)                                 | Accepted |
-| 002 | Shared packages compiled to ESM `dist/` (not consumed as raw TS)          | Accepted |
-| 003 | TypeScript 6.0.x (TS 7 not yet supported by `typescript-eslint`/Nest CLI) | Accepted |
-| 004 | Zod for shared runtime validation (API contracts + env)                   | Accepted |
-| 005 | Vitest for all test suites (Nest decorators via Vite's Oxc transformer)   | Accepted |
-| 006 | Health endpoint is liveness-only until data dependencies exist            | Accepted |
-| 008 | One shared package (`@ogs/contracts`); types inferred from Zod schemas    | Accepted |
-| 007 | Multi-tenancy model                                                       | Proposed |
+| ID  | Decision                                                                  | Status                    |
+| --- | ------------------------------------------------------------------------- | ------------------------- |
+| 001 | pnpm workspace monorepo (apps + packages)                                 | Accepted                  |
+| 002 | Shared packages compiled to ESM `dist/` (not consumed as raw TS)          | Accepted                  |
+| 003 | TypeScript 6.0.x (TS 7 not yet supported by `typescript-eslint`/Nest CLI) | Accepted                  |
+| 004 | Zod for shared runtime validation (API contracts + env)                   | Accepted                  |
+| 005 | Vitest for all test suites (Nest decorators via Vite's Oxc transformer)   | Accepted                  |
+| 006 | Health endpoint is liveness-only until data dependencies exist            | Accepted                  |
+| 008 | One shared package (`@ogs/contracts`); types inferred from Zod schemas    | Accepted                  |
+| 007 | Multi-tenancy model                                                       | Superseded by ADR-009/010 |
+
+ADR-009 … ADR-026 (from the approved [Architecture Review](review.md)) are recorded in [`docs/DECISIONS.md`](../DECISIONS.md).
