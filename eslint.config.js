@@ -10,6 +10,7 @@ import tseslint from 'typescript-eslint';
 export default defineConfig(
   globalIgnores([
     '**/dist/**',
+    '**/dist-worker/**',
     '**/coverage/**',
     '**/node_modules/**',
     'apps/api/src/generated/**',
@@ -57,6 +58,43 @@ export default defineConfig(
       '@typescript-eslint/no-extraneous-class': ['error', { allowWithDecorator: true }],
       // Nest DI needs runtime (value) imports for constructor-injected classes.
       '@typescript-eslint/consistent-type-imports': 'off',
+    },
+  },
+
+  // Database boundary (review §6.2): only src/database/ may touch Prisma or pg
+  // directly. Everything else goes through TenantDb, which always sets the RLS
+  // context first. Feature code imports the database layer via its index only.
+  {
+    files: ['apps/api/src/**/*.ts'],
+    ignores: ['apps/api/src/database/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/generated/prisma', '**/generated/prisma/**', '@prisma/*', 'pg', 'pg/*'],
+              message:
+                'Use TenantDb (and types) from src/database/index.js. Raw Prisma/pg bypasses the RLS context.',
+            },
+            {
+              group: ['**/database/*', '!**/database/index.js'],
+              message: 'Import the database layer from src/database/index.js only.',
+            },
+          ],
+        },
+      ],
+      'no-restricted-properties': [
+        'error',
+        {
+          property: '$queryRawUnsafe',
+          message: 'Use the $queryRaw tagged template: it parameterises every value.',
+        },
+        {
+          property: '$executeRawUnsafe',
+          message: 'Use the $executeRaw tagged template: it parameterises every value.',
+        },
+      ],
     },
   },
 

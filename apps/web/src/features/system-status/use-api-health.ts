@@ -1,7 +1,7 @@
 import { healthCheckResponseSchema, type HealthCheckResponse } from '@ogs/contracts';
 import { useCallback, useEffect, useState } from 'react';
 
-export const API_HEALTH_PATH = '/api/health';
+export const API_HEALTH_PATH = '/api/v1/health';
 
 export type ApiHealthState =
   | { readonly kind: 'loading' }
