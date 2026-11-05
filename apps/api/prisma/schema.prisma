@@ -1,0 +1,14 @@
+// OGS Prisma schema (Phase 1 foundation).
+//
+// No models are defined yet: data models are introduced in later phases,
+// each with a reviewed migration. Connection settings live in
+// ../prisma.config.ts (DATABASE_URL), not in this file.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
