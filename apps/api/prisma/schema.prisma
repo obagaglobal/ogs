@@ -1,14 +1,154 @@
-// OGS Prisma schema (Phase 1 foundation).
+// OGS Prisma schema.
 //
-// No models are defined yet: data models are introduced in later phases,
-// each with a reviewed migration. Connection settings live in
-// ../prisma.config.ts (DATABASE_URL), not in this file.
+// Prisma does not model row-level security, policies, triggers, grants, CHECK
+// constraints or partial indexes. Those live as hand-written SQL in the migration
+// files (create migrations with `pnpm db:migrate:dev --create-only`, then edit).
+// The RLS catalogue test (test/integration/rls-catalogue.int.test.ts) fails CI if a
+// table is added without RLS + FORCE + a policy.
+//
+// Connection settings live in ../prisma.config.ts (DATABASE_MIGRATION_URL).
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Tenancy (Phase 2). Review §5, ADR-009.
+// ---------------------------------------------------------------------------
+
+enum TenantKind {
+  ORGANISATION
+  PROVIDER_COMPANY
+  PLATFORM
+}
+
+enum TenantStatus {
+  PENDING_APPROVAL
+  ACTIVE
+  REJECTED
+  SUSPENDED
+  CLOSED
+}
+
+/// An organisation, a provider company, or the single PLATFORM tenant (OGS staff).
+model Tenant {
+  id          String       @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  kind        TenantKind
+  status      TenantStatus @default(PENDING_APPROVAL)
+  name        String       @db.VarChar(200)
+  /// Lower-case, URL-safe, globally unique (CHECK in SQL).
+  slug        String       @unique @db.VarChar(100)
+  version     Int          @default(0)
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt   DateTime?    @map("deleted_at") @db.Timestamptz(6)
+  memberships Membership[]
+
+  @@map("tenant")
+}
+
+enum UserStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+/// One row per human (review §7). Phase 2 is deliberately minimal: credentials,
+/// profile and MFA are added in Phase 3.
+model AppUser {
+  id          String       @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  email       String       @unique @db.Citext
+  status      UserStatus   @default(PENDING_VERIFICATION)
+  version     Int          @default(0)
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt   DateTime?    @map("deleted_at") @db.Timestamptz(6)
+  memberships Membership[]
+
+  @@map("app_user")
+}
+
+enum MembershipStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+  ENDED
+}
+
+/// A user's capacity inside a tenant. Roles and departments arrive in Phases 3–4.
+model Membership {
+  id        String           @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId  String           @map("tenant_id") @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  status    MembershipStatus @default(INVITED)
+  joinedAt  DateTime?        @map("joined_at") @db.Timestamptz(6)
+  endedAt   DateTime?        @map("ended_at") @db.Timestamptz(6)
+  version   Int              @default(0)
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user      AppUser          @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, userId])
+  @@index([userId])
+  @@map("membership")
+}
+
+// ---------------------------------------------------------------------------
+// Cross-cutting foundations moved into Phase 2 (ADR-015).
+// ---------------------------------------------------------------------------
+
+enum ActorKind {
+  USER
+  SYSTEM
+}
+
+/// Append-only. UPDATE/DELETE/TRUNCATE are rejected by trigger for every role.
+/// No foreign keys on purpose: the log must outlive and never block the rows it describes.
+/// actor_user_id and actor_kind are filled from the transaction's context and an
+/// RLS check rejects any other value, so callers cannot spoof the actor.
+model AuditLog {
+  id          String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  occurredAt  DateTime  @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  actorKind   ActorKind @default(dbgenerated("app.current_actor_kind()")) @map("actor_kind")
+  actorUserId String?   @default(dbgenerated("app.current_user_id()")) @map("actor_user_id") @db.Uuid
+  tenantId    String?   @map("tenant_id") @db.Uuid
+  action      String    @db.VarChar(100)
+  entityType  String?   @map("entity_type") @db.VarChar(100)
+  entityId    String?   @map("entity_id") @db.VarChar(100)
+  reason      String?   @db.VarChar(500)
+  requestId   String?   @map("request_id") @db.VarChar(100)
+  ip          String?   @db.Inet
+  userAgent   String?   @map("user_agent") @db.VarChar(500)
+  metadata    Json      @default("{}")
+
+  @@index([tenantId, occurredAt(sort: Desc)])
+  @@index([entityType, entityId])
+  @@index([actorUserId, occurredAt(sort: Desc)])
+  @@map("audit_log")
+}
+
+/// Transactional outbox (review §3). Written in the same transaction as the
+/// business change; read and marked dispatched only under the `system` context.
+model OutboxEvent {
+  id           String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  type         String    @db.VarChar(150)
+  tenantId     String?   @map("tenant_id") @db.Uuid
+  payload      Json
+  occurredAt   DateTime  @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  availableAt  DateTime  @default(now()) @map("available_at") @db.Timestamptz(6)
+  dispatchedAt DateTime? @map("dispatched_at") @db.Timestamptz(6)
+  attempts     Int       @default(0)
+  lastError    String?   @map("last_error") @db.VarChar(2000)
+
+  @@index([dispatchedAt, availableAt])
+  @@map("outbox_event")
 }

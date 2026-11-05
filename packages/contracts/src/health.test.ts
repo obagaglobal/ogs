@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { healthCheckResponseSchema } from './health.js';
+import { healthCheckResponseSchema, readinessResponseSchema } from './health.js';
 
 describe('healthCheckResponseSchema', () => {
   const valid = {
@@ -22,5 +22,24 @@ describe('healthCheckResponseSchema', () => {
     expect(healthCheckResponseSchema.safeParse({ ...valid, uptimeSeconds: -1 }).success).toBe(
       false,
     );
+  });
+});
+
+describe('readinessResponseSchema', () => {
+  const valid = {
+    status: 'not_ready',
+    checks: { database: 'up', redis: 'down' },
+    timestamp: '2026-01-01T00:00:00.000Z',
+  };
+
+  it('accepts a valid payload', () => {
+    expect(readinessResponseSchema.parse(valid)).toEqual(valid);
+  });
+
+  it('rejects extra detail in a check', () => {
+    expect(
+      readinessResponseSchema.safeParse({ ...valid, checks: { database: 'up', redis: 'error' } })
+        .success,
+    ).toBe(false);
   });
 });

@@ -1,0 +1,8 @@
+// Dev only: the worker's watch build gets its own outDir so it never races the
+// API's watch build over dist/. Production builds both entry points into dist/.
+{
+  "extends": "./tsconfig.build.json",
+  "compilerOptions": {
+    "outDir": "dist-worker"
+  }
+}

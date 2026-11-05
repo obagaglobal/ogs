@@ -13,7 +13,8 @@ export default defineConfig({
     path: 'prisma/migrations',
   },
   datasource: {
-    // Optional in Phase 1: required only for commands that connect (migrate, db).
-    url: process.env['DATABASE_URL'] ?? '',
+    // Migrations run as the schema owner (ogs_owner), never as the runtime role.
+    // Optional so that `prisma validate` / `prisma generate` work without a database.
+    url: process.env['DATABASE_MIGRATION_URL'] ?? '',
   },
 });

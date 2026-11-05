@@ -6,3 +6,5 @@ packages:
 allowBuilds:
   '@prisma/engines': true
   prisma: true
+  # Optional native speed-up for msgpackr (used by BullMQ). The pure-JS fallback is used instead.
+  msgpackr-extract: false
