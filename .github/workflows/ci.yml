@@ -135,8 +135,45 @@ jobs:
       - name: Migrate and seed the database
         run: pnpm build:packages && pnpm db:migrate && pnpm db:seed
 
-      - name: Install Chromium for Playwright
-        run: pnpm --filter @ogs/web exec playwright install --with-deps chromium
+      # Browsers download in seconds; the slow part used to be apt installing
+      # Chromium's system libraries from a throttled mirror (12+ minutes). The
+      # runner image already ships Chrome, so usually nothing is missing.
+      - name: Playwright version
+        id: playwright
+        run: echo "version=$(pnpm --filter @ogs/web exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium-headless-shell
+
+      - name: Install Chromium headless shell (cache miss only)
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm --filter @ogs/web exec playwright install --only-shell chromium
+
+      - name: Install missing Chromium system libraries
+        run: |
+          set -euo pipefail
+          wanted=$(pnpm --filter @ogs/web exec playwright install-deps --dry-run chromium \
+            | grep -oE 'no-install-recommends [^"]*' | head -1 | cut -d' ' -f2- || true)
+          if [ -z "$wanted" ]; then
+            echo "Could not read the dependency list; installing everything Playwright asks for."
+            pnpm --filter @ogs/web exec playwright install-deps chromium
+            exit 0
+          fi
+          missing=""
+          for pkg in $wanted; do
+            dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q "install ok installed" || missing="$missing $pkg"
+          done
+          if [ -z "$missing" ]; then
+            echo "All $(echo $wanted | wc -w) Chromium system libraries are already installed."
+          else
+            echo "Installing:$missing"
+            sudo apt-get update -q
+            sudo apt-get install -y --no-install-recommends $missing
+          fi
 
       - name: Build and run the smoke test
         run: pnpm test:e2e
