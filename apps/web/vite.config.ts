@@ -37,6 +37,9 @@ export default defineConfig(({ mode }) => {
       include: ['src/**/*.test.{ts,tsx}'],
       restoreMocks: true,
       css: false,
+      // Lazy route chunks are transformed on first use; under a parallel
+      // `pnpm check` that can push long form tests past the 5 s default.
+      testTimeout: 15_000,
     },
   };
 });
