@@ -83,6 +83,14 @@ export class Client {
     return this.decorate(this.agent.post(`/api/v1${path}`).send(body as object), options, true);
   }
 
+  put(path: string, body: unknown = {}, options: CallOptions = {}) {
+    return this.decorate(this.agent.put(`/api/v1${path}`).send(body as object), options, true);
+  }
+
+  patch(path: string, body: unknown = {}, options: CallOptions = {}) {
+    return this.decorate(this.agent.patch(`/api/v1${path}`).send(body as object), options, true);
+  }
+
   delete(path: string, options: CallOptions = {}) {
     return this.decorate(
       this.agent.delete(`/api/v1${path}`).set('Content-Type', 'application/json'),
