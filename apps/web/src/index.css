@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import './styles/tokens.css';
 @import './styles/fonts.css';
+@import 'react-day-picker/style.css';
 
 /* Dark utilities follow the data-theme attribute (light | dark), not a class. */
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
@@ -175,4 +176,27 @@
     transition-duration: var(--duration-fast);
     transition-timing-function: var(--ease-out);
   }
+}
+
+/* react-day-picker on tokens (DatePicker). */
+.ogs-day-picker .rdp-root {
+  --rdp-accent-color: var(--ink);
+  --rdp-accent-background-color: var(--surface-muted);
+  --rdp-today-color: var(--ink);
+  --rdp-day-height: 2.75rem;
+  --rdp-day-width: 2.75rem;
+  --rdp-selected-border: 2px solid var(--ink);
+  font-family: var(--font-sans);
+}
+.ogs-day-picker .rdp-selected .rdp-day_button {
+  background: var(--saffron);
+  color: var(--on-saffron);
+}
+.ogs-day-picker .rdp-today:not(.rdp-selected) .rdp-day_button {
+  text-decoration: underline;
+  text-decoration-color: var(--saffron);
+  text-underline-offset: 4px;
+}
+.ogs-day-picker .rdp-caption_label {
+  font-family: var(--font-display);
 }
