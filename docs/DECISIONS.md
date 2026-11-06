@@ -1,8 +1,10 @@
 # Architecture Decision Records
 
-ADR-001 … ADR-008 were made during Phase 1 and are listed in [`architecture/overview.md` §10](architecture/overview.md#10-architecture-decisions).
+ADR-001 … ADR-008 were made during Phase 1 and are listed in [`architecture/overview.md` §11](architecture/overview.md#11-architecture-decisions).
 
 ADR-027 … ADR-031 record the Phase 2 implementation decisions P2-1 … P2-5, approved with the [Phase 2 plan](plans/phase-2-tenancy.md) on 2026-11-05.
+
+ADR-038 … ADR-045 record the Phase 6 decisions P6-1 … P6-8, approved with the [Phase 6 plan](plans/phase-6-catalogue.md) on 2026-11-06.
 
 ADR-033 … ADR-037 record the Phase 5 delivery refinements ([Phase 5 plan](plans/phase-5-providers.md) §8), approved by the owner on 2026-11-06 after PR #4 was merged.
 
@@ -40,6 +42,14 @@ ADR-009 … ADR-026 record the owner's answers to decisions D-1 … D-18 of the 
 | 035 | P5 §8     | Eligibility is a dispatch tool (`ticket.assign`, Kenya time)     | Accepted                                            |
 | 036 | P5 §8     | One weekly range per day in the web editor                       | Accepted                                            |
 | 037 | P5 §8     | Retention marker on rejected individual providers                | Accepted                                            |
+| 038 | P6-1      | Anonymous catalogue access: a context with no identity           | Accepted                                            |
+| 039 | P6-2      | Pricing models                                                   | Accepted                                            |
+| 040 | P6-3      | Append-only price versions                                       | Accepted                                            |
+| 041 | P6-4      | Service audience                                                 | Accepted                                            |
+| 042 | P6-5      | Delivery mode, channels and required skills                      | Accepted                                            |
+| 043 | P6-6      | Service lifecycle                                                | Accepted                                            |
+| 044 | P6-7      | SEO in Phase 6                                                   | Accepted                                            |
+| 045 | P6-8      | Prices exclude VAT                                               | Accepted                                            |
 
 ---
 
@@ -201,6 +211,46 @@ A restricted (pending) workspace may upload application evidence only.
 
 **Decision:** Rejecting an individual provider sets `provider.retain_until` to 24 months after the decision. The job that deletes expired applications and their documents stays in Phase 15/16, with the data-protection work (ADR-018).
 **Why:** The marker is recorded from the first rejection, so the later deletion job has accurate dates to act on.
+
+## ADR-038 — Anonymous catalogue access: a context with no identity (P6-1)
+
+**Decision:** Signed-out visitors read through an `anonymous` database context that sets no identity at all (no user, tenant, platform flag, job or actor kind). Only the catalogue's SELECT policies are context-free ("published, in an active category"). No separate database role or connection pool.
+**Why:** Every existing policy already fails closed without a context, and that is the most-tested state in the system. A new actor kind would have opened the four policies that accept "any actor".
+
+## ADR-039 — Pricing models (P6-2)
+
+**Decision:** v1 prices are `FIXED`, `PER_UNIT` (hour, device, user, visit, cabling point, with a minimum quantity), `FROM` (indicative, finalised by quotation) and `QUOTE` (no public price). Amounts are integer minor units in KES. Recurring pricing waits for managed contracts.
+**Why:** It covers how ad-hoc ICT work is sold in Kenya and maps onto Phase 7's fixed-price and quotation paths.
+
+## ADR-040 — Append-only price versions (P6-3)
+
+**Decision:** A price change adds a `service_price` version; a database trigger rejects UPDATE and DELETE. The current price is the latest version. Phase 7 snapshots the price on each request.
+**Why:** "What did this cost on a given date?" always has an answer, for audit and finance.
+
+## ADR-041 — Service audience (P6-4)
+
+**Decision:** A service's `audience` is all, organisations or individuals. Every published service is visible to everyone; the audience is a label now and is enforced when requesting (Phase 7).
+**Why:** B2B-only offers stay discoverable and indexable.
+
+## ADR-042 — Delivery mode, channels and required skills (P6-5)
+
+**Decision:** Each service has a delivery mode (on site, remote, both), allowed channels (OGS technicians, individual providers, provider companies) and required skills with a minimum experience band. Eligibility accepts a service and applies all of them.
+**Why:** It is exactly what dispatch needs (review §10), as plain columns rather than a separate eligibility table.
+
+## ADR-043 — Service lifecycle (P6-6)
+
+**Decision:** DRAFT → PUBLISHED → RETIRED, with restore to DRAFT. One permission (`platform.catalogue.manage`) under elevation; no second approver; every change audited. Service slugs are immutable once published, category slugs from creation.
+**Why:** Simple and safe: staff are MFA-enforced and elevated, and stable slugs keep links and search rankings.
+
+## ADR-044 — SEO in Phase 6 (P6-7)
+
+**Decision:** The API serves `/api/v1/catalogue/sitemap.xml`; the web app ships `robots.txt` and sets per-page title, description, canonical link and JSON-LD. Prerendering is deferred to deployment (Phase 15), which also writes the absolute sitemap URL into `robots.txt`.
+**Why:** Search engines render JavaScript pages; the deploy pipeline does not exist yet.
+
+## ADR-045 — Prices exclude VAT (P6-8)
+
+**Decision:** Prices are stored and shown excluding VAT ("KES 3,500 + VAT"), with an indicative VAT-inclusive figure at 16%. Real tax lines are computed in Phases 7 and 11.
+**Why:** Most customers reclaim VAT (B2B), and one stored figure avoids rounding drift. The ADR-017 advisor review may change the display, not the data.
 
 ---
 

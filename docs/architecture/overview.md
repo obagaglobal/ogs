@@ -1,6 +1,6 @@
 # Architecture Overview
 
-> Status: Phase 5 complete (providers: companies and individuals, KYC review, coverage, availability, eligibility) on top of Phases 2–4 (tenancy, RLS, identity, access control, organisations).
+> Status: Phase 6 complete (public service catalogue, pricing, staff catalogue management) on top of Phases 2–5 (tenancy, RLS, identity, access control, organisations, providers).
 
 ## 1. Product context
 
@@ -301,7 +301,47 @@ It then scores with documented weights (`ELIGIBILITY_WEIGHTS`) and returns one r
 - Nairobi time-zone edges, including midnight and the new year;
 - the taxonomy rules.
 
-## 10. Architecture decisions
+## 10. Service catalogue (Phase 6)
+
+Planned in the [Phase 6 plan](../plans/phase-6-catalogue.md); decisions ADR-038 … ADR-045.
+
+**Data.** Platform-owned tables with no tenant column:
+
+- `service_category`: a two-level tree. Archiving a parent archives its children, and the database refuses an active category under an archived parent.
+- `service`: content, audience, delivery mode, allowed channels, and status DRAFT → PUBLISHED → RETIRED. A trigger maintains the full-text search vector (name unstemmed and stemmed, summary, category, body).
+- `service_price`: append-only versions in integer minor units (KES, excluding VAT), with CHECKs per pricing model.
+- `service_skill`: required skills with a minimum experience band; internal only.
+
+**Anonymous access (ADR-038).** `DbContext` kind `anonymous` sets no identity, so every existing policy matches nothing. Only the catalogue SELECT policies are context-free and return published services in active categories. `catalogue.int.test.ts` (E1/E2) checks every combination over HTTP and raw SQL, and that the anonymous context sees zero rows in every other table.
+
+**Public API** (`@Public()`, per-IP rate limit, `Cache-Control: public, no-cache` with ETags, so a retired service disappears at once):
+
+| Method and path                                                                                      | Purpose                                                                      |
+| ---------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `GET /catalogue/categories`, `GET /catalogue/categories/:slug`                                       | Category tree, one category                                                  |
+| `GET /catalogue/services?q=&category=&model=&audience=&delivery=&minPrice=&maxPrice=&cursor=&limit=` | Full-text search with filters; keyset pages with a cursor bound to its query |
+| `GET /catalogue/services/:slug`                                                                      | Service detail (strict public DTO)                                           |
+| `GET /catalogue/sitemap.xml`                                                                         | Sitemap; `robots.txt` in the web app points to it                            |
+
+**Staff API** (`@RequireElevation('platform.catalogue.manage')`, audited, optimistic concurrency on `version`):
+
+| Method and path                                                                       | Purpose                                          |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `GET/POST /platform/catalogue/categories`, `PATCH /platform/catalogue/categories/:id` | Categories: create, edit, move, archive, restore |
+| `GET/POST /platform/catalogue/services`, `GET/PATCH /platform/catalogue/services/:id` | Services: drafts and content                     |
+| `POST /platform/catalogue/services/:id/prices`                                        | New price version                                |
+| `PUT /platform/catalogue/services/:id/skills`                                         | Required skills                                  |
+| `POST /platform/catalogue/services/:id/publish`, `/retire`, `/restore`                | Lifecycle (publish checks list what is missing)  |
+
+`GET /platform/providers/eligible?service=<id>` applies a service's skills, minimum experience, remote delivery and channels.
+
+**Money.** `@ogs/contracts` holds `moneyMinorSchema`, `formatKes`, `priceLabel` and `withIndicativeVat`; the API builds every price label. Staff amount input is parsed as text, never through floats.
+
+**Web.** Public pages `/services`, `/services/c/:category` and `/services/:slug` sit outside the signed-in shell, with per-page meta and JSON-LD. Staff use "Catalogue": category tree, service list, and an editor with price history, required skills and publishing.
+
+**Proof.** `catalogue.int.test.ts` (E1–E8), the contracts money tests, web component tests and the Playwright `catalogue-journey.spec.ts` (E9).
+
+## 11. Architecture decisions
 
 | ID  | Decision                                                                  | Status                    |
 | --- | ------------------------------------------------------------------------- | ------------------------- |

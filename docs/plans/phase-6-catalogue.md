@@ -162,3 +162,16 @@ As in Phases 4–5: one approval, delivered as two halves with no gate between t
   - public DTOs separate from staff DTOs.
 - **Full-text search quality** with English stemming on Kenyan terms ("M-Pesa", "Safaricom", "CCTV"). Mitigation: the search vector includes the name unstemmed (`simple`) as well as stemmed (`english`), and E4 ranking tests use such terms.
 - **The PR #6 overlap** in `prisma.factory.ts` and `ci.yml` is small. If #6 merges first, I merge `main` into the phase branch before opening the Phase 6 PR.
+
+## 8. Delivery notes (2026-11-06)
+
+Delivered as planned, with these refinements:
+
+- **Category tree invariant.** Instead of a policy that checks the parent (which would query its own table), the database keeps the tree consistent: archiving a parent archives its children, and an active category cannot sit under an archived parent. "Status is ACTIVE" is then enough for public visibility.
+- **Search cursor.** The cursor is strictly validated and bound to the exact search it belongs to (a hash of the filters), instead of being signed with a new secret, because it only points into public data. Tampered, malformed or foreign cursors are refused with 400.
+- **Caching.** Public responses use `Cache-Control: public, no-cache` with ETags instead of `max-age=60`. The browser journey showed a retired service staying visible for up to a minute to a visitor who had already seen it, which contradicted E6. Unchanged answers are still cheap 304s.
+- **Sitemap location.** The API serves `/api/v1/catalogue/sitemap.xml`, and the web app's `robots.txt` points to it. Deployment (Phase 15) writes the absolute URL.
+- **Browse order.** Without a search term, results follow category position, then service name.
+- **Found while testing.**
+  - The Prisma 7.10 CLI's "agent skills" offer was auto-accepted by a non-interactive `prisma migrate dev`. It downloaded third-party skills into `apps/api/.claude`, `.windsurf` and `.agents`. None of it was committed; the files were moved out of the repository for the owner to review.
+  - The Phase 2 lint-boundary test could exceed vitest's 10-second hook timeout when `pnpm check` runs every workspace in parallel; it now has 60 seconds.
