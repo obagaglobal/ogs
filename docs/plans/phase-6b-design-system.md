@@ -101,3 +101,23 @@ Saffron is never text on light backgrounds.
 ## 7. Delivery
 
 Small steps, each committed when green: tokens and fonts → theme → primitives → composites → motif and i18n → app shell → restyle by area → `/design-system` → tests → Lighthouse CI → docs → close-out and PR.
+
+## 8. Delivery notes (2026-11-06)
+
+- **Journeys unchanged.** All six existing Playwright journeys pass with no selector changes. The workspace switcher stays a native `<select>` labelled "Workspace", and nav link names are unchanged.
+- **Unit-test wording changes:**
+  - (`App.test.tsx`) the sign-in heading is now "Karibu. Sign in to OGS";
+  - (`phase6.test.tsx`) signed-out visitors see "Sign in to request" on a service page (signed-in users still see "Request this service");
+  - (`App.test.tsx`) the first query after `renderApp` now awaits (`findBy…`), because routes are lazy.
+- **Unit-test timing:** the async-query timeout is 5 s and the per-test timeout 15 s, because lazy route chunks are transformed on first use under a parallel `pnpm check`.
+- **Performance:**
+  - Routes are code-split. Lighthouse on `/services` (mobile) first measured performance 78.
+  - Moving the toaster behind sign-in and adding `modulepreload` links for the catalogue chunks raised it to 83–87.
+  - Taking Zod off the public path raised it to **92–96** (accessibility **100**).
+  - The Zod change moved the header constants, a Zod-free `isApiErrorBody` (tested to agree with `apiErrorSchema`) and `formatKes` into `packages/contracts/src/http.ts` and `money.ts`, still exported from the package index. There are no schema, endpoint or API behaviour changes. This touches the shared package, so it is called out in the PR for review.
+- **Accessibility fixes found by the new tests:**
+  - the account-menu button's name now includes the visible initials (WCAG 2.5.3);
+  - table roots can no longer widen the page at 360 px;
+  - table sort buttons are 44 px on phones.
+- **Screenshots:** Linux baselines come from the first CI run (artifact `screenshot-baselines-linux`) and are committed afterwards. Until then CI writes rather than compares them.
+- **i18n:** the shell, the auth layout, the dashboard, the public catalogue and every new component use `t()`. Older feature screens (team, organisation, provider, platform staff, requests) still hold English literals; converting them is mechanical and left for a follow-up.
