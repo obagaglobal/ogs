@@ -36,6 +36,13 @@ import {
   RegisterProviderCompanyPage,
 } from '@/features/provider/provider-pages';
 import { DashboardPage } from '@/features/workspace/dashboard-page';
+import {
+  CataloguePage,
+  CategoryPage,
+  PublicLayout,
+  ServicePage,
+} from '@/features/catalogue/public-pages';
+import { CatalogueAdminPage, ServiceEditorPage } from '@/features/platform/catalogue-staff-pages';
 
 export function AppRoutes() {
   return (
@@ -57,6 +64,11 @@ export function AppRoutes() {
           </main>
         }
       />
+      <Route element={<PublicLayout />}>
+        <Route path="/services" element={<CataloguePage />} />
+        <Route path="/services/c/:category" element={<CategoryPage />} />
+        <Route path="/services/:slug" element={<ServicePage />} />
+      </Route>
       <Route element={<SignedInGate />}>
         <Route index element={<DashboardPage />} />
         <Route path="/security" element={<SecurityPage />} />
@@ -73,6 +85,8 @@ export function AppRoutes() {
         />
         <Route path="/platform/eligibility" element={<EligibilityPage />} />
         <Route path="/platform/skills" element={<SkillsCataloguePage />} />
+        <Route path="/platform/catalogue" element={<CatalogueAdminPage />} />
+        <Route path="/platform/catalogue/services/:id" element={<ServiceEditorPage />} />
         <Route path="/providers/new" element={<BecomeProviderPage />} />
         <Route path="/providers/companies/new" element={<RegisterProviderCompanyPage />} />
         <Route path="/provider" element={<ProviderProfilePage />} />
