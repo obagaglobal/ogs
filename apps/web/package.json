@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "lighthouse": "lhci autorun --config=lighthouserc.cjs",
     "fonts:sync": "node scripts/sync-fonts.mjs"
   },
   "dependencies": {

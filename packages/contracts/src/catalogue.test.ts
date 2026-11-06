@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   catalogueSearchQuerySchema,
-  formatKes,
   MAX_AMOUNT_MINOR,
   moneyMinorSchema,
   priceLabel,
   setPriceRequestSchema,
   withIndicativeVat,
 } from './catalogue.js';
+import { formatKes } from './money.js';
 
 describe('catalogue money (E3)', () => {
   it('formats minor units deterministically, with cents only when present', () => {

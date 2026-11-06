@@ -168,13 +168,6 @@ export const apiErrorSchema = z.object({
 });
 export type ApiError = z.infer<typeof apiErrorSchema>;
 
-/** Header carrying the requested workspace: `personal` or a tenant id. */
-export const WORKSPACE_HEADER = 'X-OGS-Workspace';
-/** Header carrying the session's CSRF token on unsafe requests. */
-export const CSRF_HEADER = 'X-CSRF-Token';
-/** Header naming the session's active platform elevation (cross-tenant staff access). */
-export const ELEVATION_HEADER = 'X-OGS-Elevation';
-
 // ---------------------------------------------------------------------------
 // MFA (Phase 3B)
 // ---------------------------------------------------------------------------

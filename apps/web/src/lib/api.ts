@@ -1,4 +1,5 @@
-import { apiErrorSchema, CSRF_HEADER, WORKSPACE_HEADER } from '@ogs/contracts';
+// Zod-free imports only: this module is on the public catalogue's first load.
+import { CSRF_HEADER, isApiErrorBody, WORKSPACE_HEADER } from '@ogs/contracts';
 
 /** An API error with the server's stable code (`invalid_credentials`, `mfa_required`, ...). */
 export class ApiError extends Error {
@@ -81,19 +82,14 @@ export async function api<T>(
   if (response.ok) {
     return payload as T;
   }
-  const parsed = apiErrorSchema.safeParse(payload);
-  const code = parsed.success ? parsed.data.error : 'unexpected_error';
+  const body = isApiErrorBody(payload) ? payload : undefined;
+  const code = body?.error ?? 'unexpected_error';
   if (code === 'csrf_invalid' && !retried) {
     // The session was rotated elsewhere (e.g. another tab signed in again).
     resetCsrfToken();
     return api<T>(path, options, true);
   }
-  throw new ApiError(
-    response.status,
-    code,
-    parsed.success ? (parsed.data.fields ?? []) : [],
-    parsed.success ? parsed.data.retryAfterSeconds : undefined,
-  );
+  throw new ApiError(response.status, code, body?.fields ?? [], body?.retryAfterSeconds);
 }
 
 /** Human-readable text for the error codes people can actually hit. */
@@ -167,13 +163,9 @@ export async function uploadFile<T>(form: FormData, workspace: string): Promise<
   if (response.ok) {
     return payload as T;
   }
-  const parsed = apiErrorSchema.safeParse(payload);
+  const body = isApiErrorBody(payload) ? payload : undefined;
   throw new ApiError(
     response.status,
-    parsed.success
-      ? parsed.data.error
-      : response.status === 413
-        ? 'file_too_large'
-        : 'unexpected_error',
+    body ? body.error : response.status === 413 ? 'file_too_large' : 'unexpected_error',
   );
 }

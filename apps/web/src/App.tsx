@@ -133,8 +133,6 @@ export function AppRoutes() {
   );
 }
 
-const Toaster = page(() => import('@/components/ui/toaster'), 'Toaster');
-
 export function App() {
   const [queryClient] = useState(
     () => new QueryClient({ defaultOptions: { queries: { refetchOnWindowFocus: false } } }),
@@ -143,9 +141,6 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AppRoutes />
-        <Suspense fallback={null}>
-          <Toaster />
-        </Suspense>
       </BrowserRouter>
     </QueryClientProvider>
   );
