@@ -6,6 +6,7 @@ import { FilesHttpModule } from './files/files-http.module.js';
 import { HealthModule } from './health/health.module.js';
 import { IdentityModule } from './identity/identity.module.js';
 import { InvitationsModule } from './invitations/invitations.module.js';
+import { OrdersModule } from './orders/orders.module.js';
 import { CatalogueModule } from './catalogue/catalogue.module.js';
 import { ProvidersModule } from './providers/providers.module.js';
 import { OrganisationsModule } from './organisations/organisations.module.js';
@@ -29,6 +30,7 @@ import { WorkspaceAdminModule } from './workspace-admin/workspace-admin.module.j
     OrganisationsModule,
     ProvidersModule,
     CatalogueModule,
+    OrdersModule,
     InvitationsModule,
     WorkspaceAdminModule,
   ],

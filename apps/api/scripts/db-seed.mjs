@@ -10,6 +10,7 @@
  *   PROVIDER_COMPANY  Nairobi Tech Partners ACTIVE tech@ntp.test   (provider_admin)
  *                                                 alice@acme.test  (provider_technician)
  *   Catalogue (Phase 6): 8 categories, 17 published services, one draft, one retired.
+ *   Billing (Phase 7): Acme Kenya Ltd is postpaid (30 days); others prepay.
  *   (individual provider, Phase 5)                 jane@provider.test (ACTIVE, approved)
  *
  * Every seeded user is ACTIVE (email verified) with the password SEED_USER_PASSWORD
@@ -566,6 +567,12 @@ try {
       );
     }
   }
+  // Phase 7: Acme is a postpaid organisation (30 days); everyone else prepays.
+  await client.query(
+    `INSERT INTO organisation_billing (tenant_id, payment_terms, net_days)
+     VALUES ($1, 'POSTPAID', 30) ON CONFLICT (tenant_id) DO NOTHING`,
+    [id(2)],
+  );
   await client.query('COMMIT');
   console.log(
     `Seeded ${roleCount} system roles, ${tenants.length} tenants, ${users.length} users ` +

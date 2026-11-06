@@ -30,6 +30,11 @@ import {
 } from '../notifications/provider-email.handlers.js';
 import { BasicFileScanner, FileScanHandler, FileScanner } from '../files/file-scanner.js';
 import { SystemPingHandler } from './handlers/system-ping.handler.js';
+import { PHASE_7_HANDLERS } from '../notifications/order-email.handlers.js';
+import {
+  QuotationExpiryService,
+  QuotationExpirySweeper,
+} from '../orders/quotation-expiry.service.js';
 import { OutboxDispatcher } from './outbox-dispatcher.service.js';
 
 const EVENT_CONSUMER_CONCURRENCY = 5;
@@ -60,6 +65,7 @@ const EVENT_CONSUMER_CONCURRENCY = 5;
         SecurityNoticeHandler,
         ProviderDecisionHandler,
         ProviderStatusChangedHandler,
+        ...PHASE_7_HANDLERS,
       ],
     },
     {
@@ -70,6 +76,11 @@ const EVENT_CONSUMER_CONCURRENCY = 5;
           prefix: config.get('QUEUE_PREFIX', { infer: true }),
         }),
       inject: [RedisService, ConfigService],
+    },
+    {
+      provide: QuotationExpirySweeper,
+      useFactory: (expiry: QuotationExpiryService) => new QuotationExpirySweeper(expiry),
+      inject: [QuotationExpiryService],
     },
     {
       provide: OutboxDispatcher,
@@ -101,16 +112,19 @@ export class EventsWorkerModule implements OnApplicationBootstrap, BeforeApplica
     @Inject(OutboxDispatcher) private readonly dispatcher: OutboxDispatcher,
     @Inject(EventConsumer) private readonly consumer: EventConsumer,
     @Inject(BullEventQueue) private readonly queue: BullEventQueue,
+    @Inject(QuotationExpirySweeper) private readonly sweeper: QuotationExpirySweeper,
   ) {}
 
   onApplicationBootstrap(): void {
     this.consumer.start();
     this.dispatcher.start();
+    this.sweeper.start();
   }
 
   // Runs before RedisService/PrismaService close their connections (onApplicationShutdown).
   async beforeApplicationShutdown(): Promise<void> {
     // Stop taking new work first, then let in-flight jobs finish, then close.
+    await this.sweeper.stop();
     await this.dispatcher.stop();
     await this.consumer.stop();
     await this.queue.close();

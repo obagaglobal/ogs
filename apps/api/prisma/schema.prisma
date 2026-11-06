@@ -56,6 +56,7 @@ model Tenant {
   organisationApplication OrganisationApplication?
   invitations             Invitation[]
   departments             Department[]
+  billing                 OrganisationBilling?
 
   @@map("tenant")
 }
@@ -784,6 +785,7 @@ model Service {
   category             ServiceCategory          @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   prices               ServicePrice[]
   skills               ServiceSkill[]
+  requests             ServiceRequest[]
 
   @@index([categoryId, status])
   @@index([status, name])
@@ -793,16 +795,17 @@ model Service {
 
 /// Append-only price versions (P6-3). Amounts in integer minor units (cents), excluding VAT (P6-8).
 model ServicePrice {
-  id            String     @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  serviceId     String     @map("service_id") @db.Uuid
+  id            String           @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  serviceId     String           @map("service_id") @db.Uuid
   model         PriceModel
-  amountMinor   BigInt?    @map("amount_minor")
-  currency      String     @default("KES") @db.Char(3)
+  amountMinor   BigInt?          @map("amount_minor")
+  currency      String           @default("KES") @db.Char(3)
   unit          PriceUnit?
-  minQuantity   Int        @default(1) @map("min_quantity")
-  effectiveFrom DateTime   @default(now()) @map("effective_from") @db.Timestamptz(6)
-  createdBy     String?    @map("created_by") @db.Uuid
-  service       Service    @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  minQuantity   Int              @default(1) @map("min_quantity")
+  effectiveFrom DateTime         @default(now()) @map("effective_from") @db.Timestamptz(6)
+  createdBy     String?          @map("created_by") @db.Uuid
+  service       Service          @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  requests      ServiceRequest[]
 
   @@index([serviceId, effectiveFrom])
   @@map("service_price")
@@ -818,4 +821,244 @@ model ServiceSkill {
   @@id([serviceId, skillCode])
   @@index([skillCode])
   @@map("service_skill")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 7: service requests, quotations, orders, manual payments.
+// Commercial records belong to an organisation OR a person (ADR-009): exactly
+// one of customer_tenant_id / customer_user_id is set (CHECK in SQL).
+// Hand-written SQL adds CHECKs, transition guards, append-only triggers and RLS.
+// ---------------------------------------------------------------------------
+
+enum RequestStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  AWAITING_QUOTATION
+  QUOTATION_ISSUED
+  ORDERED
+  CANCELLED
+}
+
+enum QuotationStatus {
+  DRAFT
+  ISSUED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  SUPERSEDED
+}
+
+enum OrderStatus {
+  AWAITING_PAYMENT
+  PAID
+  READY_FOR_ASSIGNMENT
+  CANCELLED
+}
+
+enum PaymentTerms {
+  PREPAY
+  POSTPAID
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  MPESA_PAYBILL
+}
+
+model ServiceRequest {
+  id               String                @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  number           String                @unique @db.VarChar(20)
+  customerTenantId String?               @map("customer_tenant_id") @db.Uuid
+  customerUserId   String?               @map("customer_user_id") @db.Uuid
+  createdBy        String                @map("created_by") @db.Uuid
+  serviceId        String                @map("service_id") @db.Uuid
+  /// Snapshot of the catalogue price at submission: never re-read.
+  servicePriceId   String                @map("service_price_id") @db.Uuid
+  serviceName      String                @map("service_name") @db.VarChar(150)
+  priceModel       PriceModel            @map("price_model")
+  unitAmountMinor  BigInt?               @map("unit_amount_minor")
+  priceUnit        PriceUnit?            @map("price_unit")
+  quantity         Int                   @default(1)
+  county           String                @db.VarChar(10)
+  address          String                @db.VarChar(300)
+  preferredFrom    DateTime?             @map("preferred_from") @db.Date
+  preferredTo      DateTime?             @map("preferred_to") @db.Date
+  description      String                @default("") @db.VarChar(2000)
+  contactPhone     String                @map("contact_phone") @db.VarChar(20)
+  status           RequestStatus         @default(SUBMITTED)
+  cancelReason     String?               @map("cancel_reason") @db.VarChar(500)
+  version          Int                   @default(0)
+  createdAt        DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  service          Service               @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  servicePrice     ServicePrice          @relation(fields: [servicePriceId], references: [id], onDelete: Restrict)
+  events           ServiceRequestEvent[]
+  quotations       Quotation[]
+  order            ServiceOrder?
+
+  @@index([customerTenantId, createdAt])
+  @@index([customerUserId, createdAt])
+  @@index([status, createdAt])
+  @@map("service_request")
+}
+
+/// Append-only history: one row per transition (review §9).
+model ServiceRequestEvent {
+  id          String         @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  requestId   String         @map("request_id") @db.Uuid
+  fromStatus  RequestStatus? @map("from_status")
+  toStatus    RequestStatus  @map("to_status")
+  command     String         @db.VarChar(40)
+  actorUserId String?        @default(dbgenerated("app.current_user_id()")) @map("actor_user_id") @db.Uuid
+  reason      String?        @db.VarChar(500)
+  occurredAt  DateTime       @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  request     ServiceRequest @relation(fields: [requestId], references: [id], onDelete: Restrict)
+
+  @@index([requestId, occurredAt])
+  @@map("service_request_event")
+}
+
+model Quotation {
+  id             String          @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  number         String          @unique @db.VarChar(20)
+  requestId      String          @map("request_id") @db.Uuid
+  revision       Int
+  status         QuotationStatus @default(DRAFT)
+  validDays      Int             @default(14) @map("valid_days")
+  notes          String          @default("") @db.VarChar(2000)
+  subtotalMinor  BigInt          @default(0) @map("subtotal_minor")
+  vatMinor       BigInt          @default(0) @map("vat_minor")
+  totalMinor     BigInt          @default(0) @map("total_minor")
+  issuedAt       DateTime?       @map("issued_at") @db.Timestamptz(6)
+  expiresAt      DateTime?       @map("expires_at") @db.Timestamptz(6)
+  decidedAt      DateTime?       @map("decided_at") @db.Timestamptz(6)
+  decisionReason String?         @map("decision_reason") @db.VarChar(500)
+  createdBy      String          @map("created_by") @db.Uuid
+  version        Int             @default(0)
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  request        ServiceRequest  @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  lines          QuotationLine[]
+  order          ServiceOrder?
+
+  @@unique([requestId, revision])
+  @@index([status, expiresAt])
+  @@map("quotation")
+}
+
+model QuotationLine {
+  id              String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  quotationId     String    @map("quotation_id") @db.Uuid
+  position        Int
+  description     String    @db.VarChar(300)
+  quantity        Int
+  unitAmountMinor BigInt    @map("unit_amount_minor")
+  netMinor        BigInt    @map("net_minor")
+  vatMinor        BigInt    @map("vat_minor")
+  totalMinor      BigInt    @map("total_minor")
+  quotation       Quotation @relation(fields: [quotationId], references: [id], onDelete: Restrict)
+
+  @@unique([quotationId, position])
+  @@map("quotation_line")
+}
+
+model ServiceOrder {
+  id               String              @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  number           String              @unique @db.VarChar(20)
+  requestId        String              @unique @map("request_id") @db.Uuid
+  quotationId      String?             @unique @map("quotation_id") @db.Uuid
+  customerTenantId String?             @map("customer_tenant_id") @db.Uuid
+  customerUserId   String?             @map("customer_user_id") @db.Uuid
+  paymentTerms     PaymentTerms        @map("payment_terms")
+  netDays          Int?                @map("net_days")
+  subtotalMinor    BigInt              @map("subtotal_minor")
+  vatMinor         BigInt              @map("vat_minor")
+  totalMinor       BigInt              @map("total_minor")
+  paidMinor        BigInt              @default(0) @map("paid_minor")
+  status           OrderStatus
+  refundDue        Boolean             @default(false) @map("refund_due")
+  cancelReason     String?             @map("cancel_reason") @db.VarChar(500)
+  version          Int                 @default(0)
+  createdAt        DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  request          ServiceRequest      @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  quotation        Quotation?          @relation(fields: [quotationId], references: [id], onDelete: Restrict)
+  events           ServiceOrderEvent[]
+  payments         Payment[]
+
+  @@index([customerTenantId, createdAt])
+  @@index([customerUserId, createdAt])
+  @@index([status, createdAt])
+  @@map("service_order")
+}
+
+model ServiceOrderEvent {
+  id          String       @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  orderId     String       @map("order_id") @db.Uuid
+  fromStatus  OrderStatus? @map("from_status")
+  toStatus    OrderStatus  @map("to_status")
+  command     String       @db.VarChar(40)
+  actorUserId String?      @default(dbgenerated("app.current_user_id()")) @map("actor_user_id") @db.Uuid
+  reason      String?      @db.VarChar(500)
+  occurredAt  DateTime     @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  order       ServiceOrder @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@index([orderId, occurredAt])
+  @@map("service_order_event")
+}
+
+/// Manual payments (ADR-015 item 3): append-only, recorded by finance.
+model Payment {
+  id          String        @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  orderId     String        @map("order_id") @db.Uuid
+  amountMinor BigInt        @map("amount_minor")
+  method      PaymentMethod
+  reference   String        @db.VarChar(60)
+  note        String?       @db.VarChar(300)
+  recordedBy  String?       @default(dbgenerated("app.current_user_id()")) @map("recorded_by") @db.Uuid
+  recordedAt  DateTime      @default(now()) @map("recorded_at") @db.Timestamptz(6)
+  order       ServiceOrder  @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@unique([method, reference])
+  @@index([orderId])
+  @@map("payment")
+}
+
+/// Payment terms per organisation (P7-5), set by finance.
+model OrganisationBilling {
+  tenantId     String       @id @map("tenant_id") @db.Uuid
+  paymentTerms PaymentTerms @default(PREPAY) @map("payment_terms")
+  netDays      Int?         @map("net_days")
+  version      Int          @default(0)
+  updatedAt    DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@map("organisation_billing")
+}
+
+/// Idempotency-Key records (P7-7), visible only to their own user.
+model IdempotencyKey {
+  id             String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  key            String   @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  scope          String   @db.VarChar(60)
+  route          String   @db.VarChar(120)
+  requestHash    String   @map("request_hash") @db.Char(64)
+  responseStatus Int?     @map("response_status")
+  responseBody   Json?    @map("response_body")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  expiresAt      DateTime @map("expires_at") @db.Timestamptz(6)
+
+  @@unique([userId, scope, route, key])
+  @@index([expiresAt])
+  @@map("idempotency_key")
+}
+
+/// Yearly document counters (P7-8): REQ / QUO / ORD.
+model DocumentCounter {
+  kind String @db.VarChar(3)
+  year Int
+  last Int    @default(0)
+
+  @@id([kind, year])
+  @@map("document_counter")
 }
