@@ -13,6 +13,8 @@ export type MockApi = Record<string, MockRoute | ((init: RequestInit) => MockRou
 export interface RecordedCall {
   readonly method: string;
   readonly path: string;
+  /** The query string, e.g. "?q=wifi&cursor=…" ('' when none). */
+  readonly query: string;
   readonly headers: Record<string, string>;
   readonly body: unknown;
 }
@@ -39,6 +41,7 @@ export function mockApi(routes: MockApi): RecordedCall[] {
     calls.push({
       method,
       path,
+      query: url.search,
       headers,
       body: typeof init.body === 'string' ? (JSON.parse(init.body) as unknown) : undefined,
     });
