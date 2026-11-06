@@ -1,4 +1,4 @@
-import { argon2Sync, createHmac, randomBytes } from 'node:crypto';
+import { argon2Sync, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import pg from 'pg';
 
@@ -120,4 +120,43 @@ export async function createReviewer(email: string, password: string): Promise<v
       WHERE r.tenant_id IS NULL AND r.code = 'provider_relationship_manager'`,
     [email, hashPassword(password), PLATFORM_TENANT_ID],
   );
+}
+
+/**
+ * A fresh ACTIVE organisation with a verified admin and employee (Phase 7
+ * journeys). Postpaid organisations skip "Awaiting payment" (ADR-014).
+ */
+export async function createOrganisation(input: {
+  name: string;
+  adminEmail: string;
+  employeeEmail: string;
+  password: string;
+  postpaid: boolean;
+}): Promise<string> {
+  const tenantId = randomUUID();
+  await maintQuery(
+    `INSERT INTO tenant (id, kind, status, name, slug) VALUES ($1, 'ORGANISATION', 'ACTIVE', $2, $3)`,
+    [tenantId, input.name, `e2e-${tenantId.slice(0, 8)}`],
+  );
+  for (const [email, role] of [
+    [input.adminEmail, 'org_admin'],
+    [input.employeeEmail, 'org_employee'],
+  ] as const) {
+    await maintQuery(
+      `WITH u AS (INSERT INTO app_user (email, status) VALUES ($1, 'ACTIVE') RETURNING id),
+            c AS (INSERT INTO credential (user_id, password_hash) SELECT id, $2 FROM u),
+            m AS (INSERT INTO membership (tenant_id, user_id, status, joined_at)
+                  SELECT $3::uuid, id, 'ACTIVE', now() FROM u RETURNING id)
+       INSERT INTO membership_role (membership_id, role_id, tenant_id)
+       SELECT m.id, r.id, $3::uuid FROM m, role r WHERE r.tenant_id IS NULL AND r.code = $4`,
+      [email, hashPassword(input.password), tenantId, role],
+    );
+  }
+  if (input.postpaid) {
+    await maintQuery(
+      `INSERT INTO organisation_billing (tenant_id, payment_terms, net_days) VALUES ($1, 'POSTPAID', 30)`,
+      [tenantId],
+    );
+  }
+  return tenantId;
 }
