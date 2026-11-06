@@ -86,7 +86,7 @@ describe('B4 — file storage', () => {
   it('stores a tenant file quarantined, releases it after the scan, then serves a 60-second link', async () => {
     const ctx = workspace(userA, tenantA);
     const stored = await files.upload(ctx, {
-      purpose: 'provider.document',
+      purpose: 'provider.certificate',
       originalName: 'licence.pdf',
       bytes: PDF,
     });
@@ -109,7 +109,7 @@ describe('B4 — file storage', () => {
 
   it('another tenant (or the same user acting personally) cannot reach the file', async () => {
     const stored = await files.upload(workspace(userA, tenantA), {
-      purpose: 'provider.document',
+      purpose: 'provider.certificate',
       originalName: 'secret.pdf',
       bytes: PDF,
     });
@@ -143,7 +143,7 @@ describe('B4 — file storage', () => {
   it.each([
     [
       'type detected from bytes, not the name',
-      'provider.document',
+      'provider.certificate',
       'evil.pdf',
       Buffer.from('#!/bin/sh\nrm -rf /\n'),
       'type_not_allowed',
@@ -157,7 +157,7 @@ describe('B4 — file storage', () => {
       'too_large',
     ],
     ['unknown purpose', 'random.thing', 'a.pdf', PDF, 'unknown_purpose'],
-    ['empty file', 'provider.document', 'a.pdf', Buffer.alloc(0), 'empty_file'],
+    ['empty file', 'provider.certificate', 'a.pdf', Buffer.alloc(0), 'empty_file'],
   ])('rejects: %s', async (_label, purpose, originalName, bytes, reason) => {
     // Avatars are personal; everything else is uploaded in the tenant workspace.
     const ctx: DbContext =
@@ -179,7 +179,7 @@ describe('B4 — file storage', () => {
 
   it('the scanner rejects an object whose bytes changed after upload', async () => {
     const stored = await files.upload(workspace(userA, tenantA), {
-      purpose: 'provider.document',
+      purpose: 'provider.certificate',
       originalName: 'tampered.pdf',
       bytes: PDF,
     });
@@ -204,7 +204,7 @@ describe('B4 — file storage', () => {
 
   it('a tenant user cannot mark a file clean (only the scanner job can)', async () => {
     const stored = await files.upload(workspace(userA, tenantA), {
-      purpose: 'provider.document',
+      purpose: 'provider.certificate',
       originalName: 'x.pdf',
       bytes: PDF,
     });

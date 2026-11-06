@@ -29,6 +29,17 @@ const PHASE_3_TABLES = [
   'organisation_application_event',
   'invitation',
   'department',
+  // Phase 5 (skills and regions are reference data, but still need a context)
+  'provider',
+  'provider_application',
+  'provider_application_event',
+  'provider_verification',
+  'provider_skill',
+  'provider_region',
+  'provider_working_hours',
+  'provider_time_off',
+  'skill',
+  'region',
 ] as const;
 
 describe('fail closed without a context (T2)', () => {

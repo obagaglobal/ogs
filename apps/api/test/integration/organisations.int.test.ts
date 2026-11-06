@@ -393,9 +393,9 @@ describe('C9 — file upload over HTTP', () => {
 
     expect((await upload(client, 'personal')).body).toEqual({ error: 'file_owner_not_allowed' });
     const huge = Buffer.concat([PDF, Buffer.alloc(10 * 1024 * 1024)]);
-    expect((await upload(client, 'personal', 'provider.document', huge)).status).toBe(413);
+    expect((await upload(client, 'personal', 'provider.certificate', huge)).status).toBe(413);
 
-    const stored = await upload(client, 'personal', 'provider.document');
+    const stored = await upload(client, 'personal', 'provider.certificate');
     expect(stored.status).toBe(201);
     const fileId = (stored.body as { id: string }).id;
 

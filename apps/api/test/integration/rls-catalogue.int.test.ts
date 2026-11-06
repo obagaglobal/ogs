@@ -34,6 +34,17 @@ const KNOWN_TABLES = [
   'organisation_application',
   'organisation_application_event',
   'organisation_profile',
+  // Phase 5
+  'provider',
+  'provider_application',
+  'provider_application_event',
+  'provider_region',
+  'provider_skill',
+  'provider_time_off',
+  'provider_verification',
+  'provider_working_hours',
+  'region',
+  'skill',
 ];
 
 interface TableRow {

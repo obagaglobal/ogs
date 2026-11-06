@@ -112,7 +112,13 @@ export class InvitationService {
         orderBy: { createdAt: 'desc' },
         take: 200,
       });
-      return Promise.all(rows.map(async (row) => this.present(tx, row)));
+      // One transaction is one connection: query sequentially (pg queues concurrent
+      // queries on a client and will refuse them in pg 9).
+      const presented = [];
+      for (const row of rows) {
+        presented.push(await this.present(tx, row));
+      }
+      return presented;
     });
   }
 

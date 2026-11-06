@@ -31,7 +31,21 @@ export class MeController {
   @Authenticated()
   @Header('Cache-Control', 'no-store')
   async workspacesOfUser(@Auth() auth: AccessState): Promise<WorkspaceListResponse> {
-    return { workspaces: await this.workspaces.listWorkspaces(auth.user.id) };
+    const [workspaces, provider] = await Promise.all([
+      this.workspaces.listWorkspaces(auth.user.id),
+      this.workspaces.individualProvider(auth.user.id),
+    ]);
+    return {
+      workspaces,
+      provider:
+        provider === null
+          ? null
+          : {
+              providerId: provider.id,
+              status: provider.status,
+              restricted: provider.status !== 'ACTIVE',
+            },
+    };
   }
 }
 
@@ -54,6 +68,14 @@ export class WorkspaceController {
     const workspace = auth.workspace?.resolved;
     if (workspace === undefined || workspace.kind === 'personal') {
       return { kind: 'personal' };
+    }
+    if (workspace.kind === 'provider') {
+      return {
+        kind: 'provider',
+        providerId: workspace.providerId,
+        status: workspace.providerStatus,
+        restricted: workspace.restricted,
+      };
     }
     const roles = await this.db.run(ctx, async (tx) =>
       this.permissions.rolesForMembership(tx, workspace.membershipId),

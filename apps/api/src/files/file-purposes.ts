@@ -23,11 +23,29 @@ export const FILE_PURPOSES = {
     allowedTypes: ['application/pdf', 'image/jpeg', 'image/png'],
     permission: 'organisation.profile.manage',
   },
-  /** Provider KYC and company documents (Phase 5). */
-  'provider.document': {
+  /**
+   * Government ID of an individual provider (Phase 5, P5-5). Personal data:
+   * visible to its owner and to staff with platform.provider.approve or
+   * platform.compliance.review under an elevation, never anywhere else.
+   */
+  'provider.identity': {
+    owners: ['user'],
+    maxBytes: 10 * MB,
+    allowedTypes: ['application/pdf', 'image/jpeg', 'image/png'],
+  },
+  /** Skills evidence (certificates) of a provider company or an individual. */
+  'provider.certificate': {
     owners: ['tenant', 'user'],
     maxBytes: 10 * MB,
     allowedTypes: ['application/pdf', 'image/jpeg', 'image/png'],
+    permission: 'provider.profile.manage',
+  },
+  /** Registration and tax documents of a provider company. */
+  'provider.company_document': {
+    owners: ['tenant'],
+    maxBytes: 10 * MB,
+    allowedTypes: ['application/pdf', 'image/jpeg', 'image/png'],
+    permission: 'provider.profile.manage',
   },
   /** Ticket attachments (Phase 8). */
   'ticket.attachment': {
@@ -43,6 +61,14 @@ export const FILE_PURPOSES = {
 } as const satisfies Record<string, FilePurpose>;
 
 export type FilePurposeName = keyof typeof FILE_PURPOSES;
+
+/** Uploads a restricted (not yet approved) workspace may still make: application evidence. */
+export const APPLICATION_EVIDENCE_PURPOSES: ReadonlySet<string> = new Set([
+  'organisation.document',
+  'provider.identity',
+  'provider.certificate',
+  'provider.company_document',
+]);
 
 export function isFilePurpose(value: string): value is FilePurposeName {
   return Object.hasOwn(FILE_PURPOSES, value);

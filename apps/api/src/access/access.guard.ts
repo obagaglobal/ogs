@@ -186,8 +186,9 @@ export class AccessGuard implements CanActivate {
     if (workspace.kind !== 'personal' && workspace.restricted && !allowRestricted) {
       throw forbidden('workspace_restricted');
     }
+    // Personal and Provider workspaces carry no role permissions (no membership).
     const granted =
-      workspace.kind === 'personal'
+      workspace.kind === 'personal' || workspace.kind === 'provider'
         ? new Set<string>()
         : await this.db.run(dbContext, async (tx) =>
             this.permissions.forMembership(tx, workspace.membershipId),

@@ -10,9 +10,15 @@ export function WorkspaceNav() {
   const { data } = useCurrentWorkspace();
   const can = (code: string) =>
     data !== undefined &&
-    data.kind !== 'personal' &&
+    'permissions' in data &&
     !data.restricted &&
     data.permissions.includes(code);
+
+  // The individual Provider workspace, or a provider company the member can see.
+  const providerArea =
+    data !== undefined &&
+    (data.kind === 'provider' ||
+      (data.kind === 'PROVIDER_COMPANY' && data.permissions.includes('workspace.read')));
 
   return (
     <nav aria-label="Workspace sections" className="flex flex-wrap gap-1 text-sm">
@@ -39,9 +45,32 @@ export function WorkspaceNav() {
           Departments
         </NavLink>
       ) : null}
+      {providerArea ? (
+        <>
+          <NavLink to="/provider" end className={link}>
+            {data.restricted ? 'Application' : 'Profile & skills'}
+          </NavLink>
+          <NavLink to="/provider/coverage" className={link}>
+            Coverage
+          </NavLink>
+          <NavLink to="/provider/availability" className={link}>
+            Availability
+          </NavLink>
+        </>
+      ) : null}
       {data?.kind === 'PLATFORM' && can('platform.tenant.review') ? (
         <NavLink to="/platform/applications" className={link}>
           Applications
+        </NavLink>
+      ) : null}
+      {data?.kind === 'PLATFORM' && can('ticket.assign') ? (
+        <NavLink to="/platform/eligibility" className={link}>
+          Eligibility
+        </NavLink>
+      ) : null}
+      {data?.kind === 'PLATFORM' && can('platform.catalogue.manage') ? (
+        <NavLink to="/platform/skills" className={link}>
+          Skills
         </NavLink>
       ) : null}
     </nav>

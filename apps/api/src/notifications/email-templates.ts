@@ -131,6 +131,51 @@ export const templates = {
       { url, label: 'Open OGS' },
     ),
 
+  /** Phase 5: a provider application decision (company admins or the individual). */
+  providerDecision: (
+    to: string,
+    provider: string,
+    decision: 'APPROVED' | 'REJECTED' | 'CHANGES_REQUESTED',
+    reason: string | null,
+    url: string,
+  ) => {
+    const subject = {
+      APPROVED: `${provider} is approved as an OGS provider`,
+      REJECTED: `Your OGS provider application for ${provider} was not approved`,
+      CHANGES_REQUESTED: `OGS needs changes to the provider application for ${provider}`,
+    }[decision];
+    const lead = {
+      APPROVED:
+        'You are approved as a provider on OGS. Keep your skills, coverage and availability up to date: OGS uses them to offer you work.',
+      REJECTED: 'We could not approve your provider application on OGS.',
+      CHANGES_REQUESTED:
+        'We reviewed your provider application and need a few changes before we can approve it.',
+    }[decision];
+    return layout(to, subject, reason === null ? [lead] : [lead, `Reviewer note: ${reason}`], {
+      url,
+      label: decision === 'APPROVED' ? 'Open OGS' : 'View the application',
+    });
+  },
+
+  providerStatusChanged: (
+    to: string,
+    provider: string,
+    status: 'SUSPENDED' | 'ACTIVE',
+    url: string,
+  ) =>
+    layout(
+      to,
+      status === 'SUSPENDED'
+        ? `${provider} has been suspended as an OGS provider`
+        : `${provider} is active again as an OGS provider`,
+      [
+        status === 'SUSPENDED'
+          ? 'OGS has suspended your provider account. You will not be offered work, and your profile is read-only until it is reactivated. Contact OGS support for details.'
+          : 'Your provider account is active again. OGS can offer you work as before.',
+      ],
+      { url, label: 'Open OGS' },
+    ),
+
   /** ASVS follow-up F-2: tell the owner about every change to how they sign in. */
   securityNotice: (to: string, notice: SecurityNotice, url: string) => {
     const text: Record<SecurityNotice, [string, string]> = {

@@ -21,7 +21,7 @@ import type { AccessState } from '../access/access.types.js';
 import { parseBody } from '../access/parse-body.js';
 import { badRequest, forbiddenRule } from '../common/domain-error.js';
 import type { DbContext } from '../database/index.js';
-import { FILE_PURPOSES, isFilePurpose } from './file-purposes.js';
+import { APPLICATION_EVIDENCE_PURPOSES, FILE_PURPOSES, isFilePurpose } from './file-purposes.js';
 import { FileService } from './file.service.js';
 
 const uploadFieldsSchema = z.object({ purpose: z.string().min(1).max(50) });
@@ -59,13 +59,13 @@ export class FilesController {
     if (file === undefined) {
       throw badRequest('file_missing');
     }
-    // A pending organisation may only upload the evidence for its application.
+    // A pending organisation or provider may only upload the evidence for its application.
     const resolved = auth.workspace?.resolved;
     if (
       resolved !== undefined &&
       resolved.kind !== 'personal' &&
       resolved.restricted &&
-      purpose !== 'organisation.document'
+      !APPLICATION_EVIDENCE_PURPOSES.has(purpose)
     ) {
       throw forbiddenRule('workspace_restricted');
     }
@@ -74,7 +74,9 @@ export class FilesController {
         .permission;
       // The permission applies to tenant-owned uploads; personal uploads fall through to
       // the purpose's owner rule (e.g. organisation documents are never personal).
-      const inTenant = resolved !== undefined && resolved.kind !== 'personal';
+      // The Provider workspace is the person themself (user-owned files), not a tenant.
+      const inTenant =
+        resolved !== undefined && resolved.kind !== 'personal' && resolved.kind !== 'provider';
       if (required !== undefined && inTenant && !auth.workspace?.permissions.has(required)) {
         throw forbiddenRule('permission_denied');
       }

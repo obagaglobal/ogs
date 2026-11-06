@@ -129,9 +129,18 @@ export const decisionReasonSchema = z.string().trim().min(10).max(1000);
 export const approveRequestSchema = z.object({ note: z.string().trim().max(1000).optional() });
 export const reasonRequestSchema = z.object({ reason: decisionReasonSchema });
 
+export const applicationTypeSchema = z.enum([
+  'organisation',
+  'provider_company',
+  'individual_provider',
+]);
+export type ApplicationType = z.infer<typeof applicationTypeSchema>;
+
 export const applicationQueueItemSchema = z.object({
   applicationId: z.uuid(),
-  tenantId: z.uuid(),
+  type: applicationTypeSchema,
+  /** The organisation or provider company tenant; null for individual providers. */
+  tenantId: z.uuid().nullable(),
   legalName: z.string(),
   status: applicationStatusSchema,
   submittedAt: z.iso.datetime().nullable(),

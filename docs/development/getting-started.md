@@ -47,12 +47,13 @@ pnpm db:seed          # optional: roles, sample tenants, users with passwords, m
 
 Seeded accounts. All are verified, and all use the password in `SEED_USER_PASSWORD` (`apps/api/.env`):
 
-| User               | Workspace (role)                                                                                |
-| ------------------ | ----------------------------------------------------------------------------------------------- |
-| `admin@ogs.test`   | OGS Platform (`super_admin`)                                                                    |
-| `alice@acme.test`  | Acme Kenya Ltd (`org_admin`) and Nairobi Tech Partners (`provider_technician`)                  |
-| `bob@savanna.test` | Savanna Logistics (`org_admin`; the tenant is pending approval, so the workspace is restricted) |
-| `tech@ntp.test`    | Nairobi Tech Partners (`provider_admin`)                                                        |
+| User                 | Workspace (role)                                                                                |
+| -------------------- | ----------------------------------------------------------------------------------------------- |
+| `admin@ogs.test`     | OGS Platform (`super_admin`)                                                                    |
+| `alice@acme.test`    | Acme Kenya Ltd (`org_admin`) and Nairobi Tech Partners (`provider_technician`)                  |
+| `bob@savanna.test`   | Savanna Logistics (`org_admin`; the tenant is pending approval, so the workspace is restricted) |
+| `tech@ntp.test`      | Nairobi Tech Partners (`provider_admin`)                                                        |
+| `jane@provider.test` | Approved individual provider (Provider workspace)                                               |
 
 ## Sign in to the web app
 
@@ -119,7 +120,7 @@ pnpm test:e2e           # builds, then signs up/verifies/enrols in a real Chromi
 
 Integration tests need `pnpm infra:up` and `pnpm db:roles`. They run against the separate **`ogs_test`** database (never `ogs_dev`), apply migrations to it automatically, and use a unique Redis/BullMQ prefix per run. The API and the worker run in-process, and emails are read back from Mailpit. Tests create uniquely named rows and users and never wipe anything. If you edited an existing migration (rather than adding a new one), recreate the test database with `pnpm db:reset:test`.
 
-The browser test needs the dev database migrated and seeded (it joins the seeded Acme organisation). It also needs Chromium for Playwright, installed once with `pnpm --filter @ogs/web exec playwright install chromium`. It reuses an API, worker or web server that is already running. Each run adds one `e2e-*@e2e.test` user to the dev database.
+The browser tests need the dev database migrated and seeded (one joins the seeded Acme organisation). It also needs Chromium for Playwright, installed once with `pnpm --filter @ogs/web exec playwright install chromium`. It reuses an API, worker or web server that is already running. They start the API from its build output (`dist/`), so rebuild it (`pnpm --filter @ogs/api build`) after API changes unless an API is already running. Each run adds a few `*@e2e.test` users, one provider and one `e2e_*` skill to the dev database.
 
 ## Database workflow
 
