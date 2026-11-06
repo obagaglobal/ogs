@@ -6,7 +6,7 @@ import {
   ClipboardList,
   FileText,
   Inbox,
-  LayoutDashboard,
+  House,
   LayoutGrid,
   ListChecks,
   MapPin,
@@ -45,7 +45,7 @@ export function navItemsFor(data: CurrentWorkspaceResponse | undefined): NavItem
       (data.kind === 'PROVIDER_COMPANY' && data.permissions.includes('workspace.read')));
 
   const items: (NavItem | false)[] = [
-    { to: '/', label: t('nav.home'), icon: LayoutDashboard, end: true },
+    { to: '/', label: t('nav.home'), icon: House, end: true },
     { to: '/services', label: t('nav.services'), icon: LayoutGrid },
     (data?.kind === 'personal' || (data?.kind === 'ORGANISATION' && !data.restricted)) && {
       to: '/requests',

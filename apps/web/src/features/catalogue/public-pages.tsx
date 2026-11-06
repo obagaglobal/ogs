@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { Suspense, useEffect, useState, type SubmitEvent } from 'react';
 import { Link, Outlet, useParams, useSearchParams } from 'react-router';
+import { BrandMark } from '@/components/ui/brand';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState, ErrorState, RouteFallback, Skeleton } from '@/components/ui/feedback';
@@ -94,12 +95,7 @@ export function PublicLayout() {
             to="/services"
             className="flex min-h-11 items-center gap-2 rounded-md font-display text-lg font-bold tracking-tight"
           >
-            <span
-              aria-hidden="true"
-              className="inline-flex size-7 items-center justify-center rounded-sm bg-ink text-sm text-saffron"
-            >
-              O
-            </span>
+            <BrandMark />
             OGS services
           </Link>
           <nav aria-label="Site" className="flex items-center gap-1 text-sm sm:gap-3">
@@ -655,19 +651,18 @@ export function ServicePage() {
         jsonLd={jsonLd}
       />
       <Breadcrumbs items={crumbs} />
+      <header className="space-y-2">
+        <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">{data.name}</h1>
+        <p className="text-lg text-muted-foreground">{data.summary}</p>
+        <p className="text-sm text-muted-foreground">
+          {DELIVERY_LABELS[data.deliveryMode]}
+          {data.audience === 'ALL' ? '' : ` · for ${AUDIENCE_LABELS[data.audience] ?? ''}`}
+          {data.typicalDuration === null ? '' : ` · typically ${data.typicalDuration}`}
+        </p>
+      </header>
+      {/* Phones: price and request first, then the details. */}
       <div className="grid gap-8 lg:grid-cols-[1fr_20rem] lg:items-start">
-        <div className="space-y-6">
-          <header className="space-y-2">
-            <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
-              {data.name}
-            </h1>
-            <p className="text-lg text-muted-foreground">{data.summary}</p>
-            <p className="text-sm text-muted-foreground">
-              {DELIVERY_LABELS[data.deliveryMode]}
-              {data.audience === 'ALL' ? '' : ` · for ${AUDIENCE_LABELS[data.audience] ?? ''}`}
-              {data.typicalDuration === null ? '' : ` · typically ${data.typicalDuration}`}
-            </p>
-          </header>
+        <div className="order-2 space-y-6 lg:order-1">
           <section className="max-w-prose space-y-3">
             {data.description
               .split(/\n\s*\n/)
@@ -680,7 +675,7 @@ export function ServicePage() {
           <ListSection title="Not included" items={data.exclusions} />
           <ListSection title="What we need from you" items={data.customerRequirements} />
         </div>
-        <Card emphasis className="space-y-3 lg:sticky lg:top-6">
+        <Card emphasis className="order-1 space-y-3 lg:sticky lg:top-6 lg:order-2">
           <p className="font-display text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Price
           </p>

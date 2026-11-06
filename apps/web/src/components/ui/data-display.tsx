@@ -26,6 +26,8 @@ export function StatTile({
   hint?: ReactNode;
   emphasis?: boolean;
 }) {
+  // Numbers and money are mono; words use the display face.
+  const numeric = typeof value === 'number' || (typeof value === 'object' && value !== null);
   return (
     <div
       className={cn('rounded-md border bg-surface p-4', emphasis ? 'border-ink' : 'border-border')}
@@ -33,7 +35,9 @@ export function StatTile({
       <p className="font-display text-xs font-medium uppercase tracking-wider text-muted-foreground">
         {label}
       </p>
-      <p className="tabular mt-1 text-2xl text-ink">{value}</p>
+      <p className={cn('mt-1 text-2xl text-ink', numeric ? 'tabular' : 'font-display font-medium')}>
+        {value}
+      </p>
       {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
     </div>
   );

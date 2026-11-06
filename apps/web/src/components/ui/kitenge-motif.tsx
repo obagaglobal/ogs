@@ -73,7 +73,9 @@ export function KitengeMotif({
         >
           <path d="M0 12 L6 0 L12 12 Z" className={first} />
           <path d="M12 0 L18 12 L24 0 Z" className={variant === 'divider' ? first : second} />
-          <path d="M10.5 6 L12 4 L13.5 6 L12 8 Z" className={second} />
+          {variant === 'divider' ? null : (
+            <path d="M10.5 6 L12 4 L13.5 6 L12 8 Z" className={second} />
+          )}
         </pattern>
       </defs>
       <rect width="100%" height="100%" fill={`url(#${patternId})`} />

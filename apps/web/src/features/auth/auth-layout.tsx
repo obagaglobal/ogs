@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
+import { BrandMark } from '@/components/ui/brand';
 import { Card } from '@/components/ui/card';
 import { KitengeMotif } from '@/components/ui/kitenge-motif';
 import { t } from '@/i18n';
@@ -38,12 +39,7 @@ export function AuthLayout({
             to="/services"
             className="inline-flex min-h-11 items-center gap-2 rounded-md font-display font-bold tracking-tight"
           >
-            <span
-              aria-hidden="true"
-              className="inline-flex size-7 items-center justify-center rounded-sm bg-ink text-sm text-saffron"
-            >
-              O
-            </span>
+            <BrandMark />
             {t('shell.brandLong')}
           </Link>
           <h1 className="font-display text-3xl font-bold tracking-tight">{title}</h1>

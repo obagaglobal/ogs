@@ -73,7 +73,7 @@ export function DataTable<Row>({
   }
 
   return (
-    <div>
+    <div className="min-w-0">
       <div className="overflow-x-auto rounded-md border border-border">
         <table className="w-full border-collapse text-sm">
           <caption className="sr-only">{caption}</caption>
@@ -106,7 +106,7 @@ export function DataTable<Row>({
                         onClick={() => {
                           toggle(column.key);
                         }}
-                        className="inline-flex min-h-8 cursor-pointer items-center gap-1 uppercase hover:text-ink"
+                        className="inline-flex min-h-11 cursor-pointer md:min-h-8 items-center gap-1 uppercase hover:text-ink"
                       >
                         {column.header}
                         <Icon aria-hidden="true" className="size-3.5" />

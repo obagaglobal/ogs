@@ -122,6 +122,7 @@ export function PageLoader() {
   return (
     <div
       role="status"
+      aria-busy="true"
       className="flex min-h-svh flex-col items-center justify-center gap-4 bg-paper"
     >
       <KitengeMotif variant="band" height={16} className="w-48 animate-pulse" />

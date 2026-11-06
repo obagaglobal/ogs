@@ -1,7 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
 import { Bell, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search, Shield } from 'lucide-react';
-import { Suspense, useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { Link, Navigate, Outlet, useNavigate } from 'react-router';
+import { BrandMark } from '@/components/ui/brand';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/data-display';
 import { PageLoader, RouteFallback } from '@/components/ui/feedback';
@@ -24,6 +25,7 @@ import { useWorkspace } from '@/features/workspace/workspace-state';
 import { WorkspaceSwitcher } from '@/features/workspace/workspace-switcher';
 import { t } from '@/i18n';
 import { api, ApiError } from '@/lib/api';
+import { initialsOf } from '@/lib/initials';
 import { cn } from '@/lib/utils';
 import { useTheme, type ThemeChoice } from '@/theme/theme';
 import { WorkspaceNav } from './workspace-nav';
@@ -68,6 +70,9 @@ export function SkipLink() {
 
 const SIDEBAR_KEY = 'ogs.sidebar';
 
+// Toasts are only used behind sign-in; public pages never download sonner.
+const Toaster = lazy(async () => ({ default: (await import('@/components/ui/toaster')).Toaster }));
+
 function readCollapsed(): boolean {
   try {
     return localStorage.getItem(SIDEBAR_KEY) === 'collapsed';
@@ -82,12 +87,7 @@ function Brand({ compact = false }: { compact?: boolean }) {
       to="/"
       className="flex min-h-11 items-center gap-2 rounded-md font-display text-lg font-bold tracking-tight"
     >
-      <span
-        aria-hidden="true"
-        className="inline-flex size-7 items-center justify-center rounded-sm bg-ink text-sm text-saffron"
-      >
-        O
-      </span>
+      <BrandMark />
       <span className={cn(compact && 'sr-only')}>{t('shell.brand')}</span>
     </Link>
   );
@@ -197,7 +197,11 @@ function AppShell({ email }: { email: string }) {
               </MenuRoot>
               <MenuRoot>
                 <MenuTrigger asChild>
-                  <Button variant="ghost" size="icon" aria-label={t('shell.userMenu')}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`${initialsOf(email)}, ${t('shell.userMenu')}`}
+                  >
                     <Avatar name={email} size={30} />
                   </Button>
                 </MenuTrigger>
@@ -259,6 +263,9 @@ function AppShell({ email }: { email: string }) {
         >
           <Suspense fallback={<RouteFallback />}>
             <Outlet />
+          </Suspense>
+          <Suspense fallback={null}>
+            <Toaster />
           </Suspense>
         </main>
       </div>

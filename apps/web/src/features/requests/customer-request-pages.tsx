@@ -8,7 +8,8 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState, type SubmitEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { Money } from '@/components/ui/data-display';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/feedback';
 import { Card, Field, Notice } from '@/components/ui/form-controls';
 import { useRegions } from '@/features/provider/provider-data';
 import { useCurrentWorkspace, useWorkspace } from '@/features/workspace/workspace-state';
@@ -282,36 +283,42 @@ export function RequestsPage() {
         </Link>
       </div>
       {requests.isError ? <Notice tone="error">{describeError(requests.error)}</Notice> : null}
-      <Card>
-        <ul className="divide-y text-sm" aria-label="Requests">
-          {(requests.data ?? []).map((request) => (
-            <li key={request.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-              <span>
-                <Link
-                  to={`/requests/${request.id}`}
-                  className="font-medium underline-offset-4 hover:underline"
-                >
-                  {request.number}
-                </Link>{' '}
-                · {request.service.name}
-              </span>
-              <span className="flex items-center gap-2 text-muted-foreground">
-                {formatWhen(request.createdAt)}
-                <StatusBadge>{requestLabel(request)}</StatusBadge>
-              </span>
-            </li>
-          ))}
-          {requests.data?.length === 0 ? (
-            <li className="py-2 text-muted-foreground">
-              No requests yet.{' '}
-              <Link to="/services" className="underline">
-                Find a service
-              </Link>
-              .
-            </li>
-          ) : null}
-        </ul>
-      </Card>
+      {requests.data?.length === 0 ? (
+        <EmptyState
+          title="No requests yet"
+          body="When you request a service, you can follow it here, from quotation to confirmation."
+          action={
+            <Link to="/services" className={buttonVariants({ variant: 'secondary' })}>
+              Find a service
+            </Link>
+          }
+        />
+      ) : (
+        <Card>
+          <ul className="divide-y text-sm" aria-label="Requests">
+            {(requests.data ?? []).map((request) => (
+              <li
+                key={request.id}
+                className="flex flex-wrap items-center justify-between gap-2 py-2.5"
+              >
+                <span>
+                  <Link
+                    to={`/requests/${request.id}`}
+                    className="tabular font-medium underline-offset-4 hover:underline"
+                  >
+                    {request.number}
+                  </Link>{' '}
+                  · {request.service.name}
+                </span>
+                <span className="flex items-center gap-2 text-muted-foreground">
+                  {formatWhen(request.createdAt)}
+                  <StatusBadge>{requestLabel(request)}</StatusBadge>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
     </div>
   );
 }
