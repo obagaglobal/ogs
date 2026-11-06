@@ -157,6 +157,29 @@ try {
       [membershipId, tenantId, roleCode],
     );
   }
+  // Phase 4: organisation profiles and applications for the seeded organisations.
+  const organisations = [
+    [id(301), id(2), 'Acme Kenya Ltd', 'APPROVED', id(102)],
+    [id(302), id(3), 'Savanna Logistics Ltd', 'SUBMITTED', id(103)],
+  ];
+  for (const [applicationId, tenantId, legalName, status, applicant] of organisations) {
+    await client.query(
+      `INSERT INTO organisation_profile (tenant_id, legal_name, registration_number, kra_pin,
+         region, address, phone, contact_email)
+       VALUES ($1, $2, 'PVT-2026-0001', 'P051234567X', 'Nairobi', 'Westlands, Nairobi',
+         '+254700000000', 'info@example.test')
+       ON CONFLICT (tenant_id) DO NOTHING`,
+      [tenantId, legalName],
+    );
+    await client.query(
+      `INSERT INTO organisation_application (id, tenant_id, status, applicant_user_id,
+         submitted_at, decided_at)
+       VALUES ($1, $2, $3::"ApplicationStatus", $4, now(),
+         CASE WHEN $3::"ApplicationStatus" = 'APPROVED' THEN now() END)
+       ON CONFLICT (id) DO NOTHING`,
+      [applicationId, tenantId, status, applicant],
+    );
+  }
   await client.query('COMMIT');
   console.log(
     `Seeded ${roleCount} system roles, ${tenants.length} tenants, ${users.length} users ` +

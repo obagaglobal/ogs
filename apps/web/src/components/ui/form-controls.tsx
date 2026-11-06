@@ -9,7 +9,11 @@ export function Field({
   hint,
   className,
   ...input
-}: ComponentProps<'input'> & { label: string; error?: string | undefined; hint?: string }) {
+}: ComponentProps<'input'> & {
+  label: string;
+  error?: string | undefined;
+  hint?: string | undefined;
+}) {
   const id = useId();
   const describedBy = [error ? `${id}-error` : undefined, hint ? `${id}-hint` : undefined]
     .filter(Boolean)

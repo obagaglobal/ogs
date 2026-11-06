@@ -12,6 +12,17 @@ import { SecurityPage } from '@/features/auth/security-page';
 import { SignInPage } from '@/features/auth/sign-in-page';
 import { SignUpPage } from '@/features/auth/sign-up-page';
 import { ApiHealthStatus } from '@/features/system-status/api-health-status';
+import {
+  AcceptInvitationPage,
+  DepartmentsPage,
+  MembersPage,
+  RolesPage,
+} from '@/features/members/team-pages';
+import {
+  ApplicationPage,
+  RegisterOrganisationPage,
+} from '@/features/organisation/organisation-pages';
+import { ApplicationQueuePage, ApplicationReviewPage } from '@/features/platform/platform-pages';
 import { DashboardPage } from '@/features/workspace/dashboard-page';
 
 export function AppRoutes() {
@@ -25,6 +36,7 @@ export function AppRoutes() {
       <Route path="/verify-email/pending" element={<VerifyPendingPage />} />
       <Route path="/mfa" element={<MfaPromptPage />} />
       <Route path="/mfa/setup" element={<MfaSetupPage />} />
+      <Route path="/invitations/accept" element={<AcceptInvitationPage />} />
       <Route
         path="/status"
         element={
@@ -36,6 +48,13 @@ export function AppRoutes() {
       <Route element={<SignedInGate />}>
         <Route index element={<DashboardPage />} />
         <Route path="/security" element={<SecurityPage />} />
+        <Route path="/organisations/new" element={<RegisterOrganisationPage />} />
+        <Route path="/organisation/application" element={<ApplicationPage />} />
+        <Route path="/team" element={<MembersPage />} />
+        <Route path="/team/roles" element={<RolesPage />} />
+        <Route path="/team/departments" element={<DepartmentsPage />} />
+        <Route path="/platform/applications" element={<ApplicationQueuePage />} />
+        <Route path="/platform/applications/:id" element={<ApplicationReviewPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

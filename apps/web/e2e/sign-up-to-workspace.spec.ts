@@ -21,7 +21,7 @@ test('sign up, verify, sign in, switch workspace, enrol in MFA', async ({ page }
 
   // Confirm through the link in the email.
   const link = /http:\/\/localhost:5173\/verify-email#token=[A-Za-z0-9_-]{43}/.exec(
-    await latestMailText(email),
+    await latestMailText(email, /Confirm your email/),
   )?.[0];
   expect(link).toBeDefined();
   await page.goto(link ?? '');
@@ -33,12 +33,12 @@ test('sign up, verify, sign in, switch workspace, enrol in MFA', async ({ page }
   await page.getByLabel('Password').fill(password);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByRole('heading', { name: 'Personal' })).toBeVisible();
-  await expect(page.getByLabel('Workspace')).toHaveValue('personal');
+  await expect(page.getByLabel('Workspace', { exact: true })).toHaveValue('personal');
 
   // Join Acme as an employee and switch to it.
   await grantMembership(email, ACME_TENANT_ID, 'org_employee');
   await page.reload();
-  await page.getByLabel('Workspace').selectOption(ACME_TENANT_ID);
+  await page.getByLabel('Workspace', { exact: true }).selectOption(ACME_TENANT_ID);
   await expect(page.getByRole('heading', { name: 'Acme Kenya Ltd' })).toBeVisible();
   await expect(page.getByText('org_employee')).toBeVisible();
 
@@ -55,6 +55,6 @@ test('sign up, verify, sign in, switch workspace, enrol in MFA', async ({ page }
   ).toHaveCount(10);
   await page.getByRole('button', { name: 'I have saved them' }).click();
 
-  await expect(page.getByLabel('Workspace')).toHaveValue(ACME_TENANT_ID);
+  await expect(page.getByLabel('Workspace', { exact: true })).toHaveValue(ACME_TENANT_ID);
   await expect(page.getByText(/org_admin/)).toBeVisible();
 });

@@ -24,6 +24,11 @@ const PHASE_3_TABLES = [
   'mfa_factor',
   'recovery_code',
   'file_metadata',
+  'organisation_profile',
+  'organisation_application',
+  'organisation_application_event',
+  'invitation',
+  'department',
 ] as const;
 
 describe('fail closed without a context (T2)', () => {

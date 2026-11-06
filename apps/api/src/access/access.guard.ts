@@ -23,6 +23,7 @@ import { clearSessionCookie, readCookie, sessionCookieName } from '../sessions/s
 import { WorkspaceContextService } from '../tenancy/workspace-context.service.js';
 import {
   ACCESS_METADATA,
+  MULTIPART_METADATA,
   STEP_UP_METADATA,
   type AccessRule,
   type StepUpRule,
@@ -84,7 +85,10 @@ export class AccessGuard implements CanActivate {
 
     // req.is() is null for a request without a body (e.g. DELETE): nothing a
     // cross-site form could have sent. A body of any other type is refused.
-    if (unsafe && request.is('application/json') === false) {
+    const multipart =
+      this.reflector.getAllAndOverride<boolean | undefined>(MULTIPART_METADATA, targets) === true &&
+      request.is('multipart/form-data') !== false;
+    if (unsafe && request.is('application/json') === false && !multipart) {
       throw new ApiException(HttpStatus.UNSUPPORTED_MEDIA_TYPE, 'json_required');
     }
     if (rule.kind === 'public') {

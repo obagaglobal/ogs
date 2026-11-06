@@ -9,11 +9,20 @@ export interface FilePurpose {
   readonly maxBytes: number;
   /** MIME types as detected by magic bytes (file-type). */
   readonly allowedTypes: readonly string[];
+  /** For tenant-owned files: the permission the uploader needs in that workspace. */
+  readonly permission?: string;
 }
 
 const MB = 1024 * 1024;
 
 export const FILE_PURPOSES = {
+  /** Organisation application evidence: incorporation and KRA PIN certificates (Phase 4). */
+  'organisation.document': {
+    owners: ['tenant'],
+    maxBytes: 10 * MB,
+    allowedTypes: ['application/pdf', 'image/jpeg', 'image/png'],
+    permission: 'organisation.profile.manage',
+  },
   /** Provider KYC and company documents (Phase 5). */
   'provider.document': {
     owners: ['tenant', 'user'],

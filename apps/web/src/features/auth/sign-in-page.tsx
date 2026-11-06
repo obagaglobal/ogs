@@ -2,15 +2,18 @@ import type { CurrentSessionResponse } from '@ogs/contracts';
 import { loginRequestSchema } from '@ogs/contracts';
 import { useMutation } from '@tanstack/react-query';
 import { useState, type SubmitEvent } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Field, Notice } from '@/components/ui/form-controls';
 import { api, describeError } from '@/lib/api';
+import { safeNext } from '@/lib/safe-next';
 import { AuthLayout } from './auth-layout';
 import { useSessionChanged } from './session';
 
 export function SignInPage() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const next = safeNext(params.get('next'));
   const sessionChanged = useSessionChanged();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -21,7 +24,9 @@ export function SignInPage() {
       api<CurrentSessionResponse>('/auth/login', { method: 'POST', body: { email, password } }),
     onSuccess: async (result) => {
       await sessionChanged();
-      await navigate(result.session.mfaPending ? '/mfa' : '/', { replace: true });
+      await navigate(result.session.mfaPending ? `/mfa?next=${encodeURIComponent(next)}` : next, {
+        replace: true,
+      });
     },
   });
 

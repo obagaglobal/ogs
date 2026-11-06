@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { fileTypeFromBuffer } from 'file-type';
+import { DomainError } from '../common/domain-error.js';
 import { TenantDb, type DbContext } from '../database/index.js';
 import { OutboxService } from '../events/outbox.service.js';
 import { FILE_PURPOSES, isFilePurpose } from './file-purposes.js';
@@ -9,20 +10,20 @@ import { ObjectStorage } from './object-storage.js';
 export type FileRejection =
   'unknown_purpose' | 'owner_not_allowed' | 'empty_file' | 'too_large' | 'type_not_allowed';
 
-export class FileRejectedError extends Error {
-  override readonly name = 'FileRejectedError';
+export class FileRejectedError extends DomainError {
   constructor(readonly reason: FileRejection) {
-    super(reason);
+    super(400, `file_${reason}`);
   }
 }
-export class FileNotFoundError extends Error {
-  override readonly name = 'FileNotFoundError';
+export class FileNotFoundError extends DomainError {
+  constructor() {
+    super(404, 'not_found');
+  }
 }
 /** The file exists but is still quarantined (or was rejected by the scanner). */
-export class FileNotAvailableError extends Error {
-  override readonly name = 'FileNotAvailableError';
-  constructor(readonly status: 'QUARANTINED' | 'REJECTED') {
-    super(status);
+export class FileNotAvailableError extends DomainError {
+  constructor(readonly fileStatus: 'QUARANTINED' | 'REJECTED') {
+    super(409, fileStatus === 'QUARANTINED' ? 'file_not_scanned_yet' : 'file_rejected');
   }
 }
 
