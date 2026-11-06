@@ -1,5 +1,6 @@
 import type { CurrentWorkspaceResponse } from '@ogs/contracts';
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router';
 import { Card, Notice } from '@/components/ui/form-controls';
 import { api, describeError } from '@/lib/api';
 import { useWorkspace } from './workspace-state';
@@ -42,8 +43,24 @@ export function DashboardPage() {
       {data.kind !== 'personal' && data.restricted ? (
         <Notice>
           This workspace is {data.status.toLowerCase().replace('_', ' ')}. You can see its status,
-          but nothing else until OGS approves it.
+          but nothing else until OGS approves it.{' '}
+          {data.kind === 'ORGANISATION' ? (
+            <Link className="underline" to="/organisation/application">
+              Open the application
+            </Link>
+          ) : null}
         </Notice>
+      ) : null}
+      {data.kind === 'personal' ? (
+        <Card>
+          <h2 className="mb-1 font-medium">Working for a company?</h2>
+          <p className="text-sm text-muted-foreground">
+            Register your organisation to order services and manage your team on OGS.{' '}
+            <Link className="underline" to="/organisations/new">
+              Register an organisation
+            </Link>
+          </p>
+        </Card>
       ) : null}
       {data.kind !== 'personal' ? (
         <Card>

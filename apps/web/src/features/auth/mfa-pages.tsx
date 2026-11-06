@@ -1,17 +1,20 @@
 import type { MfaSetupResponse, RecoveryCodesResponse } from '@ogs/contracts';
 import { useMutation } from '@tanstack/react-query';
 import QRCode from 'qrcode';
-import { useEffect, useState, type SubmitEvent } from 'react';
-import { useNavigate } from 'react-router';
+import { useEffect, useRef, useState, type SubmitEvent } from 'react';
+import { useNavigate, useSearchParams } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Field, Notice } from '@/components/ui/form-controls';
 import { api, describeError } from '@/lib/api';
+import { safeNext } from '@/lib/safe-next';
 import { AuthLayout } from './auth-layout';
 import { useSessionChanged } from './session';
 
 /** Second step of sign-in: a 6-digit code, or a recovery code. */
 export function MfaPromptPage() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const next = safeNext(params.get('next'));
   const sessionChanged = useSessionChanged();
   const [useRecovery, setUseRecovery] = useState(false);
   const [value, setValue] = useState('');
@@ -24,7 +27,7 @@ export function MfaPromptPage() {
       }),
     onSuccess: async () => {
       await sessionChanged();
-      await navigate('/', { replace: true });
+      await navigate(next, { replace: true });
     },
   });
 
@@ -93,12 +96,16 @@ export function MfaSetupPage() {
     },
   });
 
-  const { mutate: startSetup, isIdle } = setup;
+  // Exactly one setup request: StrictMode (and remounts) run effects twice, and two
+  // racing requests could leave the QR code showing the secret the server replaced.
+  const started = useRef(false);
+  const { mutate: startSetup } = setup;
   useEffect(() => {
-    if (isIdle) {
+    if (!started.current) {
+      started.current = true;
       startSetup();
     }
-  }, [isIdle, startSetup]);
+  }, [startSetup]);
   useEffect(() => {
     if (setup.data) {
       void QRCode.toDataURL(setup.data.otpauthUri, { margin: 1, width: 192 }).then(setQr);

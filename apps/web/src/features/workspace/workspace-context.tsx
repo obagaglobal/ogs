@@ -15,7 +15,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const workspaces = useMemo(() => data ?? [], [data]);
   const current = workspaces.find((workspace) => workspace.tenantId === stored);
-  const selected = current === undefined ? 'personal' : stored;
+  // Keep the stored choice while the list loads (switching to personal and back
+  // would remount every page). Fall back to personal only once the list proves
+  // the stored workspace is gone.
+  const selected = isLoading || current !== undefined ? stored : 'personal';
 
   const select = useCallback((id: string) => {
     localStorage.setItem(STORAGE_KEY, id);

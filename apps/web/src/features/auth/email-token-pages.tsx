@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type SubmitEvent } from 'react';
 import { Link, useLocation } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Field, Notice } from '@/components/ui/form-controls';
+import { PasswordStrengthMeter } from '@/components/ui/password-strength-meter';
 import { api, describeError } from '@/lib/api';
 import { AuthLayout } from './auth-layout';
 import { tokenFromHash } from './token-from-hash';
@@ -141,6 +142,7 @@ export function ResetPasswordPage() {
             error={error}
             required
           />
+          <PasswordStrengthMeter password={password} />
           <Button type="submit" className="w-full" disabled={reset.isPending || token === ''}>
             Change password
           </Button>

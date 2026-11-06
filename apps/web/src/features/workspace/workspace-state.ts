@@ -1,4 +1,8 @@
-import type { WorkspaceListResponse, WorkspaceSummary } from '@ogs/contracts';
+import type {
+  CurrentWorkspaceResponse,
+  WorkspaceListResponse,
+  WorkspaceSummary,
+} from '@ogs/contracts';
 import { useQuery } from '@tanstack/react-query';
 import { createContext, use } from 'react';
 import { api } from '@/lib/api';
@@ -29,4 +33,19 @@ export function useWorkspace(): WorkspaceState {
     throw new Error('useWorkspace must be used inside <WorkspaceProvider>');
   }
   return state;
+}
+
+/** The selected workspace as the server grants it (kind, roles, permissions). */
+export function useCurrentWorkspace() {
+  const { selected } = useWorkspace();
+  return useQuery({
+    queryKey: ['workspace', selected],
+    queryFn: async () => api<CurrentWorkspaceResponse>('/workspace', { workspace: selected }),
+    retry: false,
+  });
+}
+
+export function useCan(permission: string): boolean {
+  const { data } = useCurrentWorkspace();
+  return data !== undefined && data.kind !== 'personal' && data.permissions.includes(permission);
 }

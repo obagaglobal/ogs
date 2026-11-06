@@ -7,6 +7,7 @@ import { WorkspaceProvider } from '@/features/workspace/workspace-context';
 import { useWorkspace } from '@/features/workspace/workspace-state';
 import { WorkspaceSwitcher } from '@/features/workspace/workspace-switcher';
 import { api, ApiError } from '@/lib/api';
+import { WorkspaceNav } from './workspace-nav';
 
 /**
  * Everything behind sign-in. Sends people where the API says they must go:
@@ -73,6 +74,9 @@ function AppShell({ email }: { email: string }) {
               Sign out
             </Button>
           </nav>
+        </div>
+        <div className="mx-auto max-w-5xl px-6 pb-2">
+          <WorkspaceNav />
         </div>
       </header>
       <main className="mx-auto max-w-5xl px-6 py-8">

@@ -1,14 +1,18 @@
 import { PASSWORD_MIN_LENGTH, registerRequestSchema } from '@ogs/contracts';
 import { useMutation } from '@tanstack/react-query';
 import { useState, type SubmitEvent } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Field, Notice } from '@/components/ui/form-controls';
+import { PasswordStrengthMeter } from '@/components/ui/password-strength-meter';
 import { api, describeError } from '@/lib/api';
 import { AuthLayout } from './auth-layout';
 
 export function SignUpPage() {
-  const [email, setEmail] = useState('');
+  // An invitation link passes the invited address, which must not change.
+  const [params] = useSearchParams();
+  const invitedEmail = params.get('email');
+  const [email, setEmail] = useState(invitedEmail ?? '');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -59,6 +63,7 @@ export function SignUpPage() {
             setEmail(event.target.value);
           }}
           error={errors['email']}
+          readOnly={invitedEmail !== null}
           required
         />
         <Field
@@ -73,6 +78,7 @@ export function SignUpPage() {
           error={errors['password']}
           required
         />
+        <PasswordStrengthMeter password={password} />
         <Button type="submit" className="w-full" disabled={register.isPending}>
           {register.isPending ? 'Creating account…' : 'Create account'}
         </Button>

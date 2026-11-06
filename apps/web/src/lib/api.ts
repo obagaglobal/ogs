@@ -14,10 +14,12 @@ export class ApiError extends Error {
 }
 
 export interface RequestOptions {
-  readonly method?: 'GET' | 'POST' | 'DELETE';
+  readonly method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   readonly body?: unknown;
   /** `personal` or a tenant id (X-OGS-Workspace). */
   readonly workspace?: string;
+  /** Extra headers, e.g. X-OGS-Elevation for platform staff. */
+  readonly headers?: Record<string, string>;
 }
 
 let csrfToken: string | undefined;
@@ -63,6 +65,7 @@ export async function api<T>(
   if (options.workspace !== undefined) {
     headers[WORKSPACE_HEADER] = options.workspace;
   }
+  Object.assign(headers, options.headers);
 
   const response = await fetch(`/api/v1${path}`, {
     method,
@@ -111,6 +114,54 @@ export function describeError(error: unknown): string {
     workspace_restricted: 'This workspace is awaiting approval.',
     permission_denied: 'Your role does not allow this.',
     step_up_required: 'Confirm with your authenticator code first.',
+    last_admin: 'An organisation must always keep at least one administrator.',
+    cannot_change_own_membership: 'You cannot change your own membership here.',
+    application_incomplete: 'Complete the missing details before submitting.',
+    application_locked: 'The application cannot be edited while it is under review.',
+    invitation_invalid: 'This invitation is no longer valid. Ask for a new one.',
+    invitation_email_mismatch:
+      'This invitation was sent to a different email address. Sign in with that address.',
+    tenant_not_active: 'This organisation is not active right now.',
+    already_member: 'This person is already a member.',
+    role_in_use: 'Remove this role from every member before deleting it.',
+    role_code_taken: 'That role code is already used.',
+    department_exists: 'A department with that name already exists.',
+    elevation_required: 'Start an elevated session to continue.',
+    cannot_decide_own_application: 'You cannot decide an application you submitted yourself.',
+    file_too_large: 'That file is too large (10 MB maximum).',
+    file_type_not_allowed: 'Upload a PDF, JPEG or PNG file.',
+    invalid_request: 'Some fields are not valid. Check the form and try again.',
   };
   return messages[error.code] ?? 'Something went wrong. Please try again.';
+}
+
+/** Multipart upload to POST /files (the only multipart route). */
+export async function uploadFile<T>(form: FormData, workspace: string): Promise<T> {
+  const token = await loadCsrfToken();
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    [WORKSPACE_HEADER]: workspace,
+  };
+  if (token !== undefined) {
+    headers[CSRF_HEADER] = token;
+  }
+  const response = await fetch('/api/v1/files', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers,
+    body: form,
+  });
+  const payload: unknown = await response.json().catch(() => ({}));
+  if (response.ok) {
+    return payload as T;
+  }
+  const parsed = apiErrorSchema.safeParse(payload);
+  throw new ApiError(
+    response.status,
+    parsed.success
+      ? parsed.data.error
+      : response.status === 413
+        ? 'file_too_large'
+        : 'unexpected_error',
+  );
 }
