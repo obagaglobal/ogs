@@ -39,3 +39,10 @@ Thumbs.db
 # Playwright
 apps/web/test-results/
 apps/web/playwright-report/
+
+# AI-agent skills installed by tools (e.g. the Prisma CLI's "agent skills"
+# offer): third-party agent instructions must never enter the repository.
+apps/api/.claude/
+apps/api/.windsurf/
+apps/api/.agents/
+apps/api/skills-lock.json
