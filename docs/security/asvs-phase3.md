@@ -44,11 +44,11 @@ Legend: ✅ met · 🟡 partly met (see note) · ⏳ not yet (planned phase) · 
 
 ## Follow-ups
 
-| ID  | Item                                                                                         | Target                           |
-| --- | -------------------------------------------------------------------------------------------- | -------------------------------- |
-| F-1 | Password strength meter in the web forms (zxcvbn-style), as guidance only                    | Phase 4 web work                 |
-| F-2 | Email the owner after password change or reset and after MFA is enabled or disabled          | Phase 4 (notification templates) |
-| F-3 | Production secret management and rotation (database, MFA keyring, S3, SMTP)                  | Phase 15                         |
-| F-4 | NGINX security headers, TLS, and object-store bucket policy review                           | Phase 15                         |
-| F-5 | Enable the online HIBP k-anonymity check once the data-protection review allows it (ADR-018) | Before launch                    |
-| F-6 | Re-map this checklist to ASVS 5.0                                                            | Phase 16 security review         |
+| ID  | Item                                                                                                                                                                  | Target                   |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| F-1 | ~~Password strength meter~~ **Done in Phase 4:** advisory meter on sign-up and reset (`apps/web/src/lib/password-strength.ts`, tested)                                | Phase 4 ✅               |
+| F-2 | ~~Security notifications~~ **Done in Phase 4:** password change/reset, MFA on/off and new recovery codes are emailed once each (`identity.security_notice`, test C10) | Phase 4 ✅               |
+| F-3 | Production secret management and rotation (database, MFA keyring, S3, SMTP)                                                                                           | Phase 15                 |
+| F-4 | NGINX security headers, TLS, and object-store bucket policy review                                                                                                    | Phase 15                 |
+| F-5 | Enable the online HIBP k-anonymity check once the data-protection review allows it (ADR-018)                                                                          | Before launch            |
+| F-6 | Re-map this checklist to ASVS 5.0                                                                                                                                     | Phase 16 security review |

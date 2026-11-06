@@ -155,3 +155,26 @@ I recommend one approval for all of Phase 4, delivered as two reviewable halves 
 - **CI has never run on Phases 2–3.** The workflow only runs for PRs and pushes to `main`, and no PR has been opened yet. Phase 4 adds more on unverified ground. Mitigation: open the Phase 2 PR (GitHub CLI or the web UI) and let CI run before 4A is finished.
 - **Stacked branches:** three unmerged branches build on each other. Review and merge them in order (2 → 3 → 4), or squash them into one release PR (your choice).
 - **Multipart uploads add a new attack surface.** Mitigation: a hard request-size cap below the largest purpose limit, a single file per request, in-memory buffering (no temporary files), and the type re-sniffed from the bytes (unchanged from 3B).
+
+## 8. Implementation notes (differences from this plan)
+
+- **Two more database guards than planned.**
+  - Tenant `kind` can never change.
+  - Tenant `status` changes only through platform or system contexts. The Phase 2 `tenant_update` policy would otherwise let a member's workspace rewrite its own approval state.
+  - Application decisions (approve, reject, request changes, `decided_by`, `decision_reason`) are platform-only. An organisation can only (re)submit.
+- **Registration** runs as the `organisations.register` job. It has narrow RLS policies: it may create a PENDING_APPROVAL organisation tenant with its first rows and write that tenant's `organisation.registered` audit row (actor `SYSTEM`, applicant id in the metadata).
+- **The last-admin guard is a deferred constraint trigger.** It is checked at COMMIT and serialised per tenant with an advisory lock, so replacing roles inside one transaction works and two concurrent demotions cannot both win. A test commits two real database transactions at once. It covers `org_admin` for organisations and `provider_admin` for provider companies; PLATFORM is managed by OGS. Phase 3 tests that removed an organisation's **only** admin now give it a second admin first.
+- **Invitation tokens are minted by the worker,** like email-verification tokens. The API stores the invitation without a token, and the worker creates it, stores the SHA-256 and emails the link (`#token=…&email=…`). Re-inviting revokes the previous invitation, enforced by a partial unique index (one PENDING per email and tenant).
+- **Uploads:** `POST /api/v1/files` is the only multipart route (`@AcceptsMultipart()`). Files are buffered in memory (multer's default; no disk), capped at 10 MB, one file per request. A restricted (pending) workspace can only upload `organisation.document`. The purpose's permission is checked only for tenant-owned uploads.
+- **Errors:** `DomainError` (status + code) plus one global filter replaced ad-hoc mapping for the Phase 4 services. File errors became domain errors (`file_owner_not_allowed`, `file_not_scanned_yet`, …).
+- **The route check reports method and path,** so C1 discovers every permission route automatically. For a pending organisation, every route whose permission the applicant holds must answer exactly `workspace_restricted`.
+- **Web:**
+  - Invitations preselect the least-privileged built-in role.
+  - Sign-in and MFA honour a same-app `?next=` (`safeNext`, no open redirects).
+  - The invitation token is kept in `sessionStorage` (one tab) while a signed-out invitee signs up.
+  - Staff start an elevation from the review pages (reason plus authenticator code), stored for its 15 minutes in `sessionStorage`.
+- **Two web bugs found by the new tests and fixed:**
+  - The workspace provider briefly reported "personal" while the workspace list loaded, which remounted pages and wiped half-filled forms.
+  - The MFA setup page could fire two setup requests (React StrictMode), and its QR code could show a secret the server had already replaced.
+- **The Playwright global setup clears rate-limit counters on the local dev Redis** before each run. Every browser signs up from 127.0.0.1, so repeated local runs hit the 10-per-hour registration limit. The setup refuses to touch a non-local Redis, and production limits are unchanged.
+- **Seed:** Acme has an APPROVED application and Savanna a SUBMITTED one, so the review queue has something to show.

@@ -63,6 +63,15 @@ Open http://localhost:5173 and sign in, or create a new account (the confirmatio
 - Use the header to switch workspaces. The current workspace is always shown there.
 - **Security** lists your signed-in devices and your two-step verification status.
 
+### Try the organisation flow (Phase 4)
+
+1. **Apply.** Sign up as a new user, then on the personal dashboard choose **Register an organisation**. Fill in the details, upload a PDF, JPEG or PNG certificate and **Submit for review**. The workspace shows "pending" and only the application is reachable.
+2. **Review.** Sign in as `admin@ogs.test` (super admin). Pick the **OGS Platform** workspace, open **Applications** and start an elevated session (a reason plus your authenticator code). Then approve, request changes or reject. Each decision is emailed to the organisation's admins (see Mailpit).
+3. **Run the organisation.** Back as the applicant: after approval you must set up two-step verification, because MFA is mandatory for organisation admins. Then use **Team** to invite people, change roles and suspend or remove members, **Roles** for custom roles, and **Departments**.
+4. **Accept an invitation.** Open the invitation link from Mailpit, then sign in or create an account with the invited address and accept.
+
+The seeded data already includes Acme Kenya Ltd (approved) and Savanna Logistics (submitted, waiting in the review queue).
+
 ## Try the API with a session
 
 PowerShell, keeping the session cookie in `$s`:

@@ -2,8 +2,8 @@
 
 OGS is a multi-tenant business services platform owned by **ObagaGlobal**. It will serve individual customers, organisations with their own company portals, external individual and company service providers, and internal OGS employees. Planned features include a public service catalogue, hybrid service delivery and organisation approval workflows.
 
-> **Current status: Phase 3 complete: identity, MFA, access control, files and the web shell.**
-> People can sign up, confirm their email and sign in, with authenticator-app two-step verification (mandatory for admins and OGS staff). They can switch between workspaces in the web app. OGS staff can elevate, with an audited reason, to work across tenants. Files are stored privately and quarantined until scanned. Tenant isolation is enforced by PostgreSQL row-level security and proven through the API and in a browser. Business features (organisation onboarding, catalogue, orders, ticketing, payments) start in Phase 4.
+> **Current status: Phase 4 complete: organisations, approvals, invitations and members.**
+> Anyone can sign up, with authenticator-app two-step verification (mandatory for admins and OGS staff). They can register an organisation, which OGS staff approve, send back for changes or reject, under an audited elevation. Once it is approved, admins invite their team, assign built-in or custom roles and departments, and manage memberships. The last admin can never be removed. Tenant isolation is enforced by PostgreSQL row-level security and proven through the API and in real browsers. Next: provider companies and individual providers (Phase 5), then the service catalogue.
 
 ---
 

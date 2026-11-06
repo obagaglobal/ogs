@@ -1,6 +1,6 @@
 # Architecture Overview
 
-> Status: Phase 3 complete (identity, MFA, access control, files, web shell) on top of Phase 2 (tenancy and RLS). This document describes what exists today and the intended direction. Planned items are marked **(planned)** and are not implemented.
+> Status: Phase 4 complete (organisations, approvals, invitations, members) on top of Phases 2–3 (tenancy, RLS, identity, access control).
 
 ## 1. Product context
 
@@ -190,7 +190,63 @@ Errors are always `{ "error": "<code>" }`, for example `invalid_credentials`, `e
 
 **Proof.** The integration suites `auth-flows` (A1–A7, A11, A12), `api-isolation` (A9, A10), `mfa-platform` (B1–B3) and `files` (B4) run the API and worker in-process against PostgreSQL, Redis, Mailpit and the object store. The Playwright test (B5) runs the whole first-run journey in Chromium. The ASVS L2 self-assessment is in [`docs/security/asvs-phase3.md`](../security/asvs-phase3.md).
 
-## 8. Architecture decisions
+## 8. Organisations (Phase 4)
+
+Planned in the [Phase 4 plan](../plans/phase-4-organisations.md).
+
+**Application lifecycle.** A verified user registers an organisation, which creates, atomically:
+
+- a PENDING_APPROVAL tenant;
+- an `organisation_profile`;
+- a DRAFT `organisation_application`;
+- an `org_admin` membership for the applicant.
+
+The applicant's workspace is restricted: it reaches only the application, the profile and `organisation.document` uploads. OGS staff review under an elevation and approve, request changes (with a reason) or reject (with a reason, final). Every transition is recorded in the append-only `organisation_application_event`, audited, and emailed to the organisation's admins through the outbox. Once the organisation is ACTIVE, its admins must enrol in MFA (P4-1).
+
+**Members.** Admins can:
+
+- invite people by email (single-use worker-minted token, 7 days, accepted only by that address, ACTIVE tenants only);
+- suspend, reactivate or end memberships;
+- replace a member's roles;
+- build custom roles from the permissions allowed for their tenant kind;
+- manage a flat list of departments, archived rather than deleted.
+
+The last ACTIVE admin can never be removed, demoted or suspended. A deferred, per-tenant-locked trigger enforces this at COMMIT.
+
+**Database guards added in Phase 4:**
+
+- tenant kind is immutable;
+- tenant status changes only through platform or system contexts;
+- application decisions are platform-only;
+- the event history is append-only;
+- one pending invitation per email and tenant.
+
+**Endpoints (Phase 4).**
+
+| Method and path                                                                                         | Access                                             | Purpose                                                            |
+| ------------------------------------------------------------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------ |
+| `POST /organisations`                                                                                   | verified user                                      | Apply (creates the pending organisation)                           |
+| `GET /organisation/application`, `PATCH /organisation/profile`, `POST /organisation/application/submit` | `organisation.profile.manage` (restricted allowed) | The applicant's view, edit and submit                              |
+| `POST /files` (multipart), `GET /files/:id/download`                                                    | workspace (restricted: application documents only) | Upload and 60-second download link                                 |
+| `GET /platform/applications`, `GET /platform/applications/:id`                                          | elevation + `platform.tenant.review`               | Review queue and detail                                            |
+| `POST /platform/applications/:id/approve` \| `reject` \| `request-changes`                              | elevation + `platform.tenant.approve`              | Decide (reason for reject and changes; never your own application) |
+| `POST /platform/tenants/:id/suspend` \| `reactivate`                                                    | elevation + `platform.tenant.approve`              | Suspend or reactivate (reason)                                     |
+| `POST/GET /workspace/invitations`, `DELETE /workspace/invitations/:id`                                  | `membership.invite`                                | Invite, list, revoke                                               |
+| `POST /invitations/accept`                                                                              | verified user                                      | Accept (email must match)                                          |
+| `PATCH /workspace/members/:id`, `PUT /workspace/members/:id/roles`, `POST /workspace/leave`             | `membership.manage` / `role.manage` / member       | Status and department, roles, leave                                |
+| `GET/POST/PATCH/DELETE /workspace/roles`, `GET /workspace/permissions`                                  | `role.read` / `role.manage`                        | Custom roles                                                       |
+| `GET/POST/PATCH /workspace/departments`                                                                 | `membership.read` / `department.manage`            | Departments                                                        |
+
+**Proof.** The suites `organisations` (C1–C3, C9) and `members` (C4–C8, C10) cover:
+
+- the automatic route walk proving a pending organisation is inert;
+- a true two-transaction last-admin race;
+- invitation binding and expiry;
+- cross-tenant 404/403 on every new endpoint.
+
+The Playwright journey `organisation-journey.spec.ts` covers apply, approve, invite and accept with three people.
+
+## 9. Architecture decisions
 
 | ID  | Decision                                                                  | Status                    |
 | --- | ------------------------------------------------------------------------- | ------------------------- |
