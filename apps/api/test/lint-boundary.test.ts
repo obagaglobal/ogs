@@ -15,18 +15,20 @@ const databaseFile = 'apps/api/src/database/some-internal.ts';
 describe('database boundary lint rule (T12)', () => {
   let featureRules: Partial<Linter.RulesRecord> = {};
 
+  // Loading the whole repository ESLint config can take over vitest's 10 s
+  // default when `pnpm check` runs every workspace in parallel.
   beforeAll(async () => {
     const eslint = new ESLint({ cwd: repoRoot });
     const config = (await eslint.calculateConfigForFile(featureFile)) as Linter.Config;
     featureRules = config.rules ?? {};
-  });
+  }, 60_000);
 
   it('applies to feature modules but not to src/database', async () => {
     const eslint = new ESLint({ cwd: repoRoot });
     const databaseConfig = (await eslint.calculateConfigForFile(databaseFile)) as Linter.Config;
     expect(featureRules['no-restricted-imports']).toBeDefined();
     expect(databaseConfig.rules?.['no-restricted-imports']).toBeUndefined();
-  });
+  }, 60_000);
 
   async function lint(code: string): Promise<string[]> {
     const eslint = new ESLint({

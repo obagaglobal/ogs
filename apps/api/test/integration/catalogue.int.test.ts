@@ -934,7 +934,15 @@ describe('E8 — abuse resistance', () => {
     const client = visitor();
     const first = await client.get('/catalogue/categories');
     expect(first.status).toBe(200);
-    expect(first.headers['cache-control']).toBe('public, max-age=60');
+    expect(first.headers['cache-control']).toBe('public, no-cache');
+    // Revalidation is cheap: an unchanged answer is a 304 with no body.
+    const etag = first.headers['etag'];
+    expect(etag).toEqual(expect.any(String));
+    const revalidated = await client.agent
+      .get('/api/v1/catalogue/categories')
+      .set('X-Forwarded-For', client.ip)
+      .set('If-None-Match', String(etag));
+    expect(revalidated.status).toBe(304);
     let last = first;
     for (let batch = 0; batch < 24 && last.status !== 429; batch += 1) {
       const responses = await Promise.all(

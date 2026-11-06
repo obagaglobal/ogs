@@ -17,7 +17,12 @@ import type { TypedConfigService } from '../config/env.js';
 import { RateLimiter, RateLimiterUnavailable } from '../identity/rate-limiter.js';
 import { CataloguePublicService } from './catalogue-public.service.js';
 
-const PUBLIC_CACHE = 'public, max-age=60';
+/**
+ * Cacheable, but always revalidated: a retired service must disappear at once
+ * (E6), even for a visitor whose browser has seen it. Express's ETag turns an
+ * unchanged answer into a cheap 304.
+ */
+const PUBLIC_CACHE = 'public, no-cache';
 
 function escapeXml(value: string): string {
   return value
