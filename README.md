@@ -2,8 +2,8 @@
 
 OGS is a multi-tenant business services platform owned by **ObagaGlobal**. It will serve individual customers, organisations with their own company portals, external individual and company service providers, and internal OGS employees. Planned features include a public service catalogue, hybrid service delivery and organisation approval workflows.
 
-> **Current status: Phase 2, tenancy, RLS and data foundations.**
-> The database enforces tenant isolation with PostgreSQL row-level security, proven by an integration test suite. The repository also has an audit log, a transactional outbox with a background worker, and health/readiness endpoints. No business features (authentication, organisations, catalogue, payments, ticketing) exist yet.
+> **Current status: Phase 3 complete: identity, MFA, access control, files and the web shell.**
+> People can sign up, confirm their email and sign in, with authenticator-app two-step verification (mandatory for admins and OGS staff). They can switch between workspaces in the web app. OGS staff can elevate, with an audited reason, to work across tenants. Files are stored privately and quarantined until scanned. Tenant isolation is enforced by PostgreSQL row-level security and proven through the API and in a browser. Business features (organisation onboarding, catalogue, orders, ticketing, payments) start in Phase 4.
 
 ---
 
@@ -15,7 +15,11 @@ OGS is a multi-tenant business services platform owned by **ObagaGlobal**. It wi
 | Language       | TypeScript 6.0 (strict), native ESM                                         |
 | Backend        | NestJS 12, `@nestjs/config`, Zod environment validation                     |
 | Data           | PostgreSQL 18 with row-level security, Prisma 7 (`@prisma/adapter-pg`)      |
-| Queues / cache | Redis 8, BullMQ (transactional outbox → worker)                             |
+| Queues / cache | Redis 8: sessions, rate limits, BullMQ (transactional outbox → worker)      |
+| Auth           | Argon2id (node:crypto), server-side sessions, CSRF tokens, role permissions |
+| Email (dev)    | Mailpit (SMTP + web inbox)                                                  |
+| Files          | S3 API (`@aws-sdk/client-s3`); SeaweedFS S3 gateway in development          |
+| Web            | React Router 8, TanStack Query 5; Playwright browser smoke test             |
 | Frontend       | React 19, Vite 8, Tailwind CSS 4, shadcn/ui                                 |
 | Quality        | ESLint 10 + typescript-eslint (strict, type-checked), Prettier 3            |
 | Testing        | Vitest 5, Supertest, Testing Library + jsdom, integration tests on real DBs |
@@ -31,6 +35,11 @@ OGS is a multi-tenant business services platform owned by **ObagaGlobal**. It wi
 │   │   ├── prisma/             Schema + migrations (RLS policies live in the migration SQL)
 │   │   ├── scripts/            db-seed, db-reset guards
 │   │   ├── src/
+│   │   │   ├── access/         Global access guard: session, CSRF, workspace, permission
+│   │   │   ├── identity/       Accounts, sign-in, passwords, lockout, rate limits
+│   │   │   ├── sessions/       Redis session store and cookie
+│   │   │   ├── authz/          Permission catalogue and system roles
+│   │   │   ├── notifications/  Identity emails (worker)
 │   │   │   ├── database/       TenantDb: the only door to the database (sets RLS context)
 │   │   │   ├── tenancy/        Workspace resolution (requested workspace → granted context)
 │   │   │   ├── audit/          Append-only audit log
@@ -62,10 +71,10 @@ pnpm install                 # install dependencies
 pnpm setup:env               # create .env files from templates (never overwrites)
 #   → edit .env and apps/api/.env and replace placeholder credentials (keep them consistent)
 
-pnpm infra:up                # start PostgreSQL + Redis
+pnpm infra:up                # start PostgreSQL, Redis, Mailpit and the object store
 pnpm db:roles                # create the ogs_* database roles (needed once per Docker volume)
 pnpm db:migrate              # apply migrations
-pnpm db:seed                 # optional sample data
+pnpm db:seed                 # optional: roles + sample tenants and users (password: SEED_USER_PASSWORD)
 pnpm dev                     # run API + worker + web
 ```
 
@@ -74,6 +83,8 @@ pnpm dev                     # run API + worker + web
 | Web           | http://localhost:5173                     |
 | API liveness  | http://127.0.0.1:3000/api/v1/health       |
 | API readiness | http://127.0.0.1:3000/api/v1/health/ready |
+| Mailpit inbox | http://localhost:8025                     |
+| Object store  | http://127.0.0.1:8333 (S3 API)            |
 | PostgreSQL    | localhost:5432 (127.0.0.1 only)           |
 | Redis         | localhost:6379 (127.0.0.1 only)           |
 
@@ -81,27 +92,28 @@ pnpm dev                     # run API + worker + web
 
 ## Scripts
 
-| Command                                       | Description                                                       |
-| --------------------------------------------- | ----------------------------------------------------------------- |
-| `pnpm dev`                                    | Run API, worker and web in watch mode                             |
-| `pnpm dev:api` / `dev:worker` / `dev:web`     | Run one process                                                   |
-| `pnpm build`                                  | Production build of every package and app                         |
-| `pnpm check`                                  | Format check + lint + typecheck + unit tests (run before pushing) |
-| `pnpm test`                                   | Unit + HTTP e2e tests (no Docker needed)                          |
-| `pnpm test:integration`                       | RLS / isolation / outbox tests on real PostgreSQL + Redis         |
-| `pnpm lint` / `lint:fix`                      | ESLint (zero warnings allowed)                                    |
-| `pnpm format` / `format:check`                | Prettier                                                          |
-| `pnpm typecheck`                              | TypeScript across all workspaces                                  |
-| `pnpm infra:up` / `infra:down` / `infra:logs` | Manage local Docker infrastructure                                |
-| `pnpm db:roles`                               | Create/refresh database roles and the `ogs_test` database         |
-| `pnpm db:migrate` / `db:migrate:dev`          | Apply migrations / create a migration (dev)                       |
-| `pnpm db:seed`                                | Insert sample tenants, users and memberships                      |
-| `pnpm db:reset` / `db:reset:test`             | **Wipe** and rebuild the local dev / test database (guarded)      |
-| `pnpm setup:env`                              | Create missing `.env` files from `.env.example`                   |
+| Command                                       | Description                                                                      |
+| --------------------------------------------- | -------------------------------------------------------------------------------- |
+| `pnpm dev`                                    | Run API, worker and web in watch mode                                            |
+| `pnpm dev:api` / `dev:worker` / `dev:web`     | Run one process                                                                  |
+| `pnpm build`                                  | Production build of every package and app                                        |
+| `pnpm check`                                  | Format check + lint + typecheck + unit tests (run before pushing)                |
+| `pnpm test`                                   | Unit + HTTP e2e tests (no Docker needed)                                         |
+| `pnpm test:integration`                       | RLS / isolation / outbox tests on real PostgreSQL + Redis                        |
+| `pnpm test:e2e`                               | Build, then run the Playwright browser smoke test (needs `pnpm infra:up` + seed) |
+| `pnpm lint` / `lint:fix`                      | ESLint (zero warnings allowed)                                                   |
+| `pnpm format` / `format:check`                | Prettier                                                                         |
+| `pnpm typecheck`                              | TypeScript across all workspaces                                                 |
+| `pnpm infra:up` / `infra:down` / `infra:logs` | Manage local Docker infrastructure                                               |
+| `pnpm db:roles`                               | Create/refresh database roles and the `ogs_test` database                        |
+| `pnpm db:migrate` / `db:migrate:dev`          | Apply migrations / create a migration (dev)                                      |
+| `pnpm db:seed`                                | Insert sample tenants, users and memberships                                     |
+| `pnpm db:reset` / `db:reset:test`             | **Wipe** and rebuild the local dev / test database (guarded)                     |
+| `pnpm setup:env`                              | Create missing `.env` files from `.env.example`                                  |
 
 ## API
 
-All routes are versioned under `/api/v1`.
+All routes are versioned under `/api/v1`. Every route is denied unless it declares an access rule. Signed-in clients send the session cookie, `X-CSRF-Token` on unsafe requests, and `X-OGS-Workspace` to pick a workspace. The endpoint list and request pipeline are in [architecture overview §7](docs/architecture/overview.md#7-identity-sessions-and-access). [Getting started](docs/development/getting-started.md#try-the-api-with-a-session) has a PowerShell walk-through.
 
 - `GET /api/v1/health`: liveness. Never touches PostgreSQL or Redis.
 - `GET /api/v1/health/ready`: readiness. `200` when PostgreSQL and Redis answer, `503` otherwise.
@@ -127,13 +139,17 @@ The API connects as `ogs_app`, a role that cannot bypass RLS and owns nothing. E
 - The running API only knows the `ogs_app` credentials. Migration (`ogs_owner`) and maintenance (`ogs_maint`) credentials are read only by Prisma CLI and dev scripts.
 - Docker Compose has no default credentials and binds ports to `127.0.0.1` only.
 - pnpm's supply-chain protections are left on. Only Prisma is allowed to run install scripts (`allowBuilds` in `pnpm-workspace.yaml`), and the minimum package release age is enforced.
+- Passwords: Argon2id, 12–128 characters, checked against a breached-password list. Accounts lock after repeated failures, and sign-in endpoints are rate limited and never reveal whether an account exists.
+- Sessions: server-side in Redis, with HttpOnly cookies (`__Host-` and Secure in production), CSRF tokens, 30-minute idle and 12-hour absolute timeouts.
 - Browser-visible variables (`VITE_*`) are public. Never put secrets in them.
 
 ## Documentation
 
 - [Architecture overview](docs/architecture/overview.md)
 - [Architecture review (approved)](docs/architecture/review.md) and [decision records](docs/DECISIONS.md)
-- [Phase 2 plan](docs/plans/phase-2-tenancy.md)
+- [Permissions and system roles](docs/architecture/permissions.md)
+- [ASVS L2 self-assessment (Phase 3)](docs/security/asvs-phase3.md)
+- Phase plans: [Phase 2](docs/plans/phase-2-tenancy.md), [Phase 3](docs/plans/phase-3-identity.md)
 - [Getting started](docs/development/getting-started.md)
 - [Development standards](docs/development/standards.md)
 

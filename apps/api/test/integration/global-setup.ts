@@ -11,8 +11,11 @@ export interface IntegrationUrls {
   /** ogs_maint: BYPASSRLS, used only to create fixtures across tenants. */
   readonly maint: string;
   readonly redis: string;
-  /** Unique BullMQ prefix for this run, so runs never see each other's jobs. */
+  /** Unique BullMQ/Redis key prefix for this run, so runs never see each other's jobs or sessions. */
   readonly queuePrefix: string;
+  /** Mailpit SMTP (worker sends here) and its HTTP API (tests read mail here). */
+  readonly smtp: string;
+  readonly mailpitApi: string;
 }
 
 declare module 'vitest' {
@@ -57,6 +60,8 @@ export default function setup(project: TestProject): void {
     maint: toTestDatabase('DATABASE_MAINT_URL', database),
     redis: required('REDIS_URL'),
     queuePrefix: `ogs-test-${randomBytes(4).toString('hex')}`,
+    smtp: process.env['SMTP_URL'] ?? 'smtp://127.0.0.1:1025',
+    mailpitApi: process.env['MAILPIT_API_URL'] ?? 'http://127.0.0.1:8025/api/v1',
   };
 
   // Bring the test database up to date as ogs_owner. Non-destructive: tests

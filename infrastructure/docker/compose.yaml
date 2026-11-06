@@ -1,7 +1,7 @@
 # OGS local development infrastructure.
 #
 # Usage (from the repository root):
-#   pnpm infra:up        # start PostgreSQL and Redis
+#   pnpm infra:up        # start PostgreSQL, Redis, Mailpit and the object store
 #   pnpm infra:down      # stop (data is kept in named volumes)
 #
 # Credentials come from the root .env file (see .env.example). Startup fails
@@ -61,6 +61,51 @@ services:
       retries: 10
       start_period: 5s
 
+  # Development/CI email (Phase 3, ADR-025): catches every message the worker sends.
+  # Web inbox: http://localhost:8025 . Never used in production.
+  mailpit:
+    image: axllent/mailpit:v1.33
+    restart: unless-stopped
+    environment:
+      MP_MAX_MESSAGES: 5000
+    ports:
+      - '127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025'
+      - '127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025'
+    healthcheck:
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  # Development S3-compatible object storage for files (ADR-019, Phase 3B).
+  # SeaweedFS replaces MinIO, whose images are no longer publicly pullable.
+  # The API only speaks S3, so any S3-compatible service can stand in here.
+  objectstore:
+    image: chrislusf/seaweedfs:4.50
+    restart: unless-stopped
+    environment:
+      OBJECTSTORE_ACCESS_KEY: ${OBJECTSTORE_ACCESS_KEY:?OBJECTSTORE_ACCESS_KEY must be set in .env}
+      OBJECTSTORE_SECRET_KEY: ${OBJECTSTORE_SECRET_KEY:?OBJECTSTORE_SECRET_KEY must be set in .env}
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - >-
+        printf '{"identities":[{"name":"ogs","credentials":[{"accessKey":"%s","secretKey":"%s"}],"actions":["Admin","Read","Write","List","Tagging"]}]}'
+        "$$OBJECTSTORE_ACCESS_KEY" "$$OBJECTSTORE_SECRET_KEY" > /tmp/s3.json &&
+        exec weed server -dir=/data -ip.bind=0.0.0.0 -s3 -s3.port=8333 -s3.config=/tmp/s3.json
+        -master.volumeSizeLimitMB=64 -volume.max=0
+    ports:
+      - '127.0.0.1:${OBJECTSTORE_PORT:-8333}:8333'
+    volumes:
+      - objectstore-data:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:8333/healthz || exit 1']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
 volumes:
   postgres-data:
   redis-data:
+  objectstore-data:

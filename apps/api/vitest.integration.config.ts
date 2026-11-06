@@ -20,6 +20,9 @@ export default defineConfig({
     environment: 'node',
     include: ['test/integration/**/*.int.test.ts'],
     globalSetup: ['test/integration/global-setup.ts'],
+    // Points the app's env at the test database, test Redis prefix and Mailpit
+    // BEFORE any test imports AppModule (ConfigModule validates at import time).
+    setupFiles: ['test/integration/env-setup.ts'],
     // Files share one database; run them one at a time so timing-sensitive
     // tests (pool, concurrency, queues) are not disturbed by each other.
     fileParallelism: false,

@@ -8,7 +8,27 @@ import { connect } from './support.js';
  * hands ogs_app a privilege that ignores RLS, fails CI.
  */
 const ALLOWLIST = new Set(['_prisma_migrations']);
-const PHASE_2_TABLES = ['app_user', 'audit_log', 'membership', 'outbox_event', 'tenant'];
+const KNOWN_TABLES = [
+  // Phase 2
+  'app_user',
+  'audit_log',
+  'membership',
+  'outbox_event',
+  'tenant',
+  // Phase 3A
+  'authentication_event',
+  'credential',
+  'membership_role',
+  'notification_delivery',
+  'permission',
+  'role',
+  'role_permission',
+  'user_token',
+  // Phase 3B
+  'file_metadata',
+  'mfa_factor',
+  'recovery_code',
+];
 
 interface TableRow {
   table: string;
@@ -39,8 +59,8 @@ describe('RLS catalogue guard (T5)', () => {
     await owner.end();
   });
 
-  it('sees every Phase 2 table (the guard is not vacuous)', () => {
-    expect(tables.map((row) => row.table)).toEqual(expect.arrayContaining(PHASE_2_TABLES));
+  it('sees every known table (the guard is not vacuous)', () => {
+    expect(tables.map((row) => row.table)).toEqual(expect.arrayContaining(KNOWN_TABLES));
   });
 
   it('every table has RLS enabled AND forced AND at least one policy', () => {

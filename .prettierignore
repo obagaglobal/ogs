@@ -4,3 +4,5 @@ dist
 dist-worker
 coverage
 apps/api/src/generated
+apps/web/test-results
+apps/web/playwright-report

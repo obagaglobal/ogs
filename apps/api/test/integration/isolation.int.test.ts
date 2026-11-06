@@ -12,6 +12,19 @@ import {
 
 const INSUFFICIENT_PRIVILEGE = '42501';
 const TABLES = ['tenant', 'app_user', 'membership', 'audit_log', 'outbox_event'] as const;
+const PHASE_3_TABLES = [
+  'credential',
+  'user_token',
+  'authentication_event',
+  'notification_delivery',
+  'permission',
+  'role',
+  'role_permission',
+  'membership_role',
+  'mfa_factor',
+  'recovery_code',
+  'file_metadata',
+] as const;
 
 describe('fail closed without a context (T2)', () => {
   let app: pg.Client;
@@ -30,10 +43,13 @@ describe('fail closed without a context (T2)', () => {
     await maint.end();
   });
 
-  it.each(TABLES)('%s returns zero rows when no context was ever set', async (table) => {
-    const result = await app.query<{ n: number }>(`SELECT count(*)::int AS n FROM ${table}`);
-    expect(result.rows[0]?.n).toBe(0);
-  });
+  it.each([...TABLES, ...PHASE_3_TABLES])(
+    '%s returns zero rows when no context was ever set',
+    async (table) => {
+      const result = await app.query<{ n: number }>(`SELECT count(*)::int AS n FROM ${table}`);
+      expect(result.rows[0]?.n).toBe(0);
+    },
+  );
 
   it('every insert is rejected without a context', async () => {
     await app.query('BEGIN');

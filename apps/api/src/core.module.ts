@@ -4,6 +4,7 @@ import { AuditModule } from './audit/audit.module.js';
 import { validateEnv } from './config/env.js';
 import { DatabaseModule } from './database/index.js';
 import { EventsModule } from './events/events.module.js';
+import { FilesModule } from './files/files.module.js';
 import { RedisModule } from './redis/redis.module.js';
 
 /** Infrastructure shared by the API and the worker process. */
@@ -21,6 +22,7 @@ import { RedisModule } from './redis/redis.module.js';
     RedisModule,
     AuditModule,
     EventsModule,
+    FilesModule,
   ],
 })
 export class CoreModule {}

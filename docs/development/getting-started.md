@@ -34,24 +34,58 @@ Edit the generated files and replace the `change-me-local-only` placeholders. Ke
 ## Start infrastructure and the database
 
 ```powershell
-pnpm infra:up         # start PostgreSQL 18 + Redis 8 (docker compose up -d)
+pnpm infra:up         # start PostgreSQL 18, Redis 8, Mailpit and the object store
 pnpm db:roles         # create/refresh the ogs_* roles and the ogs_test database (idempotent)
 pnpm db:migrate       # apply migrations to ogs_dev as ogs_owner
-pnpm db:seed          # optional: sample tenants, users, memberships (idempotent)
+pnpm db:seed          # optional: roles, sample tenants, users with passwords, memberships (idempotent)
 ```
 
 - On a **new** Docker volume the role bootstrap runs automatically; `pnpm db:roles` is then a harmless no-op. On a volume created before Phase 2 you **must** run it once.
 - Changing an `OGS_*_PASSWORD` and re-running `pnpm db:roles` rotates that password.
 - `pnpm infra:down` stops the containers; data stays in the `ogs_postgres-data` / `ogs_redis-data` volumes.
+- **Email:** the worker sends every email to **Mailpit**. Open http://localhost:8025 to read verification and password-reset emails. Nothing leaves your machine.
 
-Seeded accounts (no passwords yet; login arrives in Phase 3):
+Seeded accounts. All are verified, and all use the password in `SEED_USER_PASSWORD` (`apps/api/.env`):
 
-| User               | Workspaces                                                       |
-| ------------------ | ---------------------------------------------------------------- |
-| `admin@ogs.test`   | OGS Platform                                                     |
-| `alice@acme.test`  | Acme Kenya Ltd, Nairobi Tech Partners (multi-membership example) |
-| `bob@savanna.test` | Savanna Logistics (pending approval → restricted)                |
-| `tech@ntp.test`    | Nairobi Tech Partners (provider company)                         |
+| User               | Workspace (role)                                                                                |
+| ------------------ | ----------------------------------------------------------------------------------------------- |
+| `admin@ogs.test`   | OGS Platform (`super_admin`)                                                                    |
+| `alice@acme.test`  | Acme Kenya Ltd (`org_admin`) and Nairobi Tech Partners (`provider_technician`)                  |
+| `bob@savanna.test` | Savanna Logistics (`org_admin`; the tenant is pending approval, so the workspace is restricted) |
+| `tech@ntp.test`    | Nairobi Tech Partners (`provider_admin`)                                                        |
+
+## Sign in to the web app
+
+Open http://localhost:5173 and sign in, or create a new account (the confirmation email arrives in Mailpit).
+
+- **Seeded admins must set up two-step verification first.** That covers `admin@ogs.test`, `alice@acme.test`, `bob@savanna.test` and `tech@ntp.test`, because MFA is mandatory for OGS staff and admin roles. The app takes you to the setup page: scan the QR code with any authenticator app, or type the key shown under it. Then keep the recovery codes it shows you.
+- **Losing the authenticator** on a dev database is not a problem: run `pnpm db:seed` again. It resets the seeded users' passwords, but not their MFA. To reset MFA for one user, delete their rows from `mfa_factor` and `recovery_code` as `ogs_maint`, set `app_user.mfa_enabled = false` inside a transaction with `set_config('app.is_platform', 'true', true)`, and sign in again.
+- Use the header to switch workspaces. The current workspace is always shown there.
+- **Security** lists your signed-in devices and your two-step verification status.
+
+## Try the API with a session
+
+PowerShell, keeping the session cookie in `$s`:
+
+```powershell
+$api = 'http://127.0.0.1:3000/api/v1'
+Invoke-RestMethod "$api/auth/login" -Method Post -ContentType 'application/json' `
+  -Body '{"email":"alice@acme.test","password":"change-me-local-only"}' -SessionVariable s
+Invoke-RestMethod "$api/me/workspaces" -WebSession $s
+Invoke-RestMethod "$api/workspace/members" -WebSession $s `
+  -Headers @{ 'X-OGS-Workspace' = '01930000-0000-7000-8000-000000000002' }
+$csrf = (Invoke-RestMethod "$api/auth/csrf" -WebSession $s).csrfToken
+Invoke-RestMethod "$api/auth/logout" -Method Post -ContentType 'application/json' -Body '{}' `
+  -WebSession $s -Headers @{ 'X-CSRF-Token' = $csrf }
+```
+
+The rules every client must follow:
+
+- Send `Content-Type: application/json` on any request with a body.
+- Send `X-CSRF-Token` (from `GET /auth/csrf`) on every POST, PUT, PATCH or DELETE once signed in.
+- Choose the workspace with `X-OGS-Workspace: personal | <tenantId>`.
+
+The endpoint list is in the [architecture overview](../architecture/overview.md#7-identity-sessions-and-access).
 
 ## Run the applications
 
@@ -70,10 +104,13 @@ pnpm dev:web          # web only     → http://localhost:5173
 
 ```powershell
 pnpm test               # unit + HTTP e2e tests (no Docker needed)
-pnpm test:integration   # RLS, isolation, outbox, readiness against real PostgreSQL + Redis
+pnpm test:integration   # RLS, isolation, auth, MFA, files: real PostgreSQL, Redis, Mailpit, object store
+pnpm test:e2e           # builds, then signs up/verifies/enrols in a real Chromium (Playwright)
 ```
 
-Integration tests need `pnpm infra:up` and `pnpm db:roles`. They run against the separate **`ogs_test`** database (never `ogs_dev`), apply migrations to it automatically, and use a unique BullMQ prefix per run. They create uniquely named rows and never wipe anything. If you edited an existing migration (rather than adding a new one), recreate the test database with `pnpm db:reset:test`.
+Integration tests need `pnpm infra:up` and `pnpm db:roles`. They run against the separate **`ogs_test`** database (never `ogs_dev`), apply migrations to it automatically, and use a unique Redis/BullMQ prefix per run. The API and the worker run in-process, and emails are read back from Mailpit. Tests create uniquely named rows and users and never wipe anything. If you edited an existing migration (rather than adding a new one), recreate the test database with `pnpm db:reset:test`.
+
+The browser test needs the dev database migrated and seeded (it joins the seeded Acme organisation). It also needs Chromium for Playwright, installed once with `pnpm --filter @ogs/web exec playwright install chromium`. It reuses an API, worker or web server that is already running. Each run adds one `e2e-*@e2e.test` user to the dev database.
 
 ## Database workflow
 
@@ -103,5 +140,8 @@ Integration tests need `pnpm infra:up` and `pnpm db:roles`. They run against the
 - **`Cannot find module '@ogs/contracts'` or `../generated/prisma/...`**: run `pnpm build:packages` (builds shared packages and generates the Prisma client). The root `dev`, `lint`, `typecheck` and `test` scripts do this for you.
 - **`Invalid API environment configuration`**: a variable in `apps/api/.env` is malformed or missing (`DATABASE_URL` and `REDIS_URL` are required since Phase 2). The error names it.
 - **`password authentication failed for user "ogs_app"`**: the role passwords in the root `.env` and the URLs in `apps/api/.env` differ, or `pnpm db:roles` has not been run on this volume.
+- **`403 email_unverified`**: the account has not confirmed its email. Open Mailpit (http://localhost:8025), or use a seeded account.
+- **`403 csrf_invalid` / `415 json_required`**: see the client rules in [Try the API with a session](#try-the-api-with-a-session).
+- **`429 rate_limited`** during manual testing: wait for `Retry-After` seconds. Counters live in Redis under `ogs:rl:*`.
 - **Queries return no rows**: that is RLS failing closed. Code must use `TenantDb.run(context, ...)`; a missing or wrong context matches nothing by design.
 - **Port already in use**: change `API_PORT` in `apps/api/.env` (and `API_PROXY_TARGET` in `apps/web/.env`), or change `POSTGRES_PORT`/`REDIS_PORT` in `.env` and the URLs to match.

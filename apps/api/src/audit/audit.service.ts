@@ -3,9 +3,9 @@ import { Injectable } from '@nestjs/common';
 import type { Db, Prisma } from '../database/index.js';
 
 export interface AuditRequestMeta {
-  readonly requestId?: string;
-  readonly ip?: string;
-  readonly userAgent?: string;
+  readonly requestId?: string | null;
+  readonly ip?: string | null;
+  readonly userAgent?: string | null;
 }
 
 export interface AuditEntry {
@@ -70,8 +70,8 @@ function assertNoSecretKeys(value: unknown, path: string, depth: number): void {
   }
 }
 
-function truncate(value: string | undefined, max: number): string | null {
-  if (value === undefined || value.length === 0) {
+function truncate(value: string | null | undefined, max: number): string | null {
+  if (value === undefined || value === null || value.length === 0) {
     return null;
   }
   return value.length > max ? value.slice(0, max) : value;
@@ -105,7 +105,7 @@ export class AuditService {
           entityId: truncate(entry.entityId, 100),
           reason: truncate(entry.reason, 500),
           requestId: truncate(entry.request?.requestId, 100),
-          ip: ip !== undefined && isIP(ip) !== 0 ? ip : null,
+          ip: ip !== undefined && ip !== null && isIP(ip) !== 0 ? ip : null,
           userAgent: truncate(entry.request?.userAgent, 500),
           metadata,
         },

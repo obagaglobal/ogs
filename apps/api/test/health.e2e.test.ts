@@ -7,13 +7,18 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { configureApp } from '../src/app.factory.js';
 import { AppModule } from '../src/app.module.js';
+import { AuthzSyncService } from '../src/authz/authz-sync.service.js';
 
 describe('GET /api/v1/health (e2e)', () => {
   let app: INestApplication;
   let server: Server;
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    // No database in unit tests: skip the start-up catalogue sync (covered by integration tests).
+    const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(AuthzSyncService)
+      .useValue({ onApplicationBootstrap: () => undefined })
+      .compile();
     const nestApp = moduleRef.createNestApplication<NestExpressApplication>({ logger: false });
     configureApp(nestApp);
     await nestApp.init();

@@ -7,4 +7,5 @@ export {
   type ReadinessResponse,
   type ServiceStatus,
 } from './health.js';
-export { apiEnvSchema, parseApiEnv, type ApiEnv } from './env.js';
+export { apiEnvSchema, DEVELOPMENT_MFA_KEY, parseApiEnv, type ApiEnv } from './env.js';
+export * from './auth.js';

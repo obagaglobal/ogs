@@ -35,3 +35,7 @@ Thumbs.db
 
 # Vite
 *.local
+
+# Playwright
+apps/web/test-results/
+apps/web/playwright-report/

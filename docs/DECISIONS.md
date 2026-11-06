@@ -1,37 +1,38 @@
 # Architecture Decision Records
 
-ADR-001 … ADR-008 were made during Phase 1 and are listed in [`architecture/overview.md` §7](architecture/overview.md#7-architecture-decisions).
+ADR-001 … ADR-008 were made during Phase 1 and are listed in [`architecture/overview.md` §8](architecture/overview.md#8-architecture-decisions).
 
 ADR-027 … ADR-031 record the Phase 2 implementation decisions P2-1 … P2-5, approved with the [Phase 2 plan](plans/phase-2-tenancy.md) on 2026-11-05.
 
 ADR-009 … ADR-026 record the owner's answers to decisions D-1 … D-18 of the [Architecture Review](architecture/review.md). They were **accepted on 2026-11-05**, with every recommendation taken as written. The review holds the full reasoning. Each entry below gives the decision and the reason in short form.
 
-| ADR | Review ID | Title                                           | Status                                              |
-| --- | --------- | ----------------------------------------------- | --------------------------------------------------- |
-| 007 | —         | Multi-tenancy model (Phase 1 placeholder)       | **Superseded** by ADR-009, ADR-010 and review §5–§6 |
-| 009 | D-1       | Ownership of individual-customer records        | Accepted                                            |
-| 010 | D-2       | Cross-tenant access for assigned providers      | Accepted                                            |
-| 011 | D-3       | Session model                                   | Accepted                                            |
-| 012 | D-4       | `Service` vs `ServiceListing`                   | Accepted                                            |
-| 013 | D-5       | Who chooses the provider                        | Accepted                                            |
-| 014 | D-6       | Prepay vs postpay                               | Accepted                                            |
-| 015 | D-7       | Roadmap adjustments                             | Accepted                                            |
-| 016 | D-8       | Revenue model                                   | Accepted                                            |
-| 017 | D-9       | Tax                                             | Accepted, **pending advisor confirmation**          |
-| 018 | D-10      | Data protection                                 | Accepted, **pending legal confirmation**            |
-| 019 | D-11      | File storage                                    | Accepted                                            |
-| 020 | D-12      | Monorepo tooling                                | Accepted (confirms ADR-001)                         |
-| 021 | D-13      | Public catalogue SEO                            | Accepted                                            |
-| 022 | D-14      | Accent colour & brand                           | Accepted, **colour still to be chosen**             |
-| 023 | D-15      | Hosting target                                  | Accepted, **choice due by Phase 15**                |
-| 024 | D-16      | Languages                                       | Accepted                                            |
-| 025 | D-17      | SMS / email providers                           | Accepted, **vendors chosen at integration**         |
-| 026 | D-18      | Prisma + RLS performance                        | Accepted                                            |
-| 027 | P2-1      | Phase 2 proves isolation at DB + service layers | Accepted                                            |
-| 028 | P2-2      | FileService and MinIO move to Phase 3           | Accepted                                            |
-| 029 | P2-3      | URI versioning (`/api/v1`) from Phase 2         | Accepted                                            |
-| 030 | P2-4      | Minimal `app_user` table in Phase 2             | Accepted                                            |
-| 031 | P2-5      | UUIDv7 from PostgreSQL 18 `uuidv7()`            | Accepted                                            |
+| ADR | Review ID | Title                                                | Status                                              |
+| --- | --------- | ---------------------------------------------------- | --------------------------------------------------- |
+| 007 | —         | Multi-tenancy model (Phase 1 placeholder)            | **Superseded** by ADR-009, ADR-010 and review §5–§6 |
+| 009 | D-1       | Ownership of individual-customer records             | Accepted                                            |
+| 010 | D-2       | Cross-tenant access for assigned providers           | Accepted                                            |
+| 011 | D-3       | Session model                                        | Accepted                                            |
+| 012 | D-4       | `Service` vs `ServiceListing`                        | Accepted                                            |
+| 013 | D-5       | Who chooses the provider                             | Accepted                                            |
+| 014 | D-6       | Prepay vs postpay                                    | Accepted                                            |
+| 015 | D-7       | Roadmap adjustments                                  | Accepted                                            |
+| 016 | D-8       | Revenue model                                        | Accepted                                            |
+| 017 | D-9       | Tax                                                  | Accepted, **pending advisor confirmation**          |
+| 018 | D-10      | Data protection                                      | Accepted, **pending legal confirmation**            |
+| 019 | D-11      | File storage                                         | Accepted                                            |
+| 020 | D-12      | Monorepo tooling                                     | Accepted (confirms ADR-001)                         |
+| 021 | D-13      | Public catalogue SEO                                 | Accepted                                            |
+| 022 | D-14      | Accent colour & brand                                | Accepted, **colour still to be chosen**             |
+| 023 | D-15      | Hosting target                                       | Accepted, **choice due by Phase 15**                |
+| 024 | D-16      | Languages                                            | Accepted                                            |
+| 025 | D-17      | SMS / email providers                                | Accepted, **vendors chosen at integration**         |
+| 026 | D-18      | Prisma + RLS performance                             | Accepted                                            |
+| 027 | P2-1      | Phase 2 proves isolation at DB + service layers      | Accepted                                            |
+| 028 | P2-2      | FileService and MinIO move to Phase 3                | Accepted                                            |
+| 029 | P2-3      | URI versioning (`/api/v1`) from Phase 2              | Accepted                                            |
+| 030 | P2-4      | Minimal `app_user` table in Phase 2                  | Accepted                                            |
+| 031 | P2-5      | UUIDv7 from PostgreSQL 18 `uuidv7()`                 | Accepted                                            |
+| 032 | —         | Development object store: SeaweedFS instead of MinIO | Accepted                                            |
 
 ---
 
@@ -156,6 +157,12 @@ ADR-009 … ADR-026 record the owner's answers to decisions D-1 … D-18 of the 
 
 **Decision:** Primary keys default to PostgreSQL 18's built-in `uuidv7()`. The application may still supply its own UUIDv7 when it needs an id before inserting.
 **Why:** Time-ordered ids with no extra dependency. This is a small change from the review's "generated in app".
+
+## ADR-032 — Development object store: SeaweedFS instead of MinIO
+
+**Context:** ADR-019 chose S3-compatible object storage, with MinIO for development. In November 2026 MinIO's container images could not be pulled any more: Docker Hub reports the repository does not exist, and quay.io answers 401.
+**Decision:** Local development and CI run the SeaweedFS S3 gateway (`chrislusf/seaweedfs`, pinned, Apache-2.0) as the `objectstore` Compose service. The application only uses the S3 API through `@aws-sdk/client-s3`.
+**Consequences:** No code depends on the product. Any S3-compatible service can replace it, and the production provider is still chosen in Phase 16 (ADR-019). Phase 3 plan §3.3 says "MinIO"; read it as "the development S3 service".
 
 ---
 
