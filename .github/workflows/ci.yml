@@ -153,15 +153,31 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: pnpm --filter @ogs/web exec playwright install --only-shell chromium
 
-      # `install-deps --dry-run` simulates the apt install (Playwright >= 1.64):
-      # exit 0 = nothing missing; otherwise it lists what is missing, and we
-      # install (also the fallback if the check itself fails).
+      # `install-deps --dry-run` simulates the apt install (Playwright >= 1.64) and
+      # lists what is missing. On ubuntu-latest every library Chromium needs is
+      # present; only extra fonts (CJK, Thai, Cyrillic, 21 MB) are missing, and
+      # they once took 12 minutes from a throttled mirror. The tests use Latin
+      # text and take no screenshots, so fonts are skipped; any other missing
+      # package is installed. Unrecognised output falls back to installing all.
       - name: Install missing Chromium system libraries
         run: |
-          if pnpm --filter @ogs/web exec playwright install-deps --dry-run chromium; then
-            echo "No system libraries to install."
-          else
+          out=$(pnpm --filter @ogs/web exec playwright install-deps --dry-run chromium 2>&1 || true)
+          echo "$out"
+          if echo "$out" | grep -q "All system dependencies are installed."; then
+            exit 0
+          fi
+          if ! echo "$out" | grep -q "Missing system dependencies"; then
+            echo "::warning::Could not check Chromium's system libraries; installing all of them."
             pnpm --filter @ogs/web exec playwright install-deps chromium
+            exit 0
+          fi
+          libs=$(echo "$out" | sed -n 's/^  \([a-z0-9][a-z0-9.+-]*\)$/\1/p' | grep -vE '^x?fonts-' || true)
+          if [ -z "$libs" ]; then
+            echo "Only fonts are missing; not needed for these tests."
+          else
+            echo "Installing:" $libs
+            sudo apt-get update -q
+            sudo apt-get install -y --no-install-recommends $libs
           fi
 
       - name: Build and run the smoke test
