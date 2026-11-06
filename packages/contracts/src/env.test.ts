@@ -18,6 +18,11 @@ describe('parseApiEnv', () => {
       QUEUE_PREFIX: 'ogs',
       OUTBOX_POLL_INTERVAL_MS: 1000,
       OUTBOX_BATCH_SIZE: 100,
+      APP_PUBLIC_URL: 'http://localhost:5173',
+      SESSION_COOKIE_SECURE: false,
+      TRUST_PROXY_HOPS: 0,
+      SMTP_URL: 'smtp://127.0.0.1:1025',
+      EMAIL_FROM: 'OGS <no-reply@ogs.test>',
     });
   });
 
@@ -47,6 +52,21 @@ describe('parseApiEnv', () => {
 
   it('rejects an unsafe queue prefix', () => {
     expect(() => parseApiEnv({ ...required, QUEUE_PREFIX: 'Bad Prefix!' })).toThrow(/QUEUE_PREFIX/);
+  });
+
+  it('secures the session cookie by default in production and refuses to disable it', () => {
+    const production = {
+      ...required,
+      NODE_ENV: 'production',
+      APP_PUBLIC_URL: 'https://ogs.example',
+    };
+    expect(parseApiEnv(production).SESSION_COOKIE_SECURE).toBe(true);
+    expect(() => parseApiEnv({ ...production, SESSION_COOKIE_SECURE: 'false' })).toThrow(
+      /SESSION_COOKIE_SECURE/,
+    );
+    expect(() => parseApiEnv({ ...production, APP_PUBLIC_URL: 'http://ogs.example' })).toThrow(
+      /APP_PUBLIC_URL/,
+    );
   });
 
   it('never echoes values in the error message', () => {

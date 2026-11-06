@@ -22,7 +22,8 @@
     "db:migrate:dev": "prisma migrate dev",
     "db:seed": "node scripts/db-seed.mjs",
     "db:reset": "node scripts/assert-local-db.mjs && prisma migrate reset --force && node scripts/db-seed.mjs",
-    "db:reset:test": "node scripts/db-reset-test.mjs"
+    "db:reset:test": "node scripts/db-reset-test.mjs",
+    "docs:permissions": "node scripts/generate-permissions-doc.mjs && prettier --write ../../docs/architecture/permissions.md"
   },
   "dependencies": {
     "@nestjs/common": "~12.3.2",
@@ -34,9 +35,11 @@
     "@prisma/client": "~7.10.1",
     "bullmq": "^6.7.0",
     "ioredis": "^6.0.0",
+    "nodemailer": "^10.3.1",
     "pg": "^8.23.1",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.2"
+    "rxjs": "^7.8.2",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@nestjs/cli": "^12.0.11",

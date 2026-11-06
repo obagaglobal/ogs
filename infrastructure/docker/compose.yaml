@@ -1,7 +1,7 @@
 # OGS local development infrastructure.
 #
 # Usage (from the repository root):
-#   pnpm infra:up        # start PostgreSQL and Redis
+#   pnpm infra:up        # start PostgreSQL, Redis and Mailpit
 #   pnpm infra:down      # stop (data is kept in named volumes)
 #
 # Credentials come from the root .env file (see .env.example). Startup fails
@@ -56,6 +56,23 @@ services:
       - redis-data:/data
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  # Development/CI email (Phase 3, ADR-025): catches every message the worker sends.
+  # Web inbox: http://localhost:8025 . Never used in production.
+  mailpit:
+    image: axllent/mailpit:v1.33
+    restart: unless-stopped
+    environment:
+      MP_MAX_MESSAGES: 5000
+    ports:
+      - '127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025'
+      - '127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025'
+    healthcheck:
+      test: ['CMD', '/mailpit', 'readyz']
       interval: 5s
       timeout: 5s
       retries: 10

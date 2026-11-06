@@ -6,6 +6,12 @@
   "compilerOptions": {
     "builder": "tsc",
     "tsConfigPath": "tsconfig.worker-dev.json",
-    "deleteOutDir": true
+    "deleteOutDir": true,
+    "assets": [
+      {
+        "include": "identity/data/*.txt",
+        "watchAssets": true
+      }
+    ]
   }
 }

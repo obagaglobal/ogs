@@ -11,6 +11,13 @@ import { RedisService } from '../redis/redis.service.js';
 import { BullEventQueue, DEFAULT_EVENT_QUEUE_SETTINGS } from './bull-event-queue.js';
 import { EventConsumer } from './event-consumer.js';
 import { EVENT_HANDLERS, type EventHandler } from './event.types.js';
+import {
+  AccountExistsHandler,
+  AccountLockedHandler,
+  EmailVerificationHandler,
+  PasswordResetHandler,
+} from '../notifications/identity-email.handlers.js';
+import { NotificationsModule } from '../notifications/notifications.module.js';
 import { SystemPingHandler } from './handlers/system-ping.handler.js';
 import { OutboxDispatcher } from './outbox-dispatcher.service.js';
 
@@ -21,12 +28,19 @@ const EVENT_CONSUMER_CONCURRENCY = 5;
  * Imported by WorkerModule only; the HTTP API never runs these loops.
  */
 @Module({
+  imports: [NotificationsModule],
   providers: [
     SystemPingHandler,
     {
       provide: EVENT_HANDLERS,
       useFactory: (...handlers: EventHandler[]) => handlers,
-      inject: [SystemPingHandler],
+      inject: [
+        SystemPingHandler,
+        EmailVerificationHandler,
+        PasswordResetHandler,
+        AccountExistsHandler,
+        AccountLockedHandler,
+      ],
     },
     {
       provide: BullEventQueue,

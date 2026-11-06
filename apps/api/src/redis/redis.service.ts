@@ -18,8 +18,11 @@ export class RedisService implements OnApplicationShutdown {
   private readonly connections = new Set<Redis>();
   private healthConnection: Redis | undefined;
 
+  private readonly prefix: string;
+
   constructor(@Inject(ConfigService) config: TypedConfigService) {
     this.url = config.get('REDIS_URL', { infer: true });
+    this.prefix = config.get('QUEUE_PREFIX', { infer: true });
   }
 
   /**
@@ -38,6 +41,30 @@ export class RedisService implements OnApplicationShutdown {
     });
     this.connections.add(connection);
     return connection;
+  }
+
+  /**
+   * A connection for request-path work (sessions, rate limits). Unlike BullMQ
+   * connections it fails fast: a command gives up after one retry instead of
+   * waiting forever, so callers can answer 503 instead of hanging.
+   */
+  createAppConnection(purpose: string): Redis {
+    const connection = new Redis(this.url, {
+      lazyConnect: true,
+      maxRetriesPerRequest: 1,
+      connectTimeout: 2_000,
+      connectionName: `ogs-${purpose}`,
+    });
+    connection.on('error', (error: Error) => {
+      this.logger.warn(`Redis connection "${purpose}" error: ${error.name}`);
+    });
+    this.connections.add(connection);
+    return connection;
+  }
+
+  /** Prefix for every Redis key this deployment owns (shared with BullMQ). */
+  get keyPrefix(): string {
+    return this.prefix;
   }
 
   async isUp(): Promise<boolean> {

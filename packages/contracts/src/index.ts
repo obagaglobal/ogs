@@ -8,3 +8,4 @@ export {
   type ServiceStatus,
 } from './health.js';
 export { apiEnvSchema, parseApiEnv, type ApiEnv } from './env.js';
+export * from './auth.js';
