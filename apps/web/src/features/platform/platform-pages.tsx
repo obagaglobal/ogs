@@ -1,123 +1,25 @@
-import type {
-  ApplicationQueueResponse,
-  ElevationResponse,
-  PlatformApplicationResponse,
-} from '@ogs/contracts';
+import type { ApplicationQueueResponse, PlatformApplicationResponse } from '@ogs/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, type ReactNode, type SubmitEvent } from 'react';
+import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Card, Field, Notice } from '@/components/ui/form-controls';
-import { useWorkspace } from '@/features/workspace/workspace-state';
 import { api, ApiError, describeError } from '@/lib/api';
+import { ElevationGate } from './elevation-gate';
+import { ELEVATION_KEY, useElevated } from './elevation-state';
 
-const ELEVATION_KEY = 'ogs.elevation';
+const TYPE_LABELS: Record<string, string> = {
+  '': 'All types',
+  organisation: 'Organisation',
+  provider_company: 'Provider company',
+  individual_provider: 'Individual provider',
+};
 
-interface StoredElevation {
-  readonly id: string;
-  readonly expiresAt: string;
-}
-
-function currentElevation(): StoredElevation | undefined {
-  const raw = sessionStorage.getItem(ELEVATION_KEY);
-  if (raw === null) {
-    return undefined;
-  }
-  const parsed = JSON.parse(raw) as StoredElevation;
-  return new Date(parsed.expiresAt) > new Date() ? parsed : undefined;
-}
-
-/** Request options for elevated platform calls (review §6.3). */
-function useElevated() {
-  const { selected } = useWorkspace();
-  const elevation = currentElevation();
-  return {
-    elevation,
-    options: {
-      workspace: selected,
-      headers: elevation ? { 'X-OGS-Elevation': elevation.id } : {},
-    },
-  };
-}
-
-/**
- * Cross-tenant work needs an elevation: a reason (audited with every read) and
- * a fresh authenticator code. Lasts 15 minutes, in this browser tab only.
- */
-function ElevationGate({ children }: { children: ReactNode }) {
-  const { selected } = useWorkspace();
-  const [reason, setReason] = useState('');
-  const [code, setCode] = useState('');
-  const [, rerender] = useState(0);
-  const start = useMutation({
-    mutationFn: async () => {
-      await api('/auth/mfa/step-up', { method: 'POST', body: { code } });
-      return api<ElevationResponse>('/platform/elevate', {
-        method: 'POST',
-        body: { reason },
-        workspace: selected,
-      });
-    },
-    onSuccess: (result) => {
-      sessionStorage.setItem(
-        ELEVATION_KEY,
-        JSON.stringify({ id: result.elevationId, expiresAt: result.expiresAt }),
-      );
-      setCode('');
-      rerender((n) => n + 1);
-    },
-  });
-
-  if (currentElevation()) {
-    return <>{children}</>;
-  }
-  return (
-    <Card className="max-w-lg">
-      <h2 className="mb-1 font-medium">Start an elevated session</h2>
-      <p className="mb-4 text-sm text-muted-foreground">
-        Reviewing organisations means reading their data. Say why; the reason is recorded with every
-        action for the next 15 minutes.
-      </p>
-      <form
-        className="space-y-4"
-        onSubmit={(event: SubmitEvent<HTMLFormElement>) => {
-          event.preventDefault();
-          start.mutate();
-        }}
-      >
-        {start.isError ? <Notice tone="error">{describeError(start.error)}</Notice> : null}
-        <Field
-          label="Reason"
-          hint="At least 10 characters, e.g. “Daily review of new applications”"
-          value={reason}
-          onChange={(event) => {
-            setReason(event.target.value);
-          }}
-          required
-        />
-        <Field
-          label="Authenticator code"
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          value={code}
-          onChange={(event) => {
-            setCode(event.target.value.trim());
-          }}
-          required
-        />
-        <Button type="submit" disabled={start.isPending}>
-          Start
-        </Button>
-      </form>
-    </Card>
-  );
-}
-
-/** /platform/applications — review queue. */
+/** /platform/applications — review queue (organisations and providers). */
 export function ApplicationQueuePage() {
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Organisation applications</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">Applications</h1>
       <ElevationGate>
         <Queue />
       </ElevationGate>
@@ -128,11 +30,16 @@ export function ApplicationQueuePage() {
 function Queue() {
   const { options } = useElevated();
   const [status, setStatus] = useState('SUBMITTED');
+  const [type, setType] = useState('');
   const queue = useQuery({
-    queryKey: ['platform', 'applications', status],
+    queryKey: ['platform', 'applications', status, type],
     queryFn: async () =>
-      (await api<ApplicationQueueResponse>(`/platform/applications?status=${status}`, options))
-        .applications,
+      (
+        await api<ApplicationQueueResponse>(
+          `/platform/applications?status=${status}${type === '' ? '' : `&type=${type}`}`,
+          options,
+        )
+      ).applications,
     retry: false,
   });
   return (
@@ -154,6 +61,23 @@ function Queue() {
           </option>
         ))}
       </select>
+      <label htmlFor="queue-type" className="mr-2 ml-4 text-sm font-medium">
+        Type
+      </label>
+      <select
+        id="queue-type"
+        value={type}
+        onChange={(event) => {
+          setType(event.target.value);
+        }}
+        className="mb-4 h-9 rounded-md border bg-background px-2 text-sm"
+      >
+        {Object.entries(TYPE_LABELS).map(([value, label]) => (
+          <option key={value} value={value}>
+            {label}
+          </option>
+        ))}
+      </select>
       {queue.isError ? <Notice tone="error">{describeError(queue.error)}</Notice> : null}
       <ul className="divide-y text-sm">
         {(queue.data ?? []).map((item) => (
@@ -161,11 +85,15 @@ function Queue() {
             <span>
               <Link
                 className="font-medium underline-offset-4 hover:underline"
-                to={`/platform/applications/${item.applicationId}`}
+                to={
+                  item.type === 'organisation'
+                    ? `/platform/applications/${item.applicationId}`
+                    : `/platform/provider-applications/${item.applicationId}`
+                }
               >
                 {item.legalName}
               </Link>{' '}
-              · {item.applicantEmail}
+              · {TYPE_LABELS[item.type]} · {item.applicantEmail}
             </span>
             <span className="text-muted-foreground">
               {item.submittedAt ? new Date(item.submittedAt).toLocaleDateString() : '—'}

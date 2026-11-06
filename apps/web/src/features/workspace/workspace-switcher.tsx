@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useId } from 'react';
-import { useWorkspace } from './workspace-state';
+import { PROVIDER_WORKSPACE, useWorkspace } from './workspace-state';
 
 const KIND_LABEL = {
   ORGANISATION: 'Organisation',
@@ -13,7 +13,7 @@ const KIND_LABEL = {
  * (review §7: "context must be explicit") and lets them switch.
  */
 export function WorkspaceSwitcher() {
-  const { selected, workspaces, select } = useWorkspace();
+  const { selected, workspaces, provider, select } = useWorkspace();
   const queryClient = useQueryClient();
   const id = useId();
 
@@ -32,6 +32,14 @@ export function WorkspaceSwitcher() {
         className="h-9 max-w-64 rounded-md border bg-background px-2 text-sm"
       >
         <option value="personal">Personal</option>
+        {provider === null ? null : (
+          <option value={PROVIDER_WORKSPACE}>
+            Provider · Individual
+            {provider.restricted
+              ? ` (${provider.status === 'SUSPENDED' ? 'suspended' : 'pending'})`
+              : ''}
+          </option>
+        )}
         {workspaces.map((workspace) => (
           <option key={workspace.tenantId} value={workspace.tenantId}>
             {workspace.name} · {KIND_LABEL[workspace.kind]}

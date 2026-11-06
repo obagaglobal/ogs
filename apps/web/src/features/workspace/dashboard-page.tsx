@@ -3,15 +3,57 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { Card, Notice } from '@/components/ui/form-controls';
 import { api, describeError } from '@/lib/api';
-import { useWorkspace } from './workspace-state';
+import { PROVIDER_WORKSPACE, useWorkspace } from './workspace-state';
 
 const NEXT_STEPS: Record<CurrentWorkspaceResponse['kind'], string> = {
   personal: 'Your personal workspace. Ordering services arrives with the catalogue (Phase 6).',
   ORGANISATION: 'Organisation workspace. Members, departments and approvals arrive in Phase 4.',
-  PROVIDER_COMPANY: 'Provider company workspace. Profiles, skills and coverage arrive in Phase 5.',
+  PROVIDER_COMPANY:
+    'Provider company workspace: your company profile, skills, coverage, availability and team.',
   PLATFORM: 'OGS platform workspace. Administration tools arrive in later phases.',
   provider: 'Your provider workspace: your application, skills, coverage and availability.',
 };
+
+/** Entry points for offering ICT services through OGS (Phase 5). */
+function ProviderInvitation() {
+  const { provider, select } = useWorkspace();
+  return (
+    <Card>
+      <h2 className="mb-1 font-medium">Offer ICT services through OGS</h2>
+      {provider === null ? (
+        <p className="text-sm text-muted-foreground">
+          Technicians and ICT firms can receive work from OGS once verified.{' '}
+          <Link className="underline" to="/providers/new">
+            Become a provider
+          </Link>{' '}
+          or{' '}
+          <Link className="underline" to="/providers/companies/new">
+            Register a provider company
+          </Link>
+          .
+        </p>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          You have a provider profile ({provider.status.toLowerCase().replace('_', ' ')}).{' '}
+          <Link
+            className="underline"
+            to="/provider"
+            onClick={() => {
+              select(PROVIDER_WORKSPACE);
+            }}
+          >
+            Open your Provider workspace
+          </Link>{' '}
+          or{' '}
+          <Link className="underline" to="/providers/companies/new">
+            Register a provider company
+          </Link>
+          .
+        </p>
+      )}
+    </Card>
+  );
+}
 
 /** Placeholder home for each workspace kind (Phase 3 plan §3.4). */
 export function DashboardPage() {
@@ -54,6 +96,11 @@ export function DashboardPage() {
               Open the application
             </Link>
           ) : null}
+          {data.kind === 'PROVIDER_COMPANY' || data.kind === 'provider' ? (
+            <Link className="underline" to="/provider">
+              Open the application
+            </Link>
+          ) : null}
         </Notice>
       ) : null}
       {data.kind === 'personal' ? (
@@ -67,6 +114,7 @@ export function DashboardPage() {
           </p>
         </Card>
       ) : null}
+      {data.kind === 'personal' ? <ProviderInvitation /> : null}
       {'roles' in data ? (
         <Card>
           <h2 className="mb-2 font-medium">Your access here</h2>

@@ -23,6 +23,18 @@ import {
   RegisterOrganisationPage,
 } from '@/features/organisation/organisation-pages';
 import { ApplicationQueuePage, ApplicationReviewPage } from '@/features/platform/platform-pages';
+import {
+  EligibilityPage,
+  ProviderApplicationReviewPage,
+  SkillsCataloguePage,
+} from '@/features/platform/provider-staff-pages';
+import {
+  BecomeProviderPage,
+  ProviderAvailabilityPage,
+  ProviderCoveragePage,
+  ProviderProfilePage,
+  RegisterProviderCompanyPage,
+} from '@/features/provider/provider-pages';
 import { DashboardPage } from '@/features/workspace/dashboard-page';
 
 export function AppRoutes() {
@@ -55,6 +67,17 @@ export function AppRoutes() {
         <Route path="/team/departments" element={<DepartmentsPage />} />
         <Route path="/platform/applications" element={<ApplicationQueuePage />} />
         <Route path="/platform/applications/:id" element={<ApplicationReviewPage />} />
+        <Route
+          path="/platform/provider-applications/:id"
+          element={<ProviderApplicationReviewPage />}
+        />
+        <Route path="/platform/eligibility" element={<EligibilityPage />} />
+        <Route path="/platform/skills" element={<SkillsCataloguePage />} />
+        <Route path="/providers/new" element={<BecomeProviderPage />} />
+        <Route path="/providers/companies/new" element={<RegisterProviderCompanyPage />} />
+        <Route path="/provider" element={<ProviderProfilePage />} />
+        <Route path="/provider/coverage" element={<ProviderCoveragePage />} />
+        <Route path="/provider/availability" element={<ProviderAvailabilityPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

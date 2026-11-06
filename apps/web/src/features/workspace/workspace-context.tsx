@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
-import { useWorkspaces, WorkspaceContext } from './workspace-state';
+import { PROVIDER_WORKSPACE, useWorkspaces, WorkspaceContext } from './workspace-state';
 
 const STORAGE_KEY = 'ogs.workspace';
 
@@ -13,12 +13,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     () => localStorage.getItem(STORAGE_KEY) ?? 'personal',
   );
 
-  const workspaces = useMemo(() => data ?? [], [data]);
+  const workspaces = useMemo(() => data?.workspaces ?? [], [data]);
+  const provider = data?.provider ?? null;
   const current = workspaces.find((workspace) => workspace.tenantId === stored);
+  const known = current !== undefined || (stored === PROVIDER_WORKSPACE && provider !== null);
   // Keep the stored choice while the list loads (switching to personal and back
   // would remount every page). Fall back to personal only once the list proves
   // the stored workspace is gone.
-  const selected = isLoading || current !== undefined ? stored : 'personal';
+  const selected = isLoading || known ? stored : 'personal';
 
   const select = useCallback((id: string) => {
     localStorage.setItem(STORAGE_KEY, id);
@@ -26,8 +28,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ selected, current, workspaces, isLoading, error, select }),
-    [selected, current, workspaces, isLoading, error, select],
+    () => ({ selected, current, workspaces, provider, isLoading, error, select }),
+    [selected, current, workspaces, provider, isLoading, error, select],
   );
   return <WorkspaceContext value={value}>{children}</WorkspaceContext>;
 }
