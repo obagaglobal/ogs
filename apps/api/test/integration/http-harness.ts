@@ -205,10 +205,16 @@ export interface FixtureUser {
 /** An ACTIVE (verified) user with a password, created directly in the database. */
 export async function createLoginUser(
   maint: pg.Client,
-  options: { status?: string; password?: string; passwordHash?: string; mfa?: boolean } = {},
+  options: {
+    status?: string;
+    password?: string;
+    passwordHash?: string;
+    mfa?: boolean;
+    email?: string;
+  } = {},
 ): Promise<FixtureUser> {
   const id = randomUUID();
-  const email = uniqueEmail();
+  const email = options.email ?? uniqueEmail();
   const password = options.password ?? `pass phrase ${randomUUID()}`;
   // mfa_enabled is set at INSERT: the protection trigger only guards UPDATEs.
   await maint.query(

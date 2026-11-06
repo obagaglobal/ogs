@@ -28,6 +28,12 @@ const KNOWN_TABLES = [
   'file_metadata',
   'mfa_factor',
   'recovery_code',
+  // Phase 4
+  'department',
+  'invitation',
+  'organisation_application',
+  'organisation_application_event',
+  'organisation_profile',
 ];
 
 interface TableRow {

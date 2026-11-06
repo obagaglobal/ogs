@@ -72,7 +72,10 @@ export class FilesController {
     if (isFilePurpose(purpose)) {
       const required: string | undefined = (FILE_PURPOSES[purpose] as { permission?: string })
         .permission;
-      if (required !== undefined && auth.workspace?.permissions.has(required) !== true) {
+      // The permission applies to tenant-owned uploads; personal uploads fall through to
+      // the purpose's owner rule (e.g. organisation documents are never personal).
+      const inTenant = resolved !== undefined && resolved.kind !== 'personal';
+      if (required !== undefined && inTenant && !auth.workspace?.permissions.has(required)) {
         throw forbiddenRule('permission_denied');
       }
     }

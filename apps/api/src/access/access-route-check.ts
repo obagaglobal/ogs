@@ -1,5 +1,6 @@
 import { Injectable, type OnApplicationBootstrap } from '@nestjs/common';
-import { PATH_METADATA } from '@nestjs/common/constants.js';
+import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants.js';
+import { RequestMethod } from '@nestjs/common';
 import { DiscoveryService, MetadataScanner, Reflector } from '@nestjs/core';
 import { PERMISSION_CODES } from '../authz/catalogue.js';
 import { ACCESS_METADATA, type AccessRule } from './access.decorators.js';
@@ -7,6 +8,18 @@ import { ACCESS_METADATA, type AccessRule } from './access.decorators.js';
 export interface RouteAccess {
   readonly route: string;
   readonly rule: AccessRule | undefined;
+  /** HTTP method, e.g. GET. */
+  readonly method: string;
+  /** Path below /api/v1, e.g. /workspace/members/:id. */
+  readonly path: string;
+}
+
+function joinPath(...parts: unknown[]): string {
+  const segments = parts
+    .flatMap((part) => (typeof part === 'string' ? [part] : []))
+    .map((part) => part.replace(/^\/+|\/+$/g, ''))
+    .filter((part) => part !== '');
+  return `/${segments.join('/')}`;
 }
 
 /**
@@ -64,7 +77,16 @@ export class AccessRouteCheck implements OnApplicationBootstrap {
           handler,
           metatype,
         ]);
-        routes.push({ route: `${metatype.name}.${name}`, rule });
+        const method = this.reflector.get<RequestMethod | undefined>(METHOD_METADATA, handler);
+        routes.push({
+          route: `${metatype.name}.${name}`,
+          rule,
+          method: RequestMethod[method ?? RequestMethod.GET],
+          path: joinPath(
+            this.reflector.get<unknown>(PATH_METADATA, metatype),
+            this.reflector.get<unknown>(PATH_METADATA, handler),
+          ),
+        });
       }
     }
     return routes;

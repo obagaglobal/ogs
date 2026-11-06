@@ -18,6 +18,9 @@ describe('access rules (A8)', () => {
     const routes = check.routes();
     expect(routes.length).toBeGreaterThan(10);
     expect(routes.filter((route) => route.rule === undefined)).toEqual([]);
+    expect(routes).toContainEqual(
+      expect.objectContaining({ method: 'PATCH', path: '/workspace/members/:id' }),
+    );
     expect(() => {
       check.onApplicationBootstrap();
     }).not.toThrow();
