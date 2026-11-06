@@ -40,6 +40,9 @@ const PHASE_3_TABLES = [
   'provider_time_off',
   'skill',
   'region',
+  // Phase 6: required skills are internal. The other catalogue tables are public by
+  // design (published rows only), proven in catalogue.int.test.ts (E1/E2).
+  'service_skill',
 ] as const;
 
 describe('fail closed without a context (T2)', () => {

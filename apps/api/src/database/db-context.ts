@@ -30,14 +30,23 @@ export type DbContext =
       readonly tenantId?: string;
     }
   /** Background work with no human actor (worker jobs, outbox dispatcher). */
-  | { readonly kind: 'system'; readonly job: string; readonly tenantId?: string };
+  | { readonly kind: 'system'; readonly job: string; readonly tenantId?: string }
+  /**
+   * A visitor who is not signed in (Phase 6, P6-1). Sets NO identity at all:
+   * every policy that needs a user, tenant, platform flag, job or actor kind
+   * matches nothing, exactly like the "no context" state the isolation suite
+   * proves. Only policies written to be context-free (the published public
+   * catalogue) return rows.
+   */
+  | { readonly kind: 'anonymous' };
 
 /** The transaction-local settings the RLS helper functions in schema `app` read. */
 export interface DbSessionSettings {
   readonly 'app.user_id': string;
   readonly 'app.tenant_id': string;
   readonly 'app.is_platform': 'true' | 'false';
-  readonly 'app.actor_kind': 'USER' | 'SYSTEM';
+  /** '' for the anonymous context: no actor at all. */
+  readonly 'app.actor_kind': 'USER' | 'SYSTEM' | '';
   /** The job name of a `system` context ('' otherwise). Identity tables require an identity.* job. */
   readonly 'app.job': string;
 }
@@ -94,6 +103,14 @@ export function toSessionSettings(ctx: DbContext): DbSessionSettings {
         'app.job': '',
       };
     }
+    case 'anonymous':
+      return {
+        'app.user_id': '',
+        'app.tenant_id': '',
+        'app.is_platform': 'false',
+        'app.actor_kind': '',
+        'app.job': '',
+      };
     case 'system':
       if (!JOB_PATTERN.test(ctx.job)) {
         throw new InvalidDbContextError('system context needs a dotted lower-case job name');

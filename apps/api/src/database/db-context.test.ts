@@ -27,6 +27,16 @@ describe('toSessionSettings', () => {
     });
   });
 
+  it('anonymous context sets no identity at all (P6-1)', () => {
+    expect(toSessionSettings({ kind: 'anonymous' })).toEqual({
+      'app.user_id': '',
+      'app.tenant_id': '',
+      'app.is_platform': 'false',
+      'app.actor_kind': '',
+      'app.job': '',
+    });
+  });
+
   it('platform context sets is_platform and requires a reason', () => {
     expect(
       toSessionSettings({ kind: 'platform', userId: USER, reason: 'Support ticket TCK-1' })[

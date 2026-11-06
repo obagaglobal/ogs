@@ -1,0 +1,8 @@
+# OGS public site. The catalogue sitemap is served by the API (Phase 6, P6-7).
+# Deployment (Phase 15) replaces the Sitemap line with the absolute production URL.
+User-agent: *
+Allow: /services
+Disallow: /platform
+Disallow: /api/
+
+Sitemap: /api/v1/catalogue/sitemap.xml

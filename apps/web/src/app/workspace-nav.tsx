@@ -25,6 +25,9 @@ export function WorkspaceNav() {
       <NavLink to="/" end className={link}>
         Home
       </NavLink>
+      <NavLink to="/services" className={link}>
+        Browse services
+      </NavLink>
       {data?.kind === 'ORGANISATION' && data.permissions.includes('organisation.profile.manage') ? (
         <NavLink to="/organisation/application" className={link}>
           {data.restricted ? 'Application' : 'Organisation'}
@@ -66,6 +69,11 @@ export function WorkspaceNav() {
       {data?.kind === 'PLATFORM' && can('ticket.assign') ? (
         <NavLink to="/platform/eligibility" className={link}>
           Eligibility
+        </NavLink>
+      ) : null}
+      {data?.kind === 'PLATFORM' && can('platform.catalogue.manage') ? (
+        <NavLink to="/platform/catalogue" className={link}>
+          Catalogue
         </NavLink>
       ) : null}
       {data?.kind === 'PLATFORM' && can('platform.catalogue.manage') ? (

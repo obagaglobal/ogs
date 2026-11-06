@@ -37,7 +37,7 @@ Edit the generated files and replace the `change-me-local-only` placeholders. Ke
 pnpm infra:up         # start PostgreSQL 18, Redis 8, Mailpit and the object store
 pnpm db:roles         # create/refresh the ogs_* roles and the ogs_test database (idempotent)
 pnpm db:migrate       # apply migrations to ogs_dev as ogs_owner
-pnpm db:seed          # optional: roles, sample tenants, users with passwords, memberships (idempotent)
+pnpm db:seed          # optional: roles, sample tenants, users, providers, catalogue (idempotent)
 ```
 
 - On a **new** Docker volume the role bootstrap runs automatically; `pnpm db:roles` is then a harmless no-op. On a volume created before Phase 2 you **must** run it once.
@@ -120,7 +120,9 @@ pnpm test:e2e           # builds, then signs up/verifies/enrols in a real Chromi
 
 Integration tests need `pnpm infra:up` and `pnpm db:roles`. They run against the separate **`ogs_test`** database (never `ogs_dev`), apply migrations to it automatically, and use a unique Redis/BullMQ prefix per run. The API and the worker run in-process, and emails are read back from Mailpit. Tests create uniquely named rows and users and never wipe anything. If you edited an existing migration (rather than adding a new one), recreate the test database with `pnpm db:reset:test`.
 
-The browser tests need the dev database migrated and seeded (one joins the seeded Acme organisation). It also needs Chromium for Playwright, installed once with `pnpm --filter @ogs/web exec playwright install chromium`. It reuses an API, worker or web server that is already running. They start the API from its build output (`dist/`), so rebuild it (`pnpm --filter @ogs/api build`) after API changes unless an API is already running. Each run adds a few `*@e2e.test` users, one provider and one `e2e_*` skill to the dev database.
+The browser tests need the dev database migrated and seeded (one joins the seeded Acme organisation). It also needs Chromium for Playwright, installed once with `pnpm --filter @ogs/web exec playwright install chromium`. It reuses an API, worker or web server that is already running. They start the API from its build output (`dist/`), so rebuild it (`pnpm --filter @ogs/api build`) after API changes unless an API is already running. Each run adds a few `*@e2e.test` users, one provider, one `e2e_*` skill and one retired `fibre-splicing-*` service to the dev database.
+
+The public catalogue is at http://localhost:5173/services (no sign-in needed). The seed adds 8 categories and 17 published services; staff manage them under **Catalogue** in the OGS Platform workspace (seeded `admin@ogs.test`, after starting an elevation).
 
 ## Database workflow
 

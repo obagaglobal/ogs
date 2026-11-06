@@ -9,6 +9,7 @@
  *   ORGANISATION      Savanna Logistics  PENDING  bob@savanna.test (org_admin, restricted)
  *   PROVIDER_COMPANY  Nairobi Tech Partners ACTIVE tech@ntp.test   (provider_admin)
  *                                                 alice@acme.test  (provider_technician)
+ *   Catalogue (Phase 6): 8 categories, 17 published services, one draft, one retired.
  *   (individual provider, Phase 5)                 jane@provider.test (ACTIVE, approved)
  *
  * Every seeded user is ACTIVE (email verified) with the password SEED_USER_PASSWORD
@@ -264,10 +265,311 @@ try {
       [providerId],
     );
   }
+  // Phase 6: the service catalogue. Prices in minor units (cents), excluding VAT.
+  // [id, slug, name, icon, position, parent id]
+  const categories = [
+    [id(501), 'networks', 'Networks & Wi-Fi', 'network', 1, null],
+    [id(502), 'wifi', 'Wi-Fi', 'wifi', 1, id(501)],
+    [id(503), 'structured-cabling', 'Structured cabling', 'network', 2, id(501)],
+    [id(504), 'security-systems', 'CCTV & access control', 'cctv', 2, null],
+    [id(505), 'computers-printers', 'Computers & printers', 'laptop', 3, null],
+    [id(506), 'cloud-productivity', 'Cloud & productivity', 'cloud', 4, null],
+    [id(507), 'servers-backup', 'Servers, backup & recovery', 'server', 5, null],
+    [id(508), 'business-systems', 'POS & telephony', 'store', 6, null],
+  ];
+  for (const [categoryId, slug, name, icon, position, parentId] of categories) {
+    await client.query(
+      `INSERT INTO service_category (id, slug, name, icon, position, parent_id)
+       VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO NOTHING`,
+      [categoryId, slug, name, icon, position, parentId],
+    );
+  }
+  const S = (n, category, slug, name, summary, price, skills, extra = {}) => ({
+    id: id(n),
+    category: id(category),
+    slug,
+    name,
+    summary,
+    price,
+    skills,
+    status: extra.status ?? 'PUBLISHED',
+    audience: extra.audience ?? 'ALL',
+    delivery: extra.delivery ?? 'ON_SITE',
+    inclusions: extra.inclusions ?? [],
+    duration: extra.duration ?? null,
+  });
+  // price: [model, amount minor | null, unit | null, min quantity]
+  const services = [
+    S(
+      601,
+      502,
+      'wifi-site-survey',
+      'Wi-Fi site survey',
+      'Find the dead spots and plan access points before you buy.',
+      ['FIXED', 850000, null, 1],
+      [['wifi', 'YEARS_1_3']],
+      {
+        inclusions: [
+          'Signal heat map of your premises',
+          'Access point placement plan',
+          'Written report',
+        ],
+        duration: 'Half a day',
+      },
+    ),
+    S(
+      602,
+      502,
+      'home-wifi-setup',
+      'Home Wi-Fi setup',
+      'Router set-up, secure password and coverage check for your home.',
+      ['FIXED', 350000, null, 1],
+      [['wifi', 'UNDER_1_YEAR']],
+      {
+        audience: 'INDIVIDUALS',
+        inclusions: ['Router configuration', 'WPA3/WPA2 security', 'Coverage check in every room'],
+        duration: '1–2 hours',
+      },
+    ),
+    S(
+      603,
+      502,
+      'office-wifi-installation',
+      'Office Wi-Fi installation',
+      'Business-grade Wi-Fi with guest network and central management.',
+      ['FROM', 4500000, null, 1],
+      [
+        ['wifi', 'YEARS_3_5'],
+        ['networking', 'YEARS_3_5'],
+      ],
+      {
+        audience: 'ORGANISATIONS',
+        inclusions: [
+          'Access points mounted and configured',
+          'Separate guest network',
+          'Handover documentation',
+        ],
+      },
+    ),
+    S(
+      604,
+      501,
+      'network-troubleshooting',
+      'Network troubleshooting',
+      'Slow or dropping network? A technician finds and fixes the cause.',
+      ['PER_UNIT', 250000, 'HOUR', 2],
+      [['networking', 'YEARS_1_3']],
+      { delivery: 'BOTH', inclusions: ['Diagnosis', 'Fix or written recommendation'] },
+    ),
+    S(
+      605,
+      503,
+      'structured-cabling-per-point',
+      'Structured cabling (per point)',
+      'Cat6 data points terminated, labelled and tested.',
+      ['PER_UNIT', 250000, 'POINT', 10],
+      [['structured_cabling', 'YEARS_1_3']],
+      {
+        audience: 'ORGANISATIONS',
+        inclusions: [
+          'Cat6 cable up to 30 m per point',
+          'Faceplate and patch panel termination',
+          'Test report',
+        ],
+      },
+    ),
+    S(
+      606,
+      504,
+      'cctv-installation',
+      'CCTV installation',
+      'Cameras, recorder and phone viewing, installed and configured.',
+      ['FROM', 2500000, null, 1],
+      [['cctv', 'YEARS_1_3']],
+      { inclusions: ['Camera mounting and cabling', 'Recorder set-up', 'Mobile app viewing'] },
+    ),
+    S(
+      607,
+      504,
+      'cctv-maintenance-visit',
+      'CCTV maintenance visit',
+      'Cleaning, focus, recording check and firmware updates.',
+      ['PER_UNIT', 400000, 'VISIT', 1],
+      [['cctv', 'UNDER_1_YEAR']],
+    ),
+    S(
+      608,
+      504,
+      'access-control-installation',
+      'Access control installation',
+      'Card or biometric door access for offices and gates.',
+      ['QUOTE', null, null, 1],
+      [['access_control', 'YEARS_3_5']],
+      { audience: 'ORGANISATIONS' },
+    ),
+    S(
+      609,
+      505,
+      'laptop-repair-diagnosis',
+      'Laptop repair diagnosis',
+      'Find out what is wrong and what the repair will cost.',
+      ['FIXED', 150000, null, 1],
+      [['hardware_repair', 'YEARS_1_3']],
+      { inclusions: ['Hardware and software diagnosis', 'Written repair quotation'] },
+    ),
+    S(
+      610,
+      505,
+      'printer-repair',
+      'Printer repair',
+      'Paper jams, print quality and connectivity problems fixed.',
+      ['FIXED', 250000, null, 1],
+      [['printer_repair', 'YEARS_1_3']],
+    ),
+    S(
+      611,
+      505,
+      'desktop-support-per-device',
+      'Desktop support (per device)',
+      'Monthly-style health check and fixes for your office computers.',
+      ['PER_UNIT', 120000, 'DEVICE', 5],
+      [['desktop_support', 'YEARS_1_3']],
+      { audience: 'ORGANISATIONS', delivery: 'BOTH' },
+    ),
+    S(
+      612,
+      506,
+      'microsoft-365-setup',
+      'Microsoft 365 setup',
+      'Email, Teams and OneDrive set up for your staff, with security defaults.',
+      ['PER_UNIT', 100000, 'USER', 5],
+      [['microsoft_365', 'YEARS_1_3']],
+      {
+        audience: 'ORGANISATIONS',
+        delivery: 'REMOTE',
+        inclusions: [
+          'Domain and email set-up',
+          'User accounts and licences',
+          'Multi-factor authentication',
+        ],
+      },
+    ),
+    S(
+      613,
+      506,
+      'google-workspace-migration',
+      'Google Workspace migration',
+      'Move mail and files to Google Workspace with no lost messages.',
+      ['QUOTE', null, null, 1],
+      [['google_workspace', 'YEARS_3_5']],
+      { audience: 'ORGANISATIONS', delivery: 'REMOTE' },
+    ),
+    S(
+      614,
+      507,
+      'data-recovery',
+      'Data recovery',
+      'Recover files from failed disks, phones and memory cards.',
+      ['FROM', 500000, null, 1],
+      [['data_recovery', 'YEARS_3_5']],
+      { delivery: 'BOTH' },
+    ),
+    S(
+      615,
+      507,
+      'server-setup',
+      'Server setup',
+      'Windows or Linux server installed, secured and backed up.',
+      ['QUOTE', null, null, 1],
+      [
+        ['windows_server', 'YEARS_3_5'],
+        ['linux_administration', 'YEARS_1_3'],
+      ],
+      { audience: 'ORGANISATIONS', delivery: 'BOTH' },
+    ),
+    S(
+      616,
+      508,
+      'pos-installation',
+      'POS system installation',
+      'Till, receipt printer and scanner installed and connected to M-Pesa.',
+      ['FIXED', 1200000, null, 1],
+      [['pos_systems', 'YEARS_1_3']],
+      { audience: 'ORGANISATIONS' },
+    ),
+    S(
+      617,
+      508,
+      'voip-phone-setup',
+      'VoIP phone setup',
+      'Office desk phones and extensions over your internet line.',
+      ['PER_UNIT', 300000, 'DEVICE', 3],
+      [['telephony_voip', 'YEARS_1_3']],
+      { audience: 'ORGANISATIONS', delivery: 'BOTH' },
+    ),
+    S(
+      618,
+      505,
+      'smart-home-automation',
+      'Smart home automation',
+      'Draft: not visible to the public until published.',
+      ['FIXED', 2000000, null, 1],
+      [['networking', 'YEARS_1_3']],
+      { status: 'DRAFT' },
+    ),
+    S(
+      619,
+      501,
+      'dial-up-modem-setup',
+      'Dial-up modem setup',
+      'Retired: hidden from the public catalogue.',
+      ['FIXED', 100000, null, 1],
+      [['networking', 'UNDER_1_YEAR']],
+      { status: 'RETIRED' },
+    ),
+  ];
+  for (const s of services) {
+    await client.query(
+      `INSERT INTO service (id, category_id, slug, name, summary, description, inclusions,
+         typical_duration, audience, delivery_mode, status, published_at, retired_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::"ServiceAudience", $10::"DeliveryMode",
+         $11::"ServiceStatus",
+         CASE WHEN $11::"ServiceStatus" <> 'DRAFT' THEN now() END,
+         CASE WHEN $11::"ServiceStatus" = 'RETIRED' THEN now() END)
+       ON CONFLICT (id) DO NOTHING`,
+      [
+        s.id,
+        s.category,
+        s.slug,
+        s.name,
+        s.summary,
+        `${s.summary}\n\nPrices exclude VAT.`,
+        s.inclusions,
+        s.duration,
+        s.audience,
+        s.delivery,
+        s.status,
+      ],
+    );
+    const [model, amount, unit, minQuantity] = s.price;
+    await client.query(
+      `INSERT INTO service_price (service_id, model, amount_minor, unit, min_quantity)
+       SELECT $1, $2::"PriceModel", $3, $4::"PriceUnit", $5
+        WHERE NOT EXISTS (SELECT 1 FROM service_price WHERE service_id = $1)`,
+      [s.id, model, amount, unit, minQuantity],
+    );
+    for (const [skill, minExperience] of s.skills) {
+      await client.query(
+        `INSERT INTO service_skill (service_id, skill_code, min_experience)
+         VALUES ($1, $2, $3::"ExperienceBand") ON CONFLICT DO NOTHING`,
+        [s.id, skill, minExperience],
+      );
+    }
+  }
   await client.query('COMMIT');
   console.log(
     `Seeded ${roleCount} system roles, ${tenants.length} tenants, ${users.length} users ` +
-      `(password: SEED_USER_PASSWORD), ${memberships.length} memberships with roles, 2 providers.`,
+      `(password: SEED_USER_PASSWORD), ${memberships.length} memberships with roles, 2 providers, ${categories.length} categories, ${services.length} services.`,
   );
 } catch (error) {
   await client.query('ROLLBACK');

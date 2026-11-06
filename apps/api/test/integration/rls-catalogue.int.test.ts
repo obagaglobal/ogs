@@ -45,6 +45,11 @@ const KNOWN_TABLES = [
   'provider_working_hours',
   'region',
   'skill',
+  // Phase 6
+  'service',
+  'service_category',
+  'service_price',
+  'service_skill',
 ];
 
 interface TableRow {

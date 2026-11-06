@@ -131,6 +131,18 @@ export function describeError(error: unknown): string {
     file_too_large: 'That file is too large (10 MB maximum).',
     file_type_not_allowed: 'Upload a PDF, JPEG or PNG file.',
     invalid_request: 'Some fields are not valid. Check the form and try again.',
+    slug_taken: 'That web address (slug) is already used.',
+    slug_immutable: 'The web address cannot change once the service has been published.',
+    stale_version: 'Someone else changed this first. Reload and try again.',
+    service_incomplete: 'Complete the missing details before publishing.',
+    invalid_transition: 'That change is not possible in the current status.',
+    category_unknown: 'That category does not exist.',
+    category_too_deep: 'Categories can only be two levels deep.',
+    category_has_children: 'A category with sub-categories cannot be moved under another.',
+    parent_archived: 'The parent category is archived.',
+    skill_unknown: 'One of those skills is not offered.',
+    invalid_cursor: 'The results changed. Search again.',
+    not_found: 'Not found.',
   };
   return messages[error.code] ?? 'Something went wrong. Please try again.';
 }
