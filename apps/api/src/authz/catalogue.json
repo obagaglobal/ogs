@@ -1,0 +1,425 @@
+{
+  "$comment": "Source of truth for permissions and system roles (review §8). Synced into the database at API start-up (authz.sync job) and by `pnpm db:seed`. Edit here, never in SQL. docs/architecture/permissions.md documents every code.",
+  "permissions": [
+    {
+      "code": "workspace.read",
+      "kinds": ["ORGANISATION", "PROVIDER_COMPANY", "PLATFORM"],
+      "description": "See the workspace profile and status."
+    },
+    {
+      "code": "membership.read",
+      "kinds": ["ORGANISATION", "PROVIDER_COMPANY", "PLATFORM"],
+      "description": "List members and their roles."
+    },
+    {
+      "code": "membership.invite",
+      "kinds": ["ORGANISATION", "PROVIDER_COMPANY", "PLATFORM"],
+      "description": "Invite people to the workspace."
+    },
+    {
+      "code": "membership.manage",
+      "kinds": ["ORGANISATION", "PROVIDER_COMPANY", "PLATFORM"],
+      "description": "Suspend, reactivate or end memberships."
+    },
+    {
+      "code": "role.read",
+      "kinds": ["ORGANISATION", "PROVIDER_COMPANY", "PLATFORM"],
+      "description": "See roles and their permissions."
+    },
+    {
+      "code": "role.manage",
+      "kinds": ["ORGANISATION", "PROVIDER_COMPANY", "PLATFORM"],
+      "description": "Create custom roles and grant or remove roles."
+    },
+    {
+      "code": "audit.read",
+      "kinds": ["ORGANISATION", "PROVIDER_COMPANY", "PLATFORM"],
+      "description": "Read the workspace audit log."
+    },
+    {
+      "code": "report.read",
+      "kinds": ["ORGANISATION", "PROVIDER_COMPANY", "PLATFORM"],
+      "description": "Read workspace reports."
+    },
+
+    {
+      "code": "organisation.profile.manage",
+      "kinds": ["ORGANISATION"],
+      "description": "Edit the organisation profile and application."
+    },
+    {
+      "code": "department.manage",
+      "kinds": ["ORGANISATION"],
+      "description": "Create and edit departments."
+    },
+    {
+      "code": "request.create",
+      "kinds": ["ORGANISATION"],
+      "description": "Submit service requests and orders for the organisation."
+    },
+    {
+      "code": "request.read_all",
+      "kinds": ["ORGANISATION"],
+      "description": "See every request of the organisation (otherwise only own)."
+    },
+    {
+      "code": "quotation.read",
+      "kinds": ["ORGANISATION"],
+      "description": "Read quotations addressed to the organisation."
+    },
+    {
+      "code": "quotation.accept",
+      "kinds": ["ORGANISATION"],
+      "description": "Accept or reject quotations."
+    },
+    {
+      "code": "ticket.create",
+      "kinds": ["ORGANISATION", "PLATFORM"],
+      "description": "Open support tickets (platform: on behalf of a customer)."
+    },
+    {
+      "code": "ticket.read",
+      "kinds": ["ORGANISATION", "PROVIDER_COMPANY", "PLATFORM"],
+      "description": "Read tickets in scope (own, department, assigned or all, by endpoint rules)."
+    },
+    {
+      "code": "ticket.comment",
+      "kinds": ["ORGANISATION", "PROVIDER_COMPANY", "PLATFORM"],
+      "description": "Add public comments to tickets in scope."
+    },
+    {
+      "code": "ticket.confirm_completion",
+      "kinds": ["ORGANISATION", "PLATFORM"],
+      "description": "Confirm completed work (platform: audited override)."
+    },
+    {
+      "code": "invoice.read",
+      "kinds": ["ORGANISATION", "PLATFORM"],
+      "description": "Read invoices."
+    },
+    {
+      "code": "payment.make",
+      "kinds": ["ORGANISATION"],
+      "description": "Pay invoices for the organisation."
+    },
+    {
+      "code": "dispute.raise",
+      "kinds": ["ORGANISATION"],
+      "description": "Raise a dispute about an order or ticket."
+    },
+    {
+      "code": "contract.read",
+      "kinds": ["ORGANISATION", "PLATFORM"],
+      "description": "Read service contracts and SLAs."
+    },
+
+    {
+      "code": "provider.profile.manage",
+      "kinds": ["PROVIDER_COMPANY"],
+      "description": "Edit the provider company profile, skills and coverage."
+    },
+    {
+      "code": "ticket.internal_note",
+      "kinds": ["PROVIDER_COMPANY", "PLATFORM"],
+      "description": "Read and write internal notes on tickets in scope."
+    },
+    {
+      "code": "ticket.update_progress",
+      "kinds": ["PROVIDER_COMPANY", "PLATFORM"],
+      "description": "Log work, upload evidence and complete assigned work."
+    },
+    {
+      "code": "ticket.assign",
+      "kinds": ["PROVIDER_COMPANY", "PLATFORM"],
+      "description": "Assign or reassign work (provider: within the company)."
+    },
+    {
+      "code": "assignment.respond",
+      "kinds": ["PROVIDER_COMPANY", "PLATFORM"],
+      "description": "Accept or decline offered assignments."
+    },
+    {
+      "code": "quotation.submit",
+      "kinds": ["PROVIDER_COMPANY"],
+      "description": "Submit cost quotes where OGS asks for them."
+    },
+    {
+      "code": "payout.read",
+      "kinds": ["PROVIDER_COMPANY", "PLATFORM"],
+      "description": "Read payouts and earnings."
+    },
+    {
+      "code": "dispute.respond",
+      "kinds": ["PROVIDER_COMPANY"],
+      "description": "Respond to disputes about the company's work."
+    },
+
+    {
+      "code": "platform.cross_tenant_access",
+      "kinds": ["PLATFORM"],
+      "description": "Elevate to platform context to act across tenants (step-up MFA, reason, audited)."
+    },
+    {
+      "code": "platform.tenant.review",
+      "kinds": ["PLATFORM"],
+      "description": "Review organisation and provider applications."
+    },
+    {
+      "code": "platform.tenant.approve",
+      "kinds": ["PLATFORM"],
+      "description": "Approve, reject or suspend organisations and provider companies."
+    },
+    {
+      "code": "platform.provider.approve",
+      "kinds": ["PLATFORM"],
+      "description": "Approve, reject or suspend individual providers."
+    },
+    {
+      "code": "platform.catalogue.manage",
+      "kinds": ["PLATFORM"],
+      "description": "Manage service categories, services and pricing."
+    },
+    {
+      "code": "platform.quotation.issue",
+      "kinds": ["PLATFORM"],
+      "description": "Draft and issue quotations to customers."
+    },
+    {
+      "code": "platform.sla.manage",
+      "kinds": ["PLATFORM"],
+      "description": "Manage SLA policies, calendars and service contracts."
+    },
+    {
+      "code": "platform.finance.manage",
+      "kinds": ["PLATFORM"],
+      "description": "Record payments, issue refunds, run payouts and reconciliation."
+    },
+    {
+      "code": "platform.dispute.manage",
+      "kinds": ["PLATFORM"],
+      "description": "Triage and resolve disputes and complaints."
+    },
+    {
+      "code": "platform.compliance.review",
+      "kinds": ["PLATFORM"],
+      "description": "Read audit and security events across tenants for compliance."
+    },
+    {
+      "code": "platform.users.manage",
+      "kinds": ["PLATFORM"],
+      "description": "Suspend users, end sessions, manage staff memberships."
+    },
+    {
+      "code": "platform.settings.manage",
+      "kinds": ["PLATFORM"],
+      "description": "Change platform settings (super admin, step-up MFA)."
+    }
+  ],
+  "roles": [
+    {
+      "code": "org_admin",
+      "scope": "ORGANISATION",
+      "name": "Organisation administrator",
+      "description": "Full control of the organisation workspace.",
+      "permissions": "*"
+    },
+    {
+      "code": "org_employee",
+      "scope": "ORGANISATION",
+      "name": "Organisation employee",
+      "description": "Raises requests and tickets for themselves; admins may grant more.",
+      "permissions": [
+        "workspace.read",
+        "request.create",
+        "ticket.create",
+        "ticket.read",
+        "ticket.comment"
+      ]
+    },
+    {
+      "code": "provider_admin",
+      "scope": "PROVIDER_COMPANY",
+      "name": "Provider company administrator",
+      "description": "Full control of the provider company workspace.",
+      "permissions": "*"
+    },
+    {
+      "code": "provider_technician",
+      "scope": "PROVIDER_COMPANY",
+      "name": "Provider technician",
+      "description": "Works on assignments given by the company.",
+      "permissions": [
+        "workspace.read",
+        "ticket.read",
+        "ticket.comment",
+        "ticket.internal_note",
+        "ticket.update_progress"
+      ]
+    },
+    {
+      "code": "super_admin",
+      "scope": "PLATFORM",
+      "name": "Super administrator",
+      "description": "Every platform permission. MFA mandatory; every action audited.",
+      "permissions": "*"
+    },
+    {
+      "code": "operations_manager",
+      "scope": "PLATFORM",
+      "name": "Platform operations manager",
+      "description": "Runs day-to-day platform operations.",
+      "permissions": [
+        "workspace.read",
+        "membership.read",
+        "report.read",
+        "ticket.read",
+        "ticket.assign",
+        "platform.cross_tenant_access",
+        "platform.tenant.review",
+        "platform.dispute.manage"
+      ]
+    },
+    {
+      "code": "service_manager",
+      "scope": "PLATFORM",
+      "name": "Service manager",
+      "description": "Owns the catalogue, quotations, SLAs and dispatch.",
+      "permissions": [
+        "workspace.read",
+        "report.read",
+        "ticket.create",
+        "ticket.read",
+        "ticket.comment",
+        "ticket.internal_note",
+        "ticket.assign",
+        "ticket.update_progress",
+        "ticket.confirm_completion",
+        "contract.read",
+        "invoice.read",
+        "platform.cross_tenant_access",
+        "platform.catalogue.manage",
+        "platform.quotation.issue",
+        "platform.sla.manage",
+        "platform.dispute.manage"
+      ]
+    },
+    {
+      "code": "ict_support_manager",
+      "scope": "PLATFORM",
+      "name": "ICT support manager",
+      "description": "Leads the helpdesk and internal technicians.",
+      "permissions": [
+        "workspace.read",
+        "report.read",
+        "ticket.create",
+        "ticket.read",
+        "ticket.comment",
+        "ticket.internal_note",
+        "ticket.assign",
+        "ticket.update_progress",
+        "platform.cross_tenant_access"
+      ]
+    },
+    {
+      "code": "helpdesk",
+      "scope": "PLATFORM",
+      "name": "Helpdesk agent",
+      "description": "First-line support; opens tickets on behalf of customers.",
+      "permissions": [
+        "workspace.read",
+        "ticket.create",
+        "ticket.read",
+        "ticket.comment",
+        "ticket.internal_note",
+        "platform.cross_tenant_access"
+      ]
+    },
+    {
+      "code": "customer_support_officer",
+      "scope": "PLATFORM",
+      "name": "Customer support officer",
+      "description": "Handles customer enquiries and complaints.",
+      "permissions": [
+        "workspace.read",
+        "ticket.create",
+        "ticket.read",
+        "ticket.comment",
+        "platform.cross_tenant_access",
+        "platform.dispute.manage"
+      ]
+    },
+    {
+      "code": "technician",
+      "scope": "PLATFORM",
+      "name": "OGS technician",
+      "description": "Internal technician working on assigned tickets.",
+      "permissions": [
+        "workspace.read",
+        "ticket.read",
+        "ticket.comment",
+        "ticket.internal_note",
+        "ticket.update_progress",
+        "assignment.respond"
+      ]
+    },
+    {
+      "code": "field_engineer",
+      "scope": "PLATFORM",
+      "name": "Field engineer",
+      "description": "Internal on-site engineer.",
+      "permissions": [
+        "workspace.read",
+        "ticket.read",
+        "ticket.comment",
+        "ticket.internal_note",
+        "ticket.update_progress",
+        "assignment.respond"
+      ]
+    },
+    {
+      "code": "finance",
+      "scope": "PLATFORM",
+      "name": "Finance officer",
+      "description": "Invoices, payments, refunds and payouts. MFA mandatory.",
+      "permissions": [
+        "workspace.read",
+        "report.read",
+        "invoice.read",
+        "payout.read",
+        "contract.read",
+        "platform.cross_tenant_access",
+        "platform.finance.manage"
+      ]
+    },
+    {
+      "code": "compliance",
+      "scope": "PLATFORM",
+      "name": "Compliance officer",
+      "description": "Read-only oversight of audit and security records.",
+      "permissions": [
+        "workspace.read",
+        "membership.read",
+        "audit.read",
+        "report.read",
+        "platform.cross_tenant_access",
+        "platform.tenant.review",
+        "platform.compliance.review",
+        "platform.dispute.manage"
+      ]
+    },
+    {
+      "code": "provider_relationship_manager",
+      "scope": "PLATFORM",
+      "name": "Provider relationship manager",
+      "description": "Vets and manages external providers.",
+      "permissions": [
+        "workspace.read",
+        "report.read",
+        "platform.cross_tenant_access",
+        "platform.tenant.review",
+        "platform.tenant.approve",
+        "platform.provider.approve"
+      ]
+    }
+  ]
+}
