@@ -18,6 +18,12 @@ import {
   PasswordResetHandler,
 } from '../notifications/identity-email.handlers.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
+import {
+  ApplicationDecisionHandler,
+  InvitationEmailHandler,
+  SecurityNoticeHandler,
+  TenantStatusChangedHandler,
+} from '../notifications/organisation-email.handlers.js';
 import { BasicFileScanner, FileScanHandler, FileScanner } from '../files/file-scanner.js';
 import { SystemPingHandler } from './handlers/system-ping.handler.js';
 import { OutboxDispatcher } from './outbox-dispatcher.service.js';
@@ -44,6 +50,10 @@ const EVENT_CONSUMER_CONCURRENCY = 5;
         AccountExistsHandler,
         AccountLockedHandler,
         FileScanHandler,
+        InvitationEmailHandler,
+        ApplicationDecisionHandler,
+        TenantStatusChangedHandler,
+        SecurityNoticeHandler,
       ],
     },
     {

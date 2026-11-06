@@ -11,6 +11,7 @@ import {
   type DbContext,
 } from '../../database/index.js';
 import type { AuthEventKind, RequestMeta } from '../identity.service.js';
+import { OutboxService } from '../../events/outbox.service.js';
 import { RateLimiter } from '../rate-limiter.js';
 import { hashRecoveryCode, newRecoveryCodes } from './recovery-codes.js';
 import { SecretBox } from './secret-box.js';
@@ -64,6 +65,7 @@ export class MfaService {
     private readonly db: TenantDb,
     private readonly limiter: RateLimiter,
     private readonly audit: AuditService,
+    private readonly outbox: OutboxService,
     @Inject(ConfigService) config: TypedConfigService,
   ) {
     this.box = new SecretBox(config.get('MFA_ENCRYPTION_KEYS', { infer: true }));
@@ -79,7 +81,9 @@ export class MfaService {
         where: {
           userId,
           status: MembershipStatus.ACTIVE,
-          tenant: { deletedAt: null, status: { not: TenantStatus.CLOSED } },
+          // P4-1: only ACTIVE tenants. An applicant admin of a pending organisation
+          // (which can do nothing operational) enrols when it is approved.
+          tenant: { deletedAt: null, status: TenantStatus.ACTIVE },
           OR: [
             { tenant: { kind: TenantKind.PLATFORM } },
             { roles: { some: { role: { code: { in: [...MFA_REQUIRED_ROLE_CODES] } } } } },
@@ -158,6 +162,10 @@ export class MfaService {
       });
       const codes = await this.replaceRecoveryCodes(tx, userId);
       await this.event(tx, 'MFA_ENABLED', userId, meta);
+      await this.outbox.publish(tx, {
+        type: 'identity.security_notice',
+        payload: { userId: userId, notice: 'mfa_enabled' },
+      });
       await this.audit.record(tx, {
         action: 'identity.mfa_enabled',
         entityType: 'user',
@@ -223,6 +231,10 @@ export class MfaService {
       }
       const codes = await this.replaceRecoveryCodes(tx, userId);
       await this.event(tx, 'RECOVERY_CODES_REGENERATED', userId, meta);
+      await this.outbox.publish(tx, {
+        type: 'identity.security_notice',
+        payload: { userId: userId, notice: 'recovery_codes_regenerated' },
+      });
       await this.audit.record(tx, {
         action: 'identity.mfa_recovery_codes_regenerated',
         entityType: 'user',
@@ -250,6 +262,10 @@ export class MfaService {
         select: { id: true },
       });
       await this.event(tx, 'MFA_DISABLED', userId, meta);
+      await this.outbox.publish(tx, {
+        type: 'identity.security_notice',
+        payload: { userId: userId, notice: 'mfa_disabled' },
+      });
       await this.audit.record(tx, {
         action: 'identity.mfa_disabled',
         entityType: 'user',

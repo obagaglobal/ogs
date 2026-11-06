@@ -264,6 +264,10 @@ export class IdentityService {
         data: { status: UserStatus.ACTIVE },
       });
       await this.event(tx, 'PASSWORD_RESET_COMPLETED', meta, { userId: id });
+      await this.outbox.publish(tx, {
+        type: 'identity.security_notice',
+        payload: { userId: id, notice: 'password_reset' },
+      });
       await this.audit.record(tx, {
         action: 'identity.password_reset',
         entityType: 'user',
@@ -306,6 +310,10 @@ export class IdentityService {
         data: { passwordHash, passwordChangedAt: new Date(), failedAttempts: 0, lockedUntil: null },
       });
       await this.event(tx, 'PASSWORD_CHANGED', meta, { userId });
+      await this.outbox.publish(tx, {
+        type: 'identity.security_notice',
+        payload: { userId: userId, notice: 'password_changed' },
+      });
       await this.audit.record(tx, {
         action: 'identity.password_changed',
         entityType: 'user',

@@ -28,6 +28,13 @@ export type AccessRule =
   | { readonly kind: 'elevated'; readonly code: string };
 
 export const STEP_UP_METADATA = 'ogs:step-up';
+export const MULTIPART_METADATA = 'ogs:multipart';
+
+/**
+ * The route takes a multipart/form-data upload instead of JSON. CSRF protection
+ * is unchanged: authenticated unsafe requests still need X-CSRF-Token.
+ */
+export const AcceptsMultipart = () => SetMetadata(MULTIPART_METADATA, true);
 
 export interface StepUpRule {
   /** A TOTP check must have happened within this many minutes. */

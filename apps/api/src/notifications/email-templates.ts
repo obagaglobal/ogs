@@ -74,4 +74,103 @@ export const templates = {
       ],
       { url: resetUrl, label: 'Reset your password' },
     ),
+
+  invitation: (to: string, organisation: string, url: string) =>
+    layout(
+      to,
+      `You are invited to join ${organisation} on OGS`,
+      [
+        `${organisation} has invited you to join its workspace on OGS.`,
+        'The link works once and expires in 7 days. If you do not have an OGS account yet, you can create one with this email address first.',
+        'If you were not expecting this, you can ignore this email.',
+      ],
+      { url, label: 'Accept the invitation' },
+    ),
+
+  applicationDecision: (
+    to: string,
+    organisation: string,
+    decision: 'APPROVED' | 'REJECTED' | 'CHANGES_REQUESTED',
+    reason: string | null,
+    url: string,
+  ) => {
+    const subject = {
+      APPROVED: `${organisation} is approved on OGS`,
+      REJECTED: `Your OGS application for ${organisation} was not approved`,
+      CHANGES_REQUESTED: `OGS needs changes to the application for ${organisation}`,
+    }[decision];
+    const lead = {
+      APPROVED:
+        'Your organisation is approved. You can now invite your team and use OGS services. Administrators must set up two-step verification at their next sign-in.',
+      REJECTED: 'We could not approve your organisation on OGS.',
+      CHANGES_REQUESTED:
+        'We reviewed your application and need a few changes before we can approve it.',
+    }[decision];
+    return layout(to, subject, reason === null ? [lead] : [lead, `Reviewer note: ${reason}`], {
+      url,
+      label: decision === 'APPROVED' ? 'Open OGS' : 'View the application',
+    });
+  },
+
+  tenantStatusChanged: (
+    to: string,
+    organisation: string,
+    status: 'SUSPENDED' | 'ACTIVE',
+    url: string,
+  ) =>
+    layout(
+      to,
+      status === 'SUSPENDED'
+        ? `${organisation} has been suspended on OGS`
+        : `${organisation} has been reactivated on OGS`,
+      [
+        status === 'SUSPENDED'
+          ? 'OGS has suspended your organisation. Members can sign in and see its status, but cannot use it until it is reactivated. Contact OGS support for details.'
+          : 'Your organisation is active again on OGS.',
+      ],
+      { url, label: 'Open OGS' },
+    ),
+
+  /** ASVS follow-up F-2: tell the owner about every change to how they sign in. */
+  securityNotice: (to: string, notice: SecurityNotice, url: string) => {
+    const text: Record<SecurityNotice, [string, string]> = {
+      password_changed: [
+        'Your OGS password was changed',
+        'The password of your OGS account was just changed.',
+      ],
+      password_reset: [
+        'Your OGS password was reset',
+        'The password of your OGS account was just reset with an emailed link.',
+      ],
+      mfa_enabled: [
+        'Two-step verification is on',
+        'Two-step verification was turned on for your OGS account.',
+      ],
+      mfa_disabled: [
+        'Two-step verification is off',
+        'Two-step verification was turned off for your OGS account.',
+      ],
+      recovery_codes_regenerated: [
+        'New OGS recovery codes',
+        'New recovery codes were created for your OGS account. The old ones no longer work.',
+      ],
+    };
+    const [subject, line] = text[notice];
+    return layout(
+      to,
+      subject,
+      [
+        line,
+        'If this was you, no action is needed. If it was not, reset your password immediately and contact OGS support.',
+      ],
+      { url, label: 'Review your security settings' },
+    );
+  },
 };
+
+export type SecurityNotice =
+  | 'password_changed'
+  | 'password_reset'
+  | 'mfa_enabled'
+  | 'mfa_disabled'
+  | 'recovery_codes_regenerated';

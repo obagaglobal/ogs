@@ -38,6 +38,11 @@ async function createOrg(status = 'ACTIVE'): Promise<Org> {
   return { tenantId, admin, adminMembership, employee, employeeMembership };
 }
 
+/** Makes the employee a second admin, so the first one can be removed. */
+async function promoteEmployee(org: Org): Promise<void> {
+  await grantRole(maint, org.employeeMembership, org.tenantId, 'org_admin');
+}
+
 async function signedIn(user: FixtureUser): Promise<Client> {
   return signIn(stack.server, maint, user);
 }
@@ -130,6 +135,7 @@ describe('A10 — API isolation', () => {
 
   it('ending a membership removes access on the very next request', async () => {
     const org = await createOrg();
+    await promoteEmployee(org); // the last admin cannot be ended (Phase 4)
     const client = await signedIn(org.admin);
     expect((await client.get('/workspace/members', { workspace: org.tenantId })).status).toBe(200);
     await maint.query(`UPDATE membership SET status = 'ENDED', ended_at = now() WHERE id = $1`, [
@@ -142,6 +148,7 @@ describe('A10 — API isolation', () => {
 
   it('removing a role removes its permissions on the very next request', async () => {
     const org = await createOrg();
+    await promoteEmployee(org); // the last admin cannot be demoted (Phase 4)
     const client = await signedIn(org.admin);
     expect((await client.get('/workspace/members', { workspace: org.tenantId })).status).toBe(200);
     await maint.query('DELETE FROM membership_role WHERE membership_id = $1', [
