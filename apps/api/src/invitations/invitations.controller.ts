@@ -26,7 +26,7 @@ import { InvitationService } from './invitation.service.js';
 
 export function tenantKindOf(auth: AccessState): TenantKind {
   const resolved = auth.workspace?.resolved;
-  if (resolved === undefined || resolved.kind === 'personal') {
+  if (resolved === undefined || resolved.kind === 'personal' || resolved.kind === 'provider') {
     throw notFound();
   }
   return resolved.kind;

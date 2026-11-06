@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import {
   applicationStatusSchema,
+  applicationTypeSchema,
   approveRequestSchema,
   reasonRequestSchema,
   type ApplicationQueueResponse,
@@ -21,6 +22,7 @@ import { Auth, Ctx, RequireElevation } from '../access/access.decorators.js';
 import type { AccessState } from '../access/access.types.js';
 import { parseBody } from '../access/parse-body.js';
 import type { DbContext } from '../database/index.js';
+import { ProviderReviewService } from '../providers/provider-review.service.js';
 import { OrganisationReviewService } from './organisation-review.service.js';
 
 /**
@@ -30,7 +32,10 @@ import { OrganisationReviewService } from './organisation-review.service.js';
  */
 @Controller('platform')
 export class PlatformApplicationsController {
-  constructor(private readonly review: OrganisationReviewService) {}
+  constructor(
+    private readonly review: OrganisationReviewService,
+    private readonly providerReview: ProviderReviewService,
+  ) {}
 
   @Get('applications')
   @RequireElevation('platform.tenant.review')
@@ -38,9 +43,32 @@ export class PlatformApplicationsController {
   async queue(
     @Ctx() ctx: DbContext,
     @Query('status') status: unknown,
+    @Query('type') type: unknown,
   ): Promise<ApplicationQueueResponse> {
     const parsed = applicationStatusSchema.safeParse(status ?? 'SUBMITTED');
-    return this.review.queue(ctx, parsed.success ? parsed.data : 'SUBMITTED');
+    const wanted = parsed.success ? parsed.data : 'SUBMITTED';
+    // Phase 5: one queue for organisations and both kinds of provider, filterable by type.
+    const kind = type === undefined ? undefined : applicationTypeSchema.safeParse(type);
+    if (kind !== undefined && !kind.success) {
+      return { applications: [] };
+    }
+    const only = kind?.data;
+    const organisations =
+      only === undefined || only === 'organisation'
+        ? (await this.review.queue(ctx, wanted)).applications
+        : [];
+    const providers =
+      only === 'organisation'
+        ? []
+        : await this.providerReview.queue(
+            ctx,
+            wanted,
+            only === undefined ? undefined : only === 'provider_company' ? 'COMPANY' : 'INDIVIDUAL',
+          );
+    const applications = [...organisations, ...providers].sort((a, b) =>
+      (a.submittedAt ?? '').localeCompare(b.submittedAt ?? ''),
+    );
+    return { applications };
   }
 
   @Get('applications/:id')

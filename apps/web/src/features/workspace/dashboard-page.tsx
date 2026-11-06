@@ -10,6 +10,7 @@ const NEXT_STEPS: Record<CurrentWorkspaceResponse['kind'], string> = {
   ORGANISATION: 'Organisation workspace. Members, departments and approvals arrive in Phase 4.',
   PROVIDER_COMPANY: 'Provider company workspace. Profiles, skills and coverage arrive in Phase 5.',
   PLATFORM: 'OGS platform workspace. Administration tools arrive in later phases.',
+  provider: 'Your provider workspace: your application, skills, coverage and availability.',
 };
 
 /** Placeholder home for each workspace kind (Phase 3 plan §3.4). */
@@ -36,7 +37,11 @@ export function DashboardPage() {
     <div className="space-y-6">
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">
-          {data.kind === 'personal' ? 'Personal' : data.name}
+          {data.kind === 'personal'
+            ? 'Personal'
+            : data.kind === 'provider'
+              ? 'Provider'
+              : data.name}
         </h1>
         <p className="text-sm text-muted-foreground">{NEXT_STEPS[data.kind]}</p>
       </div>
@@ -62,7 +67,7 @@ export function DashboardPage() {
           </p>
         </Card>
       ) : null}
-      {data.kind !== 'personal' ? (
+      {'roles' in data ? (
         <Card>
           <h2 className="mb-2 font-medium">Your access here</h2>
           <p className="text-sm">

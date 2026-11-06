@@ -512,3 +512,178 @@ model Department {
   @@unique([tenantId, name])
   @@map("department")
 }
+
+// ---------------------------------------------------------------------------
+// Providers (Phase 5). Phase 5 plan §2.
+// ---------------------------------------------------------------------------
+
+enum ProviderKind {
+  COMPANY
+  INDIVIDUAL
+}
+
+enum ProviderStatus {
+  PENDING_APPROVAL
+  ACTIVE
+  REJECTED
+  SUSPENDED
+}
+
+enum ExperienceBand {
+  UNDER_1_YEAR
+  YEARS_1_3
+  YEARS_3_5
+  OVER_5_YEARS
+}
+
+/// Platform-owned skill taxonomy (P5-3). Services name required skills in Phase 6.
+model Skill {
+  code      String          @id @db.VarChar(60)
+  name      String          @db.VarChar(120)
+  category  String          @db.VarChar(60)
+  active    Boolean         @default(true)
+  createdAt DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  providers ProviderSkill[]
+
+  @@map("skill")
+}
+
+/// Platform-owned geography (P5-6): the 47 counties of Kenya first (ISO 3166-2:KE).
+model Region {
+  code      String           @id @db.VarChar(10)
+  country   String           @db.Char(2)
+  name      String           @db.VarChar(100)
+  active    Boolean          @default(true)
+  providers ProviderRegion[]
+
+  @@index([country])
+  @@map("region")
+}
+
+/// One supply-side entity: a provider company (tenant) OR an individual (user), never both (P5-1).
+model Provider {
+  id            String                 @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  kind          ProviderKind
+  /// Provider company: its tenant.
+  tenantId      String?                @unique @map("tenant_id") @db.Uuid
+  /// Individual provider: the person.
+  ownerUserId   String?                @unique @map("owner_user_id") @db.Uuid
+  displayName   String                 @map("display_name") @db.VarChar(200)
+  status        ProviderStatus         @default(PENDING_APPROVAL)
+  phone         String?                @db.VarChar(20)
+  homeRegion    String?                @map("home_region") @db.VarChar(10)
+  remoteOk      Boolean                @default(false) @map("remote_ok")
+  acceptingWork Boolean                @default(true) @map("accepting_work")
+  /// Data-protection retention marker (P5-5): rejected individuals may be erased after this.
+  retainUntil   DateTime?              @map("retain_until") @db.Timestamptz(6)
+  version       Int                    @default(0)
+  createdAt     DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  skills        ProviderSkill[]
+  regions       ProviderRegion[]
+  workingHours  ProviderWorkingHours[]
+  timeOff       ProviderTimeOff[]
+  application   ProviderApplication?
+
+  @@map("provider")
+}
+
+model ProviderSkill {
+  providerId String         @map("provider_id") @db.Uuid
+  skillCode  String         @map("skill_code") @db.VarChar(60)
+  experience ExperienceBand @default(YEARS_1_3)
+  provider   Provider       @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  skill      Skill          @relation(fields: [skillCode], references: [code], onDelete: Restrict)
+
+  @@id([providerId, skillCode])
+  @@index([skillCode])
+  @@map("provider_skill")
+}
+
+model ProviderRegion {
+  providerId String   @map("provider_id") @db.Uuid
+  regionCode String   @map("region_code") @db.VarChar(10)
+  provider   Provider @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  region     Region   @relation(fields: [regionCode], references: [code], onDelete: Restrict)
+
+  @@id([providerId, regionCode])
+  @@index([regionCode])
+  @@map("provider_region")
+}
+
+/// Weekly working hours in Africa/Nairobi. ISO weekday 1 (Mon) to 7 (Sun); minutes since midnight.
+model ProviderWorkingHours {
+  id          String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  providerId  String   @map("provider_id") @db.Uuid
+  weekday     Int      @db.SmallInt
+  startMinute Int      @map("start_minute") @db.SmallInt
+  endMinute   Int      @map("end_minute") @db.SmallInt
+  provider    Provider @relation(fields: [providerId], references: [id], onDelete: Restrict)
+
+  @@index([providerId, weekday])
+  @@map("provider_working_hours")
+}
+
+model ProviderTimeOff {
+  id         String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  providerId String   @map("provider_id") @db.Uuid
+  startsAt   DateTime @map("starts_at") @db.Timestamptz(6)
+  endsAt     DateTime @map("ends_at") @db.Timestamptz(6)
+  reason     String?  @db.VarChar(200)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  provider   Provider @relation(fields: [providerId], references: [id], onDelete: Restrict)
+
+  @@index([providerId, startsAt])
+  @@map("provider_time_off")
+}
+
+/// Same lifecycle as organisation applications (shared transition rules).
+model ProviderApplication {
+  id              String                     @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  providerId      String                     @unique @map("provider_id") @db.Uuid
+  status          ApplicationStatus          @default(DRAFT)
+  applicantUserId String                     @map("applicant_user_id") @db.Uuid
+  submittedAt     DateTime?                  @map("submitted_at") @db.Timestamptz(6)
+  decidedAt       DateTime?                  @map("decided_at") @db.Timestamptz(6)
+  decidedBy       String?                    @map("decided_by") @db.Uuid
+  decisionReason  String?                    @map("decision_reason") @db.VarChar(1000)
+  version         Int                        @default(0)
+  createdAt       DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime                   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  provider        Provider                   @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  events          ProviderApplicationEvent[]
+  verifications   ProviderVerification[]
+
+  @@index([status, submittedAt])
+  @@map("provider_application")
+}
+
+model ProviderApplicationEvent {
+  id            String              @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  applicationId String              @map("application_id") @db.Uuid
+  fromStatus    ApplicationStatus?  @map("from_status")
+  toStatus      ApplicationStatus   @map("to_status")
+  actorUserId   String?             @map("actor_user_id") @db.Uuid
+  reason        String?             @db.VarChar(1000)
+  occurredAt    DateTime            @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  application   ProviderApplication @relation(fields: [applicationId], references: [id], onDelete: Restrict)
+
+  @@index([applicationId, occurredAt])
+  @@map("provider_application_event")
+}
+
+/// Reviewer's structured verdict at approval (Phase 5 plan §2.2). Platform-only.
+model ProviderVerification {
+  id                  String              @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  applicationId       String              @map("application_id") @db.Uuid
+  reviewerUserId      String              @map("reviewer_user_id") @db.Uuid
+  identityChecked     Boolean             @map("identity_checked")
+  registrationChecked Boolean             @map("registration_checked")
+  taxChecked          Boolean             @map("tax_checked")
+  skillsChecked       Boolean             @map("skills_checked")
+  notes               String?             @db.VarChar(1000)
+  createdAt           DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  application         ProviderApplication @relation(fields: [applicationId], references: [id], onDelete: Restrict)
+
+  @@map("provider_verification")
+}

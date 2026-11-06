@@ -58,6 +58,7 @@ export class OrganisationReviewService {
     return {
       applications: rows.map((row) => ({
         applicationId: row.id,
+        type: 'organisation' as const,
         tenantId: row.tenantId,
         legalName: row.tenant.organisationProfile?.legalName ?? '',
         status: row.status,

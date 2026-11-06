@@ -111,11 +111,26 @@ export const workspaceSummarySchema = z.object({
 });
 export const workspaceListResponseSchema = z.object({
   workspaces: z.array(workspaceSummarySchema),
+  /** The individual-provider capacity (Phase 5), when the person has a provider profile. */
+  provider: z
+    .object({
+      providerId: z.uuid(),
+      status: z.enum(['PENDING_APPROVAL', 'ACTIVE', 'REJECTED', 'SUSPENDED']),
+      restricted: z.boolean(),
+    })
+    .nullable()
+    .optional(),
 });
 
 /** `GET /api/v1/workspace`: the workspace the request is acting in. */
 export const currentWorkspaceResponseSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('personal') }),
+  z.object({
+    kind: z.literal('provider'),
+    providerId: z.uuid(),
+    status: z.enum(['PENDING_APPROVAL', 'ACTIVE', 'REJECTED', 'SUSPENDED']),
+    restricted: z.boolean(),
+  }),
   z.object({
     kind: tenantKindSchema,
     tenantId: z.uuid(),

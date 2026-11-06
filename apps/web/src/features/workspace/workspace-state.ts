@@ -47,5 +47,5 @@ export function useCurrentWorkspace() {
 
 export function useCan(permission: string): boolean {
   const { data } = useCurrentWorkspace();
-  return data !== undefined && data.kind !== 'personal' && data.permissions.includes(permission);
+  return data !== undefined && 'permissions' in data && data.permissions.includes(permission);
 }

@@ -10,7 +10,7 @@ export function WorkspaceNav() {
   const { data } = useCurrentWorkspace();
   const can = (code: string) =>
     data !== undefined &&
-    data.kind !== 'personal' &&
+    'permissions' in data &&
     !data.restricted &&
     data.permissions.includes(code);
 

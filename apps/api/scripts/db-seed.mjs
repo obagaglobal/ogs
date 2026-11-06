@@ -9,6 +9,7 @@
  *   ORGANISATION      Savanna Logistics  PENDING  bob@savanna.test (org_admin, restricted)
  *   PROVIDER_COMPANY  Nairobi Tech Partners ACTIVE tech@ntp.test   (provider_admin)
  *                                                 alice@acme.test  (provider_technician)
+ *   (individual provider, Phase 5)                 jane@provider.test (ACTIVE, approved)
  *
  * Every seeded user is ACTIVE (email verified) with the password SEED_USER_PASSWORD
  * from apps/api/.env. alice@acme.test has two workspaces (switcher demo).
@@ -51,6 +52,7 @@ const users = [
   [id(102), 'alice@acme.test'],
   [id(103), 'bob@savanna.test'],
   [id(104), 'tech@ntp.test'],
+  [id(105), 'jane@provider.test'],
 ];
 // [membership id, tenant, user, role code]
 const memberships = [
@@ -180,10 +182,92 @@ try {
       [applicationId, tenantId, status, applicant],
     );
   }
+  // Phase 5: NTP is an approved provider company; Jane an approved individual provider.
+  // [provider id, kind, tenant, owner, name, application id, applicant, skills, regions, remote]
+  const providers = [
+    [
+      id(401),
+      'COMPANY',
+      id(4),
+      null,
+      'Nairobi Tech Partners',
+      id(411),
+      id(104),
+      [
+        ['networking', 'OVER_5_YEARS'],
+        ['structured_cabling', 'YEARS_3_5'],
+        ['cctv', 'YEARS_1_3'],
+      ],
+      ['KE-30', 'KE-13', 'KE-22'],
+      false,
+    ],
+    [
+      id(402),
+      'INDIVIDUAL',
+      null,
+      id(105),
+      'Jane Wanjiru',
+      id(412),
+      id(105),
+      [
+        ['desktop_support', 'YEARS_3_5'],
+        ['microsoft_365', 'YEARS_1_3'],
+      ],
+      ['KE-30'],
+      true,
+    ],
+  ];
+  for (const [
+    providerId,
+    kind,
+    tenantId,
+    ownerId,
+    name,
+    applicationId,
+    applicant,
+    skills,
+    regions,
+    remote,
+  ] of providers) {
+    await client.query(
+      `INSERT INTO provider (id, kind, tenant_id, owner_user_id, display_name, status, phone,
+         home_region, remote_ok)
+       VALUES ($1, $2, $3, $4, $5, 'ACTIVE', '+254700000001', 'KE-30', $6)
+       ON CONFLICT (id) DO NOTHING`,
+      [providerId, kind, tenantId, ownerId, name, remote],
+    );
+    await client.query(
+      `INSERT INTO provider_application (id, provider_id, status, applicant_user_id,
+         submitted_at, decided_at)
+       VALUES ($1, $2, 'APPROVED', $3, now(), now()) ON CONFLICT (id) DO NOTHING`,
+      [applicationId, providerId, applicant],
+    );
+    for (const [skillCode, experience] of skills) {
+      await client.query(
+        `INSERT INTO provider_skill (provider_id, skill_code, experience)
+         VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+        [providerId, skillCode, experience],
+      );
+    }
+    for (const regionCode of regions) {
+      await client.query(
+        `INSERT INTO provider_region (provider_id, region_code) VALUES ($1, $2)
+         ON CONFLICT DO NOTHING`,
+        [providerId, regionCode],
+      );
+    }
+    // Monday to Friday 08:00-17:00 (Africa/Nairobi), once.
+    await client.query(
+      `INSERT INTO provider_working_hours (provider_id, weekday, start_minute, end_minute)
+       SELECT $1, d, 480, 1020 FROM generate_series(1, 5) AS d
+        WHERE NOT EXISTS (SELECT 1 FROM provider_working_hours WHERE provider_id = $1)`,
+      [providerId],
+    );
+  }
   await client.query('COMMIT');
   console.log(
     `Seeded ${roleCount} system roles, ${tenants.length} tenants, ${users.length} users ` +
-      `(password: SEED_USER_PASSWORD), ${memberships.length} memberships with roles.`,
+      `(password: SEED_USER_PASSWORD), ${memberships.length} memberships with roles, 2 providers.`,
   );
 } catch (error) {
   await client.query('ROLLBACK');
