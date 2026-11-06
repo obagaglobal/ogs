@@ -47,12 +47,13 @@ pnpm db:seed          # optional: roles, sample tenants, users with passwords, m
 
 Seeded accounts. All are verified, and all use the password in `SEED_USER_PASSWORD` (`apps/api/.env`):
 
-| User               | Workspace (role)                                                                                |
-| ------------------ | ----------------------------------------------------------------------------------------------- |
-| `admin@ogs.test`   | OGS Platform (`super_admin`)                                                                    |
-| `alice@acme.test`  | Acme Kenya Ltd (`org_admin`) and Nairobi Tech Partners (`provider_technician`)                  |
-| `bob@savanna.test` | Savanna Logistics (`org_admin`; the tenant is pending approval, so the workspace is restricted) |
-| `tech@ntp.test`    | Nairobi Tech Partners (`provider_admin`)                                                        |
+| User                 | Workspace (role)                                                                                |
+| -------------------- | ----------------------------------------------------------------------------------------------- |
+| `admin@ogs.test`     | OGS Platform (`super_admin`)                                                                    |
+| `alice@acme.test`    | Acme Kenya Ltd (`org_admin`) and Nairobi Tech Partners (`provider_technician`)                  |
+| `bob@savanna.test`   | Savanna Logistics (`org_admin`; the tenant is pending approval, so the workspace is restricted) |
+| `tech@ntp.test`      | Nairobi Tech Partners (`provider_admin`)                                                        |
+| `jane@provider.test` | Approved individual provider (Provider workspace)                                               |
 
 ## Sign in to the web app
 

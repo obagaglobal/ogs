@@ -1,6 +1,6 @@
 # Architecture Overview
 
-> Status: Phase 4 complete (organisations, approvals, invitations, members) on top of Phases 2–3 (tenancy, RLS, identity, access control).
+> Status: Phase 5A complete (providers, eligibility, KYC review) on top of Phases 2–4 (tenancy, RLS, identity, access control, organisations). Phase 5B (web) in progress.
 
 ## 1. Product context
 
@@ -246,7 +246,60 @@ The last ACTIVE admin can never be removed, demoted or suspended. A deferred, pe
 
 The Playwright journey `organisation-journey.spec.ts` covers apply, approve, invite and accept with three people.
 
-## 9. Architecture decisions
+## 9. Providers (Phase 5)
+
+Planned in the [Phase 5 plan](../plans/phase-5-providers.md).
+
+**Two kinds, one model.** A `provider` row is either:
+
+- a **provider company** (`kind = COMPANY`, one per PROVIDER_COMPANY tenant), registered with `POST /providers/companies` like an organisation (pending tenant, business profile, DRAFT application, `provider_admin` membership, created by the job `providers.register`);
+- an **individual** (`kind = INDIVIDUAL`, owned by one user), created with `POST /providers/me` from the personal account.
+
+Both go through the same application lifecycle as organisations (`src/applications/application-rules.ts`). The Phase 4 trigger `app.protect_application_status` also guards `provider_application`, and `app.protect_provider_columns` makes provider identity immutable and status a platform or system decision.
+
+**Provider workspace (P5-2).** `X-OGS-Workspace: provider` selects the person's individual capacity. It runs in their `user` context (their rows are user-owned), grants no role permissions, and stays restricted until approval. The `/provider/*` routes serve both kinds: the workspace decides which provider (`providers/provider-subject.ts`). Reading a company needs `workspace.read`; changing it needs `provider.profile.manage`. Any other workspace gets `403 not_a_provider_workspace`.
+
+**Editing rules.** A provider edits its profile, skills, regions, weekly hours (Africa/Nairobi) and time off while DRAFT or CHANGES_REQUESTED, and again after approval. While SUBMITTED the content is frozen (`application_locked`). A SUSPENDED or REJECTED provider is read-only.
+
+**Review.** The Phase 4 queue (`GET /platform/applications?type=organisation|provider_company|individual_provider`) lists all three kinds. Decisions open with `platform.tenant.review` under an elevation, then require the kind's approve permission: `platform.tenant.approve` for companies, `platform.provider.approve` for individuals. Approval records the verification checklist in `provider_verification` (platform-only, append-only). Rejecting an individual sets `retain_until` to 24 months later (ADR-018).
+
+**KYC documents (P5-5).** The file purposes are `provider.identity` (personal only), `provider.certificate`, and `provider.company_document` (tenant, `provider.profile.manage`). Staff see identity documents only with `platform.provider.approve` or `platform.compliance.review`, and each view is audited with the elevation's reason. No ID number or date of birth is stored.
+
+**Eligibility.** `EligibilityService.find` applies every hard filter in SQL:
+
+- application approved, provider ACTIVE, company tenant ACTIVE;
+- accepting work;
+- every required skill;
+- covers the county (or remote, when the service allows it);
+- with `at`: within weekly hours (Africa/Nairobi) and not on time off.
+
+It then scores with documented weights (`ELIGIBILITY_WEIGHTS`) and returns one reason per factor. Phase 5 exposes it only to staff (`ticket.assign`, elevated); dispatch uses it in Phase 9.
+
+**Endpoints (Phase 5).**
+
+| Method and path                                                                                                                                                                                              | Access                                                                        | Purpose                                     |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- | ------------------------------------------- |
+| `POST /providers/companies`, `POST /providers/me`                                                                                                                                                            | verified user                                                                 | Register a company / apply as an individual |
+| `GET /provider`                                                                                                                                                                                              | Provider workspace, or company `workspace.read` (restricted allowed)          | The provider's own view                     |
+| `PATCH /provider/profile`, `PATCH /provider/business`, `PUT /provider/skills`, `PUT /provider/regions`, `PUT /provider/working-hours`, `POST/DELETE /provider/time-off`, `POST /provider/application/submit` | Provider workspace, or company `provider.profile.manage` (restricted allowed) | Edit and submit                             |
+| `GET /reference/skills`, `GET /reference/regions`                                                                                                                                                            | signed in                                                                     | Picker data (active only)                   |
+| `GET /platform/provider-applications/:id`                                                                                                                                                                    | elevation + `platform.tenant.review`                                          | Review detail (identity documents gated)    |
+| `POST /platform/provider-applications/:id/approve` \| `reject` \| `request-changes`                                                                                                                          | elevation + `platform.tenant.review` + kind's approve permission              | Decide (checklist on approve)               |
+| `POST /platform/providers/:id/suspend` \| `reactivate`                                                                                                                                                       | elevation + `platform.tenant.review` + kind's approve permission              | Lifecycle after approval (reason)           |
+| `GET /platform/providers/eligible?skills=&region=&at=&remote=`                                                                                                                                               | elevation + `ticket.assign`                                                   | Explained eligibility                       |
+| `GET/POST /platform/skills`, `PATCH /platform/skills/:code`                                                                                                                                                  | elevation + `platform.catalogue.manage`                                       | Skill taxonomy                              |
+
+**Proof.** The suite `providers` (D1–D9) covers:
+
+- a combinatorial eligibility table (every hard filter);
+- both lifecycles, with the approve permission per kind;
+- the pending-provider route walk;
+- KYC visibility and audit;
+- technicians, isolation and multi-capacity;
+- Nairobi time-zone edges, including midnight and the new year;
+- the taxonomy rules.
+
+## 10. Architecture decisions
 
 | ID  | Decision                                                                  | Status                    |
 | --- | ------------------------------------------------------------------------- | ------------------------- |

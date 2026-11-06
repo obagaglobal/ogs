@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-ADR-001 … ADR-008 were made during Phase 1 and are listed in [`architecture/overview.md` §9](architecture/overview.md#9-architecture-decisions).
+ADR-001 … ADR-008 were made during Phase 1 and are listed in [`architecture/overview.md` §10](architecture/overview.md#10-architecture-decisions).
 
 ADR-027 … ADR-031 record the Phase 2 implementation decisions P2-1 … P2-5, approved with the [Phase 2 plan](plans/phase-2-tenancy.md) on 2026-11-05.
 
