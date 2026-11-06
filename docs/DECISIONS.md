@@ -1,8 +1,10 @@
 # Architecture Decision Records
 
-ADR-001 … ADR-008 were made during Phase 1 and are listed in [`architecture/overview.md` §11](architecture/overview.md#11-architecture-decisions).
+ADR-001 … ADR-008 were made during Phase 1 and are listed in [`architecture/overview.md` §12](architecture/overview.md#12-architecture-decisions).
 
 ADR-027 … ADR-031 record the Phase 2 implementation decisions P2-1 … P2-5, approved with the [Phase 2 plan](plans/phase-2-tenancy.md) on 2026-11-05.
+
+ADR-046 … ADR-054 record the Phase 7 decisions P7-1 … P7-9, approved with the [Phase 7 plan](plans/phase-7-requests-orders.md) on 2026-11-06.
 
 ADR-038 … ADR-045 record the Phase 6 decisions P6-1 … P6-8, approved with the [Phase 6 plan](plans/phase-6-catalogue.md) on 2026-11-06.
 
@@ -50,6 +52,15 @@ ADR-009 … ADR-026 record the owner's answers to decisions D-1 … D-18 of the 
 | 043 | P6-6      | Service lifecycle                                                | Accepted                                            |
 | 044 | P6-7      | SEO in Phase 6                                                   | Accepted                                            |
 | 045 | P6-8      | Prices exclude VAT                                               | Accepted                                            |
+| 046 | P7-1      | Requests and orders are separate records                         | Accepted                                            |
+| 047 | P7-2      | Who can request in Phase 7                                       | Accepted                                            |
+| 048 | P7-3      | Rejected or expired quotations return to "Awaiting quotation"    | Accepted                                            |
+| 049 | P7-4      | Manual payments before Phase 11                                  | Accepted                                            |
+| 050 | P7-5      | Organisation payment terms                                       | Accepted                                            |
+| 051 | P7-6      | VAT per line                                                     | Accepted                                            |
+| 052 | P7-7      | Idempotency keys                                                 | Accepted                                            |
+| 053 | P7-8      | Document numbers                                                 | Accepted                                            |
+| 054 | P7-9      | Who in an organisation sees which requests                       | Accepted                                            |
 
 ---
 
@@ -251,6 +262,51 @@ A restricted (pending) workspace may upload application evidence only.
 
 **Decision:** Prices are stored and shown excluding VAT ("KES 3,500 + VAT"), with an indicative VAT-inclusive figure at 16%. Real tax lines are computed in Phases 7 and 11.
 **Why:** Most customers reclaim VAT (B2B), and one stored figure avoids rounding drift. The ADR-017 advisor review may change the display, not the data.
+
+## ADR-046 — Requests and orders are separate records (P7-1)
+
+**Decision:** `service_request` holds the customer's intent and the negotiation; `service_order` is the commercial commitment, created when the price is agreed (staff accept at the catalogue price, or the customer accepts a quotation).
+**Why:** It matches review §4.2. Dispatch (Phase 9) and invoicing (Phase 11) work on orders, and requests that never become orders stay out of finance.
+
+## ADR-047 — Who can request in Phase 7 (P7-2)
+
+**Decision:** Individuals from their personal workspace, and organisation members with `request.create`. Staff ordering on behalf of a customer waits for the Phase 8 helpdesk.
+**Why:** It covers both customer types without a staff impersonation path, which needs its own audit design.
+
+## ADR-048 — Rejected or expired quotations return to "Awaiting quotation" (P7-3)
+
+**Decision:** A rejected (with a reason) or expired quotation sends the request back to "Awaiting quotation" so staff can revise it. Either side can cancel before ordering. This departs from the review's diagram, which cancels the request.
+**Why:** Most rejections are "too expensive, can you adjust?"; auto-cancelling would make customers start again.
+
+## ADR-049 — Manual payments before Phase 11 (P7-4)
+
+**Decision:** Finance records bank-transfer and M-Pesa paybill payments against an order. Partial payments are allowed; overpayment is refused; references are unique per method; payments are append-only.
+**Why:** ADR-015 item 3. M-Pesa integration (Phase 11) adds another way to record a payment without changing order logic.
+
+## ADR-050 — Organisation payment terms (P7-5)
+
+**Decision:** Finance sets PREPAY (default) or POSTPAID with net days per organisation. Each order copies the terms when it is created; postpaid orders skip "Awaiting payment". Individuals always prepay.
+**Why:** ADR-014. Copying the terms keeps existing orders stable when the terms change.
+
+## ADR-051 — VAT per line (P7-6)
+
+**Decision:** VAT is 16% of each line's VAT-exclusive amount, rounded half up to the cent and stored per line; totals are sums of stored values. One rate constant.
+**Why:** Invoices need line-level VAT, and stored values avoid recomputation drift. ADR-017 still awaits the tax advisor; only the constant would change.
+
+## ADR-052 — Idempotency keys (P7-7)
+
+**Decision:** Submitting a request, accepting a quotation and recording a payment require an `Idempotency-Key` header (UUID). The key, a hash of the body and the response are stored for 24 hours in the same transaction as the change. A replay returns the stored response; the same key with a different body gets 422.
+**Why:** Review §11 and §13. The same mechanism will serve Phase 11 payment callbacks.
+
+## ADR-053 — Document numbers (P7-8)
+
+**Decision:** Yearly counters per document type give `REQ-2026-000123`, `QUO-…` and `ORD-…`, taken from a counter row in the same transaction (Africa/Nairobi year).
+**Why:** Customers and finance quote these numbers; a rolled-back transaction gives its number back.
+
+## ADR-054 — Who in an organisation sees which requests (P7-9)
+
+**Decision:** Members with `request.read_all` (administrators) see all of the organisation's requests; other members see their own. RLS enforces the tenant boundary, and the service layer enforces the member/admin split. A person's own requests are visible only from their personal workspace.
+**Why:** It matches the permission catalogue and the review matrix.
 
 ---
 

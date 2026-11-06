@@ -43,6 +43,17 @@ import {
   ServicePage,
 } from '@/features/catalogue/public-pages';
 import { CatalogueAdminPage, ServiceEditorPage } from '@/features/platform/catalogue-staff-pages';
+import {
+  OrderPage,
+  OrdersPage,
+  StaffRequestPage,
+  StaffRequestsPage,
+} from '@/features/platform/order-staff-pages';
+import {
+  NewRequestPage,
+  RequestDetailPage,
+  RequestsPage,
+} from '@/features/requests/customer-request-pages';
 
 export function AppRoutes() {
   return (
@@ -86,6 +97,13 @@ export function AppRoutes() {
         <Route path="/platform/eligibility" element={<EligibilityPage />} />
         <Route path="/platform/skills" element={<SkillsCataloguePage />} />
         <Route path="/platform/catalogue" element={<CatalogueAdminPage />} />
+        <Route path="/platform/requests" element={<StaffRequestsPage />} />
+        <Route path="/platform/requests/:id" element={<StaffRequestPage />} />
+        <Route path="/platform/orders" element={<OrdersPage />} />
+        <Route path="/platform/orders/:id" element={<OrderPage />} />
+        <Route path="/requests" element={<RequestsPage />} />
+        <Route path="/requests/new" element={<NewRequestPage />} />
+        <Route path="/requests/:id" element={<RequestDetailPage />} />
         <Route path="/platform/catalogue/services/:id" element={<ServiceEditorPage />} />
         <Route path="/providers/new" element={<BecomeProviderPage />} />
         <Route path="/providers/companies/new" element={<RegisterProviderCompanyPage />} />

@@ -12,3 +12,4 @@ export * from './auth.js';
 export * from './organisations.js';
 export * from './providers.js';
 export * from './catalogue.js';
+export * from './orders.js';

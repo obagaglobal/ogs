@@ -392,6 +392,20 @@ function ListSection({ title, items }: { title: string; items: readonly string[]
   );
 }
 
+/** Signed in: straight to the request form; signed out: sign in first, then come back. */
+function RequestButton({ slug }: { slug: string }) {
+  const session = useSession();
+  const target = `/requests/new?service=${encodeURIComponent(slug)}`;
+  return (
+    <Link
+      to={session.data ? target : `/sign-in?next=${encodeURIComponent(target)}`}
+      className="mt-4 inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+    >
+      Request this service
+    </Link>
+  );
+}
+
 /** /services/:slug — one service. Plain text only: content is never rendered as HTML. */
 export function ServicePage() {
   const { slug = '' } = useParams();
@@ -489,9 +503,7 @@ export function ServicePage() {
             The final price is set in a quotation after we understand your needs.
           </p>
         ) : null}
-        <Button className="mt-4" disabled>
-          Request this service — coming soon
-        </Button>
+        <RequestButton slug={data.slug} />
       </Card>
       <section className="space-y-3">
         {data.description

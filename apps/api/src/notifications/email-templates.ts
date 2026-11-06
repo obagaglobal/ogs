@@ -34,6 +34,10 @@ function layout(
 }
 
 export const templates = {
+  /** Phase 7: notices about requests, quotations and orders (copy built by the handler). */
+  orderNotice: (to: string, subject: string, paragraphs: string[], url: string) =>
+    layout(to, subject, paragraphs, { url, label: 'View the request' }),
+
   emailVerification: (to: string, url: string) =>
     layout(
       to,

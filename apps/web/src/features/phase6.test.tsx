@@ -136,7 +136,11 @@ describe('public catalogue pages (E9)', () => {
     // Content is text: markup is shown literally, never rendered.
     expect(screen.getByText('<b>Second</b> paragraph.')).toBeInTheDocument();
     expect(screen.getByText('Router configuration')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Request this service/ })).toBeDisabled();
+    // Signed out: sign in first, then come back to the request form (Phase 7).
+    expect(screen.getByRole('link', { name: 'Request this service' })).toHaveAttribute(
+      'href',
+      `/sign-in?next=${encodeURIComponent('/requests/new?service=home-wifi-setup')}`,
+    );
   });
 
   it('an unknown or withdrawn service says so', async () => {

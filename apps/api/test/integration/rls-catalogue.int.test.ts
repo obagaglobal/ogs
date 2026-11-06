@@ -50,6 +50,17 @@ const KNOWN_TABLES = [
   'service_category',
   'service_price',
   'service_skill',
+  // Phase 7
+  'document_counter',
+  'idempotency_key',
+  'organisation_billing',
+  'payment',
+  'quotation',
+  'quotation_line',
+  'service_order',
+  'service_order_event',
+  'service_request',
+  'service_request_event',
 ];
 
 interface TableRow {
