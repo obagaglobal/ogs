@@ -1,6 +1,6 @@
 # Architecture Overview
 
-> Status: Phase 5A complete (providers, eligibility, KYC review) on top of Phases 2–4 (tenancy, RLS, identity, access control, organisations). Phase 5B (web) in progress.
+> Status: Phase 5 complete (providers: companies and individuals, KYC review, coverage, availability, eligibility) on top of Phases 2–4 (tenancy, RLS, identity, access control, organisations).
 
 ## 1. Product context
 
@@ -100,9 +100,9 @@ apps/api ─┘
 
 - **React 19 + Vite 8 + TypeScript.** Tailwind CSS 4 is wired in through `@tailwindcss/vite`, so there is no `tailwind.config.js`.
 - **shadcn/ui:** set up in `components.json` (new-york style, neutral base, CSS variables in `src/index.css`). The `cn()` helper lives in `src/lib/utils.ts`. Generated primitives go in `src/components/ui/`, which currently contains only `button.tsx`. Add more with `pnpm dlx shadcn@latest add <component>` from `apps/web`.
-- **Structure:** feature folders in `src/features/<feature>/` hold that feature's components and hooks: `auth/` (sign-in, sign-up, email links, MFA, security page), `workspace/` (switcher, dashboard) and `system-status/` (`/status`). `src/app/app-shell.tsx` holds the signed-in shell and the redirects the API dictates (MFA owed → `/mfa`, enrolment required → `/mfa/setup`, email unverified → `/verify-email/pending`).
+- **Structure:** feature folders in `src/features/<feature>/` hold that feature's components and hooks: `auth/` (sign-in, sign-up, email links, MFA, security page), `workspace/` (switcher, dashboard), `organisation/` and `members/` (Phase 4), `provider/` (Phase 5: application, profile & skills, coverage, availability, and the skill, county and weekly-hours pickers), `platform/` (staff review queue, organisation and provider review, eligibility search, skills taxonomy, all behind the elevation gate) and `system-status/` (`/status`). `src/app/app-shell.tsx` holds the signed-in shell and the redirects the API dictates (MFA owed → `/mfa`, enrolment required → `/mfa/setup`, email unverified → `/verify-email/pending`).
 - **Data:** React Router 8 and TanStack Query 5. `src/lib/api.ts` is the only HTTP client. It sends JSON, the CSRF token on unsafe requests and `X-OGS-Workspace`, and turns error bodies into `ApiError(code)`. Forms validate with the same Zod schemas as the API.
-- **Tests:** component tests mock `fetch` per route (`src/test/render-app.tsx`). `e2e/` holds the Playwright smoke test (`pnpm test:e2e`).
+- **Tests:** component tests mock `fetch` per route (`src/test/render-app.tsx`). `e2e/` holds the Playwright journeys (`pnpm test:e2e`): sign-up to workspace, the organisation journey, and the provider journey.
 - **Path alias:** `@/` maps to `src/` (set in `tsconfig.app.json` and `vite.config.ts`).
 - **Environment:** only `VITE_`-prefixed variables reach the browser, and they are public. `API_PROXY_TARGET` is read by the dev server only.
 
@@ -288,6 +288,8 @@ It then scores with documented weights (`ELIGIBILITY_WEIGHTS`) and returns one r
 | `POST /platform/providers/:id/suspend` \| `reactivate`                                                                                                                                                       | elevation + `platform.tenant.review` + kind's approve permission              | Lifecycle after approval (reason)           |
 | `GET /platform/providers/eligible?skills=&region=&at=&remote=`                                                                                                                                               | elevation + `ticket.assign`                                                   | Explained eligibility                       |
 | `GET/POST /platform/skills`, `PATCH /platform/skills/:code`                                                                                                                                                  | elevation + `platform.catalogue.manage`                                       | Skill taxonomy                              |
+
+**Web.** The workspace switcher offers "Provider · Individual" when the person has a provider profile. The personal dashboard links to "Become a provider" and "Register a provider company". Provider workspaces get "Application / Profile & skills", "Coverage" and "Availability". Staff get a typed review queue, the provider review with its checklist, "Eligibility" and "Skills".
 
 **Proof.** The suite `providers` (D1–D9) covers:
 

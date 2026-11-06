@@ -1,6 +1,6 @@
 # Phase 5 Plan — Providers (Companies and Individuals)
 
-**Status:** APPROVED by the owner on 2026-11-06, with all recommendations P5-1 … P5-7 accepted. Delivered as 5A (backend) then 5B (web), with no gate between them.
+**Status:** APPROVED by the owner on 2026-11-06, with all recommendations P5-1 … P5-7 accepted. Delivered as 5A (backend) then 5B (web), with no gate between them, on branch `phase-5/providers`. See §8 for where the implementation differs from this plan.
 **Based on:** [Architecture Review](../architecture/review.md) §1, §2 (D3), §4.2, §7, §10 and §13 (Phase 5 row), ADR-010 (assignment grants), ADR-012 (`Service` vs `ServiceListing`), ADR-013 (OGS assigns), ADR-016 (merchant of record) and ADR-018 (data protection).
 **Starting point:** branch `phase-4/organisations` @ `96ec53b`, pushed and unmerged. Phase 5 is stacked on top of it (`phase-5/providers`).
 
@@ -168,3 +168,16 @@ As in Phase 4: one approval, delivered as two halves with no gate between them, 
 - **CI has still not run on Phases 2–4.** Phase 5 stacks a fourth unverified branch. Mitigation: open the Phase 2 PR before 5A is complete. I can do it if the GitHub CLI is set up.
 - **Refactoring the Phase 4 review onto a shared workflow** could change organisation behaviour. Mitigation: no organisation test (C1–C11) may change, apart from the new type filter.
 - **KYC documents are personal data.** Mitigation: P5-5, the access tests in D4, and no identity data in logs, audit metadata or emails.
+
+## 8. Delivery notes (2026-11-06)
+
+Delivered as planned, with these refinements:
+
+- **Decision permissions.** Provider decision and suspension routes open with `platform.tenant.review` under an elevation. The service then requires the approve permission of the provider's kind: `platform.tenant.approve` for companies, `platform.provider.approve` for individuals. One route serves both kinds, and a compliance officer can review without being able to decide.
+- **File purposes.** The Phase 3 placeholder `provider.document` is replaced by the three purposes in §2.7. A restricted (pending) workspace may upload application evidence only.
+- **Eligibility access.** Staff need `ticket.assign` under an elevation (operations, service and ICT support managers): eligibility is a dispatch tool. Availability reasons are written in Kenya time.
+- **Web availability editor.** The editor offers one range per weekday. The API accepts several, so split shifts can come later without a migration.
+- **Retention marker.** `provider.retain_until` is set when an individual is rejected. The deletion job remains Phase 15/16, as planned.
+- **Found while testing.**
+  - The Phase 4 invitation list queried concurrently inside one transaction; it is now sequential.
+  - The upload guard treated the Provider workspace as a tenant workspace; it now treats it as the person's own.
