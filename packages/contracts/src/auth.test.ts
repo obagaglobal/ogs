@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { emailSchema, emailTokenSchema, newPasswordSchema, registerRequestSchema } from './auth.js';
+import {
+  emailSchema,
+  emailTokenSchema,
+  mfaVerifyRequestSchema,
+  newPasswordSchema,
+  registerRequestSchema,
+  totpCodeSchema,
+} from './auth.js';
 
 describe('auth contracts', () => {
   it('normalises email addresses', () => {
@@ -25,5 +32,19 @@ describe('auth contracts', () => {
 
   it('rejects unknown shapes', () => {
     expect(registerRequestSchema.safeParse({ email: 'a@b.co' }).success).toBe(false);
+  });
+});
+
+describe('MFA contracts', () => {
+  it('accepts exactly six digits for TOTP', () => {
+    expect(totpCodeSchema.safeParse('123456').success).toBe(true);
+    expect(totpCodeSchema.safeParse('dddddd').success).toBe(false);
+    expect(totpCodeSchema.safeParse('12345').success).toBe(false);
+  });
+
+  it('verify accepts a code or a recovery code', () => {
+    expect(mfaVerifyRequestSchema.safeParse({ code: '123456' }).success).toBe(true);
+    expect(mfaVerifyRequestSchema.safeParse({ recoveryCode: 'abcde-fghjk' }).success).toBe(true);
+    expect(mfaVerifyRequestSchema.safeParse({}).success).toBe(false);
   });
 });

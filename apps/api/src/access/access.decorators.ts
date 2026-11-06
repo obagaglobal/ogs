@@ -14,8 +14,27 @@ export type AccessRule =
       readonly allowUnverified: boolean;
       /** Reachable from a restricted workspace (tenant pending/rejected/suspended). */
       readonly allowRestricted: boolean;
+      /** Reachable after the password but before the second factor (MFA prompt, sign-out). */
+      readonly allowMfaPending: boolean;
+      /** Reachable by a user who must enrol in MFA but has not yet (enrolment, sign-out). */
+      readonly allowMfaEnrollment: boolean;
     }
-  | { readonly kind: 'permission'; readonly code: string; readonly allowRestricted: boolean };
+  | { readonly kind: 'permission'; readonly code: string; readonly allowRestricted: boolean }
+  /**
+   * Platform staff acting across tenants (review §6.3): an active elevation on the
+   * session (X-OGS-Elevation) AND the permission in the PLATFORM workspace.
+   * The route receives a `platform` DbContext; every unit of work is audited.
+   */
+  | { readonly kind: 'elevated'; readonly code: string };
+
+export const STEP_UP_METADATA = 'ogs:step-up';
+
+export interface StepUpRule {
+  /** A TOTP check must have happened within this many minutes. */
+  readonly withinMinutes: number;
+  /** When false, users without MFA pass (they cannot step up); when true they are refused. */
+  readonly strict: boolean;
+}
 
 /**
  * Every route must carry exactly one of these (default deny, Phase 3 plan §2.4).
@@ -24,14 +43,37 @@ export type AccessRule =
 export const Public = () => SetMetadata(ACCESS_METADATA, { kind: 'public' } satisfies AccessRule);
 
 export const Authenticated = (
-  options: { workspace?: boolean; allowUnverified?: boolean; allowRestricted?: boolean } = {},
+  options: {
+    workspace?: boolean;
+    allowUnverified?: boolean;
+    allowRestricted?: boolean;
+    allowMfaPending?: boolean;
+    allowMfaEnrollment?: boolean;
+  } = {},
 ) =>
   SetMetadata(ACCESS_METADATA, {
     kind: 'authenticated',
     workspace: options.workspace ?? false,
     allowUnverified: options.allowUnverified ?? false,
     allowRestricted: options.allowRestricted ?? false,
+    allowMfaPending: options.allowMfaPending ?? false,
+    allowMfaEnrollment: options.allowMfaEnrollment ?? false,
   } satisfies AccessRule);
+
+/** Cross-tenant platform action; requires an active elevation (see AccessRule 'elevated'). */
+export const RequireElevation = (code: string) =>
+  SetMetadata(ACCESS_METADATA, { kind: 'elevated', code } satisfies AccessRule);
+
+/**
+ * Sensitive action: requires a fresh TOTP check (step-up, Phase 3 plan §3.1).
+ * Combine with an access rule. 403 `step_up_required` tells the client to call
+ * POST /auth/mfa/step-up and retry.
+ */
+export const RequireRecentMfa = (withinMinutes = 15, options: { strict?: boolean } = {}) =>
+  SetMetadata(STEP_UP_METADATA, {
+    withinMinutes,
+    strict: options.strict ?? true,
+  } satisfies StepUpRule);
 
 /** Requires a tenant workspace whose membership roles grant `code`. */
 export const RequirePermission = (code: string, options: { allowRestricted?: boolean } = {}) =>

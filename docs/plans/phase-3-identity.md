@@ -1,6 +1,6 @@
 # Phase 3 Plan — Identity, Access and the First Usable Shell
 
-**Status:** APPROVED by the owner on 2026-11-05, with all recommendations P3-1 … P3-7 accepted. 3A is delivered first; 3B follows after its own review.
+**Status:** APPROVED by the owner on 2026-11-05, with all recommendations P3-1 … P3-7 accepted. 3A delivered (see §9); 3B approved on 2026-11-06.
 **Based on:** [Architecture Review](../architecture/review.md) §7, §8, §11 and §13 (Phase 3 row), ADR-011 (sessions), ADR-015 (D-7 items 2 and 4), ADR-019/028 (files), ADR-025 (email), ADR-027 (API-level isolation suite).
 **Starting point:** branch `phase-2/tenancy` @ `d729f3e`. That PR is not merged and its CI has not run yet, so Phase 3 work is stacked on top of it (branch `phase-3/identity`).
 

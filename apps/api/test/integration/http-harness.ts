@@ -6,6 +6,8 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import type pg from 'pg';
 import request from 'supertest';
+import { SecretBox } from '../../src/identity/mfa/secret-box.js';
+import { newTotpSecret, stepAt, totpCode } from '../../src/identity/mfa/totp.js';
 import { PasswordHasher } from '../../src/identity/password-hasher.js';
 import { urls } from './support.js';
 
@@ -196,26 +198,89 @@ export interface FixtureUser {
   readonly id: string;
   readonly email: string;
   readonly password: string;
+  /** Present when the user has a confirmed TOTP factor. */
+  readonly totp?: Buffer;
 }
 
 /** An ACTIVE (verified) user with a password, created directly in the database. */
 export async function createLoginUser(
   maint: pg.Client,
-  options: { status?: string; password?: string; passwordHash?: string } = {},
+  options: { status?: string; password?: string; passwordHash?: string; mfa?: boolean } = {},
 ): Promise<FixtureUser> {
   const id = randomUUID();
   const email = uniqueEmail();
   const password = options.password ?? `pass phrase ${randomUUID()}`;
-  await maint.query('INSERT INTO app_user (id, email, status) VALUES ($1, $2, $3)', [
-    id,
-    email,
-    options.status ?? 'ACTIVE',
-  ]);
+  // mfa_enabled is set at INSERT: the protection trigger only guards UPDATEs.
+  await maint.query(
+    'INSERT INTO app_user (id, email, status, mfa_enabled) VALUES ($1, $2, $3, $4)',
+    [id, email, options.status ?? 'ACTIVE', options.mfa === true],
+  );
   await maint.query('INSERT INTO credential (user_id, password_hash) VALUES ($1, $2)', [
     id,
     options.passwordHash ?? (await hasher.hash(password)),
   ]);
-  return { id, email, password };
+  if (options.mfa !== true) {
+    return { id, email, password };
+  }
+  const totp = newTotpSecret();
+  const sealed = mfaBox().seal(totp);
+  await maint.query(
+    'INSERT INTO mfa_factor (user_id, secret_sealed, key_id, confirmed_at) VALUES ($1, $2, $3, now())',
+    [id, sealed.sealed, sealed.keyId],
+  );
+  return { id, email, password, totp };
+}
+
+function mfaBox(): SecretBox {
+  const keys = process.env['MFA_ENCRYPTION_KEYS'];
+  if (keys === undefined) {
+    throw new Error('MFA_ENCRYPTION_KEYS missing (apps/api/.env)');
+  }
+  return new SecretBox(keys);
+}
+
+/** The current TOTP code for a fixture user. */
+export function currentCode(user: FixtureUser, offsetSteps = 0): string {
+  if (user.totp === undefined) {
+    throw new Error('user has no TOTP factor');
+  }
+  return totpCode(user.totp, stepAt(Math.floor(Date.now() / 1000)) + offsetSteps);
+}
+
+/**
+ * Signs a fixture user in, completing the TOTP step when they have MFA. The
+ * replay guard is reset first, because tests sign the same user in several
+ * times within one 30-second window (a real user cannot reuse a code).
+ */
+export async function signIn(server: Server, maint: pg.Client, user: FixtureUser): Promise<Client> {
+  const client = new Client(server);
+  const response = await client.login(user.email, user.password);
+  if (response.status !== 200) {
+    throw new Error(`sign-in failed: ${String(response.status)} ${JSON.stringify(response.body)}`);
+  }
+  if ((response.body as { session: { mfaPending: boolean } }).session.mfaPending) {
+    await maint.query('UPDATE mfa_factor SET last_used_step = 0 WHERE user_id = $1', [user.id]);
+    const verified = await client.post('/auth/mfa/verify', { code: currentCode(user) });
+    if (verified.status !== 200) {
+      throw new Error(`MFA failed: ${String(verified.status)} ${JSON.stringify(verified.body)}`);
+    }
+    await client.refreshCsrf();
+  }
+  return client;
+}
+
+/** Runs SQL as ogs_maint with platform context, which the app_user protection trigger accepts. */
+export async function maintAsPlatform(maint: pg.Client, sql: string, params: unknown[] = []) {
+  await maint.query('BEGIN');
+  try {
+    await maint.query("SELECT set_config('app.is_platform', 'true', true)");
+    const result = await maint.query(sql, params);
+    await maint.query('COMMIT');
+    return result;
+  } catch (error) {
+    await maint.query('ROLLBACK');
+    throw error;
+  }
 }
 
 /** Grants a system role (by code) to a membership. */

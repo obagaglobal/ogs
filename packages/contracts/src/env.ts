@@ -10,6 +10,9 @@ import { z } from 'zod';
  */
 const booleanFlag = z.enum(['true', 'false']).transform((value) => value === 'true');
 
+/** The MFA key committed in apps/api/.env.example. Refused in production. */
+export const DEVELOPMENT_MFA_KEY = 'hAwZXbLijmH0YL6YG3aH7cqE0CxKxdsAmx/Suo6hn7Y=';
+
 export const apiEnvSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -48,6 +51,26 @@ export const apiEnvSchema = z
     /** Worker only: SMTP server for outbound email (Mailpit in development). */
     SMTP_URL: z.url({ protocol: /^smtps?$/ }).default('smtp://127.0.0.1:1025'),
     EMAIL_FROM: z.string().min(3).max(200).default('OGS <no-reply@ogs.test>'),
+    /**
+     * Keys that seal TOTP secrets (AES-256-GCM): `id:base64key[,id:base64key...]`.
+     * The FIRST key encrypts new secrets; the others only decrypt (rotation).
+     */
+    MFA_ENCRYPTION_KEYS: z
+      .string()
+      .regex(/^[a-z0-9]{1,16}:[A-Za-z0-9+/]{43}=(,[a-z0-9]{1,16}:[A-Za-z0-9+/]{43}=)*$/, {
+        error: 'expected id:base64-32-byte-key[,...]',
+      }),
+    /** S3-compatible object storage for files (SeaweedFS in development, ADR-019). */
+    S3_ENDPOINT: z.url({ protocol: /^https?$/ }).default('http://127.0.0.1:8333'),
+    S3_REGION: z.string().min(1).default('us-east-1'),
+    S3_BUCKET: z
+      .string()
+      .regex(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/)
+      .default('ogs-files'),
+    S3_ACCESS_KEY_ID: z.string().min(3),
+    S3_SECRET_ACCESS_KEY: z.string().min(8),
+    /** MinIO and most self-hosted S3 need path-style URLs. */
+    S3_FORCE_PATH_STYLE: booleanFlag.default(true),
   })
   .transform((env) => ({
     ...env,
@@ -59,6 +82,13 @@ export const apiEnvSchema = z
         code: 'custom',
         path: ['SESSION_COOKIE_SECURE'],
         message: 'must be true in production',
+      });
+    }
+    if (env.NODE_ENV === 'production' && env.MFA_ENCRYPTION_KEYS.includes(DEVELOPMENT_MFA_KEY)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['MFA_ENCRYPTION_KEYS'],
+        message: 'the development key from .env.example must never be used in production',
       });
     }
     if (env.NODE_ENV === 'production' && env.APP_PUBLIC_URL.startsWith('http://')) {

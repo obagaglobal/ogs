@@ -7,7 +7,12 @@ import type { ResolvedWorkspace } from '../tenancy/workspace-context.service.js'
 export interface AccessState {
   readonly sessionToken: string;
   readonly session: SessionRecord;
-  readonly user: { readonly id: string; readonly email: string; readonly status: UserStatus };
+  readonly user: {
+    readonly id: string;
+    readonly email: string;
+    readonly status: UserStatus;
+    readonly mfaEnabled: boolean;
+  };
   readonly meta: RequestMeta;
   readonly workspace?: {
     readonly resolved: ResolvedWorkspace;

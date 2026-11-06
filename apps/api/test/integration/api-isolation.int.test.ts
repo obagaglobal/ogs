@@ -4,6 +4,7 @@ import {
   Client,
   createLoginUser,
   grantRole,
+  signIn,
   startStack,
   type FixtureUser,
   type Stack,
@@ -27,7 +28,8 @@ interface Org {
 
 async function createOrg(status = 'ACTIVE'): Promise<Org> {
   const tenantId = await createTenant(maint, { status });
-  const admin = await createLoginUser(maint);
+  // Admin roles require MFA (review §11): admins are created with a TOTP factor.
+  const admin = await createLoginUser(maint, { mfa: true });
   const employee = await createLoginUser(maint);
   const adminMembership = await createMembership(maint, tenantId, admin.id);
   const employeeMembership = await createMembership(maint, tenantId, employee.id);
@@ -37,10 +39,7 @@ async function createOrg(status = 'ACTIVE'): Promise<Org> {
 }
 
 async function signedIn(user: FixtureUser): Promise<Client> {
-  const client = new Client(stack.server);
-  const response = await client.login(user.email, user.password);
-  expect(response.status).toBe(200);
-  return client;
+  return signIn(stack.server, maint, user);
 }
 
 beforeAll(async () => {
@@ -111,7 +110,7 @@ describe('A10 — API isolation', () => {
 
   it('a member of both A and C, acting in A, sees only A’s members', async () => {
     const c = await createOrg();
-    const both = await createLoginUser(maint);
+    const both = await createLoginUser(maint, { mfa: true });
     const inA = await createMembership(maint, a.tenantId, both.id);
     const inC = await createMembership(maint, c.tenantId, both.id);
     await grantRole(maint, inA, a.tenantId, 'org_admin');

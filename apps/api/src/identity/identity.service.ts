@@ -145,7 +145,11 @@ export class IdentityService {
    * does the same Argon2 work and throws the same error (no enumeration by
    * status, body or timing).
    */
-  async login(email: string, password: string, meta: RequestMeta): Promise<string> {
+  async login(
+    email: string,
+    password: string,
+    meta: RequestMeta,
+  ): Promise<{ userId: string; mfaEnabled: boolean }> {
     await this.limiter.consume('loginPerIp', meta.ip ?? 'unknown');
     await this.limiter.consume('loginPerAccount', email);
 
@@ -155,6 +159,7 @@ export class IdentityService {
         select: {
           id: true,
           status: true,
+          mfaEnabled: true,
           credential: { select: { passwordHash: true, lockedUntil: true } },
         },
       }),
@@ -207,7 +212,7 @@ export class IdentityService {
       });
       await this.event(tx, 'LOGIN_SUCCEEDED', meta, { userId });
     });
-    return userId;
+    return { userId, mfaEnabled: account.mfaEnabled };
   }
 
   /** Always succeeds from the caller's point of view (no enumeration). */
@@ -311,14 +316,14 @@ export class IdentityService {
     await this.sessions.revokeAll(userId, currentSessionToken);
   }
 
-  async statusOf(userId: string): Promise<UserStatus> {
+  async profileOf(userId: string): Promise<{ status: UserStatus; mfaEnabled: boolean }> {
     const user = await this.db.run({ kind: 'user', userId }, async (tx) =>
-      tx.appUser.findUnique({ where: { id: userId }, select: { status: true } }),
+      tx.appUser.findUnique({ where: { id: userId }, select: { status: true, mfaEnabled: true } }),
     );
     if (user === null) {
       throw new InvalidCredentialsError();
     }
-    return user.status;
+    return user;
   }
 
   async recordLogout(userId: string, meta: RequestMeta): Promise<void> {

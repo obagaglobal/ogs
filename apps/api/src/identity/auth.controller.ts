@@ -26,7 +26,7 @@ import {
   type SessionSummary,
 } from '@ogs/contracts';
 import type { Response } from 'express';
-import { Auth, Authenticated, Public } from '../access/access.decorators.js';
+import { Auth, Authenticated, Public, RequireRecentMfa } from '../access/access.decorators.js';
 import type { AccessState, OgsRequest } from '../access/access.types.js';
 import { ApiException } from '../access/api-error.js';
 import { parseBody } from '../access/parse-body.js';
@@ -45,6 +45,7 @@ function summary(record: SessionRecord, current: boolean): SessionSummary {
     ip: record.ip,
     userAgent: record.userAgent,
     current,
+    mfaPending: record.mfaPending,
   };
 }
 
@@ -79,7 +80,7 @@ export class AuthController {
   }
 
   @Post('resend-verification')
-  @Authenticated({ allowUnverified: true })
+  @Authenticated({ allowUnverified: true, allowMfaEnrollment: true })
   @HttpCode(HttpStatus.ACCEPTED)
   async resendVerification(@Auth() auth: AccessState): Promise<void> {
     await this.identity.resendVerification(auth.user.id, auth.meta);
@@ -96,19 +97,20 @@ export class AuthController {
   ): Promise<CurrentSessionResponse> {
     const { email, password } = parseBody(loginRequestSchema, body);
     const meta = requestMeta(request);
-    const userId = await this.identity.login(email, password, meta);
+    const { userId, mfaEnabled } = await this.identity.login(email, password, meta);
     // A brand-new session on every sign-in: any pre-existing cookie is ignored (no fixation).
-    const { token, record } = await this.sessions.create(userId, meta);
+    // With MFA the session starts "pending": only POST /auth/mfa/verify and sign-out work.
+    const { token, record } = await this.sessions.create(userId, meta, { mfaPending: mfaEnabled });
     setSessionCookie(response, token, this.secureCookie);
-    const status = await this.identity.statusOf(userId);
+    const { status } = await this.identity.profileOf(userId);
     return {
-      user: { id: userId, email, status },
+      user: { id: userId, email, status, mfaEnabled },
       session: summary(record, true),
     };
   }
 
   @Post('logout')
-  @Authenticated({ allowUnverified: true })
+  @Authenticated({ allowUnverified: true, allowMfaPending: true, allowMfaEnrollment: true })
   @HttpCode(HttpStatus.NO_CONTENT)
   async logout(@Auth() auth: AccessState, @Res({ passthrough: true }) response: Response) {
     await this.sessions.revoke(auth.sessionToken);
@@ -133,9 +135,13 @@ export class AuthController {
     await this.identity.resetPassword(token, password, requestMeta(request));
   }
 
-  /** Changes the password, signs out every other session and rotates this one. */
+  /**
+   * Changes the password, signs out every other session and rotates this one.
+   * Users with MFA must have stepped up within 15 minutes.
+   */
   @Post('password/change')
   @Authenticated({ allowUnverified: true })
+  @RequireRecentMfa(15, { strict: false })
   @HttpCode(HttpStatus.NO_CONTENT)
   async changePassword(
     @Body() body: unknown,
@@ -158,21 +164,21 @@ export class AuthController {
 
   /** The CSRF token to send as X-CSRF-Token on every unsafe request. */
   @Get('csrf')
-  @Authenticated({ allowUnverified: true })
+  @Authenticated({ allowUnverified: true, allowMfaPending: true, allowMfaEnrollment: true })
   @Header('Cache-Control', 'no-store')
   csrf(@Auth() auth: AccessState): CsrfResponse {
     return { csrfToken: auth.session.csrfToken };
   }
 
   @Get('session')
-  @Authenticated({ allowUnverified: true })
+  @Authenticated({ allowUnverified: true, allowMfaPending: true, allowMfaEnrollment: true })
   @Header('Cache-Control', 'no-store')
   session(@Auth() auth: AccessState): CurrentSessionResponse {
     return { user: auth.user, session: summary(auth.session, true) };
   }
 
   @Get('sessions')
-  @Authenticated({ allowUnverified: true })
+  @Authenticated({ allowUnverified: true, allowMfaEnrollment: true })
   @Header('Cache-Control', 'no-store')
   async listSessions(@Auth() auth: AccessState): Promise<SessionListResponse> {
     const sessions = await this.sessions.list(auth.user.id);
@@ -182,7 +188,7 @@ export class AuthController {
   }
 
   @Delete('sessions/:id')
-  @Authenticated({ allowUnverified: true })
+  @Authenticated({ allowUnverified: true, allowMfaEnrollment: true })
   @HttpCode(HttpStatus.NO_CONTENT)
   async revokeSession(@Param('id') id: string, @Auth() auth: AccessState): Promise<void> {
     // Not found and "someone else's" look the same.
@@ -193,7 +199,7 @@ export class AuthController {
   }
 
   @Post('sessions/revoke-others')
-  @Authenticated({ allowUnverified: true })
+  @Authenticated({ allowUnverified: true, allowMfaEnrollment: true })
   @HttpCode(HttpStatus.NO_CONTENT)
   async revokeOthers(@Auth() auth: AccessState): Promise<void> {
     await this.sessions.revokeAll(auth.user.id, auth.sessionToken);

@@ -6,6 +6,7 @@ import {
   Client,
   createLoginUser,
   mailsTo,
+  maintAsPlatform,
   startStack,
   tokenFrom,
   uniqueEmail,
@@ -342,7 +343,9 @@ describe('A5 — sessions', () => {
     const user = await createLoginUser(maint);
     const client = new Client(stack.server);
     await client.login(user.email, user.password);
-    await maint.query(`UPDATE app_user SET status = 'SUSPENDED' WHERE id = $1`, [user.id]);
+    await maintAsPlatform(maint, `UPDATE app_user SET status = 'SUSPENDED' WHERE id = $1`, [
+      user.id,
+    ]);
     expect((await client.get('/auth/session')).status).toBe(401);
   });
 });

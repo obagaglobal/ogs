@@ -25,10 +25,27 @@ const sessionRecordSchema = z.object({
   csrfToken: z.string(),
   /** 0 = password only. Raised by MFA in Phase 3B. */
   mfaLevel: z.number().int().min(0),
+  /** Password accepted, second factor still owed: only MFA routes are reachable. */
+  mfaPending: z.boolean().default(false),
+  /** Last successful TOTP check (ms): drives step-up for sensitive actions. */
   stepUpAt: z.number().nullable(),
+  /** Active platform elevation (review §6.3): cross-tenant access for a reason, briefly. */
+  elevation: z
+    .object({
+      id: z.uuid(),
+      reason: z.string(),
+      tenantId: z.uuid().nullable(),
+      expiresAt: z.number(),
+    })
+    .nullable()
+    .default(null),
 });
 
 export type SessionRecord = z.infer<typeof sessionRecordSchema>;
+
+export type SessionChanges = Partial<
+  Pick<SessionRecord, 'mfaLevel' | 'mfaPending' | 'stepUpAt' | 'elevation'>
+>;
 
 export interface SessionMeta {
   readonly ip: string | null;
@@ -63,7 +80,11 @@ export class SessionStore implements OnModuleInit {
     this.redis = this.redisService.createAppConnection('sessions');
   }
 
-  async create(userId: string, meta: SessionMeta, mfaLevel = 0): Promise<NewSession> {
+  async create(
+    userId: string,
+    meta: SessionMeta,
+    options: { mfaPending?: boolean } = {},
+  ): Promise<NewSession> {
     const now = Date.now();
     const record: SessionRecord = {
       id: randomUUID(),
@@ -74,8 +95,10 @@ export class SessionStore implements OnModuleInit {
       ip: meta.ip,
       userAgent: meta.userAgent === null ? null : meta.userAgent.slice(0, 500),
       csrfToken: newSecret(),
-      mfaLevel,
+      mfaLevel: 0,
+      mfaPending: options.mfaPending ?? false,
       stepUpAt: null,
+      elevation: null,
     };
     const token = newSecret();
     await this.write(sha256Hex(token), record, true);
@@ -112,7 +135,7 @@ export class SessionStore implements OnModuleInit {
    * Issues a new cookie value for the same session and kills the old one
    * (session fixation defence: on login, MFA and password change).
    */
-  async rotate(token: string, changes: Partial<Pick<SessionRecord, 'mfaLevel' | 'stepUpAt'>> = {}) {
+  async rotate(token: string, changes: SessionChanges = {}) {
     const current = await this.get(token);
     if (current === undefined) {
       return undefined;
@@ -122,6 +145,17 @@ export class SessionStore implements OnModuleInit {
     await this.write(sha256Hex(next), record, true);
     await this.remove(sha256Hex(token), current.userId);
     return { token: next, record };
+  }
+
+  /** Changes a live session in place (same cookie). Returns the updated record. */
+  async update(token: string, changes: SessionChanges): Promise<SessionRecord | undefined> {
+    const current = await this.get(token);
+    if (current === undefined) {
+      return undefined;
+    }
+    const record: SessionRecord = { ...current, ...changes };
+    await this.write(sha256Hex(token), record, false);
+    return record;
   }
 
   async revoke(token: string): Promise<void> {

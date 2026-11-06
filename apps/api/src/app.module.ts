@@ -4,6 +4,7 @@ import { AuthzModule } from './authz/authz.module.js';
 import { CoreModule } from './core.module.js';
 import { HealthModule } from './health/health.module.js';
 import { IdentityModule } from './identity/identity.module.js';
+import { PlatformModule } from './platform/platform.module.js';
 import { SessionsModule } from './sessions/sessions.module.js';
 import { TenancyModule } from './tenancy/tenancy.module.js';
 
@@ -17,6 +18,7 @@ import { TenancyModule } from './tenancy/tenancy.module.js';
     HealthModule,
     IdentityModule,
     TenancyModule,
+    PlatformModule,
   ],
 })
 export class AppModule {}

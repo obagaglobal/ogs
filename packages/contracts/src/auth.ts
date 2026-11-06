@@ -71,10 +71,17 @@ export const sessionSummarySchema = z.object({
   ip: z.string().nullable(),
   userAgent: z.string().nullable(),
   current: z.boolean(),
+  /** True between the password and the second factor. */
+  mfaPending: z.boolean(),
 });
 
 export const currentSessionResponseSchema = z.object({
-  user: z.object({ id: z.uuid(), email: z.email(), status: userStatusSchema }),
+  user: z.object({
+    id: z.uuid(),
+    email: z.email(),
+    status: userStatusSchema,
+    mfaEnabled: z.boolean(),
+  }),
   session: sessionSummarySchema,
 });
 
@@ -150,3 +157,73 @@ export type ApiError = z.infer<typeof apiErrorSchema>;
 export const WORKSPACE_HEADER = 'X-OGS-Workspace';
 /** Header carrying the session's CSRF token on unsafe requests. */
 export const CSRF_HEADER = 'X-CSRF-Token';
+/** Header naming the session's active platform elevation (cross-tenant staff access). */
+export const ELEVATION_HEADER = 'X-OGS-Elevation';
+
+// ---------------------------------------------------------------------------
+// MFA (Phase 3B)
+// ---------------------------------------------------------------------------
+
+export const totpCodeSchema = z.string().regex(/^\d{6}$/, { error: 'Enter the 6-digit code' });
+export const recoveryCodeSchema = z
+  .string()
+  .trim()
+  .regex(/^[A-Za-z2-9]{5}[- ]?[A-Za-z2-9]{5}$/, { error: 'Enter a recovery code' });
+
+export const mfaConfirmRequestSchema = z.object({ code: totpCodeSchema });
+/** Second factor at sign-in or step-up: a TOTP code OR a recovery code. */
+export const mfaVerifyRequestSchema = z.union([
+  z.object({ code: totpCodeSchema }),
+  z.object({ recoveryCode: recoveryCodeSchema }),
+]);
+export const mfaStepUpRequestSchema = z.object({ code: totpCodeSchema });
+
+export const mfaStatusResponseSchema = z.object({
+  enrolled: z.boolean(),
+  required: z.boolean(),
+  recoveryCodesRemaining: z.number().int().min(0),
+});
+export const mfaSetupResponseSchema = z.object({
+  /** Base32 secret for manual entry; shown once. */
+  secret: z.string(),
+  otpauthUri: z.string().startsWith('otpauth://totp/'),
+});
+export const recoveryCodesResponseSchema = z.object({
+  recoveryCodes: z.array(z.string()).length(10),
+});
+
+export type MfaVerifyRequest = z.infer<typeof mfaVerifyRequestSchema>;
+export type MfaStatusResponse = z.infer<typeof mfaStatusResponseSchema>;
+export type MfaSetupResponse = z.infer<typeof mfaSetupResponseSchema>;
+export type RecoveryCodesResponse = z.infer<typeof recoveryCodesResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// Platform elevation (Phase 3B, review §6.3)
+// ---------------------------------------------------------------------------
+
+export const elevateRequestSchema = z.object({
+  /** Why staff need cross-tenant access (ticket number, audit request...). Audited. */
+  reason: z.string().trim().min(10).max(500),
+  /** Optionally narrow the elevation to one tenant. */
+  tenantId: z.uuid().optional(),
+});
+export const elevationResponseSchema = z.object({
+  elevationId: z.uuid(),
+  expiresAt: z.iso.datetime(),
+  tenantId: z.uuid().nullable(),
+});
+export const platformTenantListResponseSchema = z.object({
+  tenants: z.array(
+    z.object({
+      id: z.uuid(),
+      kind: tenantKindSchema,
+      name: z.string(),
+      status: tenantStatusSchema,
+      createdAt: z.iso.datetime(),
+    }),
+  ),
+});
+
+export type ElevateRequest = z.infer<typeof elevateRequestSchema>;
+export type ElevationResponse = z.infer<typeof elevationResponseSchema>;
+export type PlatformTenantListResponse = z.infer<typeof platformTenantListResponseSchema>;

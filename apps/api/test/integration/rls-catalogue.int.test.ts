@@ -24,6 +24,10 @@ const KNOWN_TABLES = [
   'role',
   'role_permission',
   'user_token',
+  // Phase 3B
+  'file_metadata',
+  'mfa_factor',
+  'recovery_code',
 ];
 
 interface TableRow {

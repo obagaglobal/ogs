@@ -29,7 +29,10 @@ export class AccessRouteCheck implements OnApplicationBootstrap {
         if (rule === undefined) {
           return `${route}: no access rule (add @Public, @Authenticated or @RequirePermission)`;
         }
-        if (rule.kind === 'permission' && !PERMISSION_CODES.has(rule.code)) {
+        if (
+          (rule.kind === 'permission' || rule.kind === 'elevated') &&
+          !PERMISSION_CODES.has(rule.code)
+        ) {
           return `${route}: unknown permission "${rule.code}"`;
         }
         return undefined;

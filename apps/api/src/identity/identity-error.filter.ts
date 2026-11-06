@@ -7,6 +7,7 @@ import {
   InvalidTokenError,
   WeakPasswordError,
 } from './identity.service.js';
+import { MfaCodeInvalidError, MfaStateError } from './mfa/mfa.service.js';
 import { RateLimitExceeded, RateLimiterUnavailable } from './rate-limiter.js';
 
 type IdentityError =
@@ -15,7 +16,9 @@ type IdentityError =
   | InvalidCredentialsError
   | RateLimitExceeded
   | RateLimiterUnavailable
-  | SessionStoreUnavailable;
+  | SessionStoreUnavailable
+  | MfaCodeInvalidError
+  | MfaStateError;
 
 /**
  * Maps identity domain errors to HTTP. Registered globally so the same mapping
@@ -28,6 +31,8 @@ type IdentityError =
   RateLimitExceeded,
   RateLimiterUnavailable,
   SessionStoreUnavailable,
+  MfaCodeInvalidError,
+  MfaStateError,
 )
 export class IdentityErrorFilter implements ExceptionFilter<IdentityError> {
   catch(error: IdentityError, host: ArgumentsHost): void {
@@ -49,6 +54,12 @@ export class IdentityErrorFilter implements ExceptionFilter<IdentityError> {
     }
     if (error instanceof InvalidCredentialsError) {
       return [HttpStatus.UNAUTHORIZED, { error: 'invalid_credentials' }];
+    }
+    if (error instanceof MfaCodeInvalidError) {
+      return [HttpStatus.BAD_REQUEST, { error: 'invalid_mfa_code' }];
+    }
+    if (error instanceof MfaStateError) {
+      return [HttpStatus.CONFLICT, { error: error.code }];
     }
     if (error instanceof RateLimitExceeded) {
       return [

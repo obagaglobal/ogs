@@ -24,6 +24,10 @@ export default defineConfig({
       NODE_ENV: 'test',
       DATABASE_URL: 'postgresql://unit-test:unused@127.0.0.1:1/unused',
       REDIS_URL: 'redis://127.0.0.1:1/0',
+      MFA_ENCRYPTION_KEYS: 'unit:AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=',
+      S3_ENDPOINT: 'http://127.0.0.1:1',
+      S3_ACCESS_KEY_ID: 'unit-test',
+      S3_SECRET_ACCESS_KEY: 'unit-test-secret',
     },
   },
 });
