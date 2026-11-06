@@ -1,6 +1,6 @@
 # Phase 5 Plan — Providers (Companies and Individuals)
 
-**Status:** APPROVED by the owner on 2026-11-06, with all recommendations P5-1 … P5-7 accepted. Delivered as 5A (backend) then 5B (web), with no gate between them, on branch `phase-5/providers`. See §8 for where the implementation differs from this plan.
+**Status:** APPROVED by the owner on 2026-11-06, with all recommendations P5-1 … P5-7 accepted. Delivered as 5A (backend) then 5B (web), with no gate between them, merged to `main` in PR #4 on 2026-11-06. The §8 refinements were approved by the owner on 2026-11-06 and recorded as ADR-033 … ADR-037.
 **Based on:** [Architecture Review](../architecture/review.md) §1, §2 (D3), §4.2, §7, §10 and §13 (Phase 5 row), ADR-010 (assignment grants), ADR-012 (`Service` vs `ServiceListing`), ADR-013 (OGS assigns), ADR-016 (merchant of record) and ADR-018 (data protection).
 **Starting point:** branch `phase-4/organisations` @ `96ec53b`, pushed and unmerged. Phase 5 is stacked on top of it (`phase-5/providers`).
 
