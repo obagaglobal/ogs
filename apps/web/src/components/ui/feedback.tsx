@@ -126,3 +126,14 @@ export function PageLoader() {
     </div>
   );
 }
+
+/** Shown inside a layout while a route's code chunk loads (no motif: calm). */
+export function RouteFallback() {
+  return (
+    <div className="space-y-4" aria-busy="true">
+      <Skeleton className="h-8 w-64" />
+      <Skeleton className="h-4 w-full max-w-xl" />
+      <Skeleton className="h-40 w-full" />
+    </div>
+  );
+}

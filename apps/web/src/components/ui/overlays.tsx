@@ -5,10 +5,8 @@ import {
   Tooltip as TooltipPrimitive,
 } from 'radix-ui';
 import type { ComponentProps, ReactNode } from 'react';
-import { Toaster as SonnerToaster } from 'sonner';
 import { Drawer as VaulDrawer } from 'vaul';
 import { t } from '@/i18n';
-import { useTheme } from '@/theme/theme';
 import { cn } from '@/lib/utils';
 import { Button } from './button';
 
@@ -184,23 +182,5 @@ export function Tooltip({ content, children }: { content: ReactNode; children: R
         </TooltipPrimitive.Portal>
       </TooltipPrimitive.Root>
     </TooltipPrimitive.Provider>
-  );
-}
-
-/** Mounted once in the app root; call `toast(...)` from 'sonner' anywhere. */
-export function Toaster() {
-  const { resolved } = useTheme();
-  return (
-    <SonnerToaster
-      theme={resolved}
-      position="bottom-right"
-      toastOptions={{
-        classNames: {
-          toast: cn(floating, 'font-sans text-sm'),
-          title: 'font-display font-medium',
-          description: 'text-muted-foreground',
-        },
-      }}
-    />
   );
 }

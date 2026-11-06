@@ -1,52 +1,78 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useId } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Select } from '@/components/ui/input';
+import { t, type MessageKey } from '@/i18n';
 import { PROVIDER_WORKSPACE, useWorkspace } from './workspace-state';
 
-const KIND_LABEL = {
-  ORGANISATION: 'Organisation',
-  PROVIDER_COMPANY: 'Provider company',
-  PLATFORM: 'OGS platform',
-} as const;
+const KIND_KEY = {
+  ORGANISATION: 'workspace.kind.organisation',
+  PROVIDER_COMPANY: 'workspace.kind.providerCompany',
+  PLATFORM: 'workspace.kind.platform',
+} as const satisfies Record<string, MessageKey>;
 
 /**
- * Header control that always shows the workspace the user is acting in
- * (review §7: "context must be explicit") and lets them switch.
+ * Top-bar control that always shows the workspace the user is acting in
+ * (review §7: "context must be explicit"): its name and its type (Personal,
+ * Organisation, Provider, Provider company, OGS Platform). A native select on
+ * purpose: keyboard and screen-reader behaviour for free, and phones show
+ * their own picker.
  */
 export function WorkspaceSwitcher() {
   const { selected, workspaces, provider, select } = useWorkspace();
   const queryClient = useQueryClient();
   const id = useId();
 
+  const current = workspaces.find((workspace) => workspace.tenantId === selected);
+  const kindLabel =
+    selected === 'personal'
+      ? t('workspace.kind.personal')
+      : selected === PROVIDER_WORKSPACE
+        ? t('workspace.kind.provider')
+        : current
+          ? t(KIND_KEY[current.kind])
+          : null;
+  const restricted =
+    selected === PROVIDER_WORKSPACE
+      ? (provider?.restricted ?? false)
+      : (current?.restricted ?? false);
+
   return (
-    <div className="flex items-center gap-2">
-      <label htmlFor={id} className="text-xs font-medium text-muted-foreground">
-        Workspace
+    <div className="flex min-w-0 items-center gap-2">
+      <label htmlFor={id} className="sr-only">
+        {t('workspace.label')}
       </label>
-      <select
+      <Select
         id={id}
         value={selected}
         onChange={(event) => {
           select(event.target.value);
           void queryClient.invalidateQueries({ queryKey: ['workspace'] });
         }}
-        className="h-9 max-w-64 rounded-md border bg-background px-2 text-sm"
+        className="w-auto max-w-[11rem] font-display font-medium sm:max-w-64"
       >
-        <option value="personal">Personal</option>
+        <option value="personal">{t('workspace.kind.personal')}</option>
         {provider === null ? null : (
           <option value={PROVIDER_WORKSPACE}>
-            Provider · Individual
+            {t('workspace.kind.provider')} · Individual
             {provider.restricted
-              ? ` (${provider.status === 'SUSPENDED' ? 'suspended' : 'pending'})`
+              ? ` (${provider.status === 'SUSPENDED' ? t('workspace.suspended') : t('workspace.pending')})`
               : ''}
           </option>
         )}
         {workspaces.map((workspace) => (
           <option key={workspace.tenantId} value={workspace.tenantId}>
-            {workspace.name} · {KIND_LABEL[workspace.kind]}
-            {workspace.restricted ? ' (pending)' : ''}
+            {workspace.name} · {t(KIND_KEY[workspace.kind])}
+            {workspace.restricted ? ` (${t('workspace.pending')})` : ''}
           </option>
         ))}
-      </select>
+      </Select>
+      {kindLabel ? (
+        <Badge tone={restricted ? 'warning' : 'neutral'} className="hidden lg:inline-flex">
+          {kindLabel}
+          {restricted ? ` · ${t('workspace.pending')}` : ''}
+        </Badge>
+      ) : null}
     </div>
   );
 }
