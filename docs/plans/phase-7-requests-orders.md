@@ -196,3 +196,17 @@ As in earlier phases: one approval, two halves with no gate between them, one PR
 - **Money errors.** Mitigation: integer minor units everywhere, values stored per line, property tests, and database CHECKs (totals equal the sum of lines, non-negative amounts).
 - **Expiry timing.** Mitigation: a delayed job plus an idempotent sweep, and acceptance checks `expires_at` in the same transaction, so an accept a second late is refused even if the job hasn't run.
 - **Tax treatment** is still pending the advisor (ADR-017). Mitigation: one constant and per-line storage, so a correction affects only new documents.
+
+## 8. Delivery notes (2026-11-06)
+
+Delivered as planned, with these refinements:
+
+- **No DRAFT request state.** Submitting creates the request directly as SUBMITTED in one idempotent call, so there is no separate draft-then-submit step. Every transition in §2.2 from SUBMITTED onwards is as planned.
+- **Payment completion.** The payment that reaches the total moves the order AWAITING_PAYMENT → PAID → READY_FOR_ASSIGNMENT in the same transaction, with two history rows.
+- **Order creation by customers.** Accepting a quotation creates the order in the customer's own context. A database trigger refuses any customer-created order that does not match the accepted quotation and the organisation's billing terms, so the customer path cannot be used to forge a price.
+- **Personal records stay personal.** A person's own requests are visible only from their personal workspace, never from an organisation workspace they belong to (`app.owns_customer_row`).
+- **Cancellation.** Customers cancel requests before ordering, and orders only while unpaid. Finance can cancel any order that isn't already cancelled; a paid order is marked "refund due" (refunds are Phase 11).
+- **Billing terms in the web app** are edited from an organisation's order page rather than a separate list, because finance has no organisation directory yet.
+- **Found while testing.**
+  - The Phase 6 web test expected the disabled "coming soon" button; it now checks the real "Request this service" link.
+  - Late in the full integration run, the worker's email backlog can exceed `waitForMail`'s default 15 seconds; the Phase 7 email assertions allow 45.

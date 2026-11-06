@@ -12,14 +12,15 @@ Start with [README.md](README.md), [docs/architecture/overview.md](docs/architec
 
 <!-- Keep this block current: update it whenever a phase PR is opened, merged or approved. -->
 
-| Phase                                                        | State                                                                      |
-| ------------------------------------------------------------ | -------------------------------------------------------------------------- |
-| 0 Architecture review                                        | Accepted (D-1 … D-18 → ADR-009 … ADR-026)                                  |
-| 2 Tenancy, RLS, data foundations                             | Merged to `main` (#1)                                                      |
-| 3 Identity, access, first shell                              | Merged to `main` (#2)                                                      |
-| 4 Organisations, approvals, invitations, members             | Merged to `main` (#3)                                                      |
-| 5 Providers, KYC review, coverage, availability, eligibility | Merged to `main` (#4); §8 refinements approved (ADR-033 … ADR-037)         |
-| 6 Service catalogue                                          | PR #7 (`phase-6/catalogue` → `main`), awaiting green CI and owner approval |
+| Phase                                                        | State                                                                            |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| 0 Architecture review                                        | Accepted (D-1 … D-18 → ADR-009 … ADR-026)                                        |
+| 2 Tenancy, RLS, data foundations                             | Merged to `main` (#1)                                                            |
+| 3 Identity, access, first shell                              | Merged to `main` (#2)                                                            |
+| 4 Organisations, approvals, invitations, members             | Merged to `main` (#3)                                                            |
+| 5 Providers, KYC review, coverage, availability, eligibility | Merged to `main` (#4); §8 refinements approved (ADR-033 … ADR-037)               |
+| 6 Service catalogue                                          | Merged to `main` (#7)                                                            |
+| 7 Requests, quotations, orders                               | PR #8 (`phase-7/requests-orders` → `main`), awaiting green CI and owner approval |
 
 Last updated: 2026-11-06.
 

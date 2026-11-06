@@ -1,6 +1,6 @@
 # Architecture Overview
 
-> Status: Phase 6 complete (public service catalogue, pricing, staff catalogue management) on top of Phases 2–5 (tenancy, RLS, identity, access control, organisations, providers).
+> Status: Phase 7 complete (service requests, quotations, orders, manual payments) on top of Phases 2–6 (tenancy, RLS, identity, access control, organisations, providers, catalogue).
 
 ## 1. Product context
 
@@ -341,7 +341,46 @@ Planned in the [Phase 6 plan](../plans/phase-6-catalogue.md); decisions ADR-038 
 
 **Proof.** `catalogue.int.test.ts` (E1–E8), the contracts money tests, web component tests and the Playwright `catalogue-journey.spec.ts` (E9).
 
-## 11. Architecture decisions
+## 11. Requests, quotations and orders (Phase 7)
+
+Planned in the [Phase 7 plan](../plans/phase-7-requests-orders.md); decisions ADR-046 … ADR-054.
+
+**Ownership.** Every commercial record belongs to an organisation (`customer_tenant_id`) or a person (`customer_user_id`), never both (ADR-009). `app.owns_customer_row()` shows an organisation's rows in its workspace, and a person's rows only in their personal workspace. Staff see everything under an elevation; `orders.*` worker jobs see what they process.
+
+**Lifecycle.** `src/orders/transitions.ts` is the single table of what each command may do, from which states, and by whom. Every command checks it, guards the change with the row's status and `version`, and writes a history row (`service_request_event` / `service_order_event`), an audit row and an outbox event in the same transaction. Database triggers are a second, independent guard:
+
+- request snapshots, issued quotations, payments and history are immutable;
+- customers can only cancel, or accept or reject an issued quotation;
+- a customer-created order must match its accepted quotation and the organisation's billing terms.
+
+```text
+SUBMITTED → UNDER_REVIEW → ORDERED (catalogue price)  |  → AWAITING_QUOTATION ⇄ QUOTATION_ISSUED → ORDERED
+any state before ORDERED → CANCELLED
+Order: AWAITING_PAYMENT → PAID → READY_FOR_ASSIGNMENT (postpaid: READY at once) · → CANCELLED (refund due if paid)
+```
+
+**Money.** Integer minor units throughout. `vatOn`, `lineTotals` and `documentTotals` in `@ogs/contracts` compute 16% VAT per line, rounded half up; values are stored per line and totals are sums (database CHECKs enforce it).
+
+**Idempotency.** `Idempotency-Key` on submit, quotation acceptance and payment recording (`order-support.ts` `idempotent()`): the key row is written first in the same transaction, so concurrent duplicates wait and then replay the stored response.
+
+**Quotation expiry.** Issuing schedules a delayed `orders.quotation_expiry` outbox event at `expires_at` and a 48-hour warning email; the worker's hourly `QuotationExpirySweeper` catches anything missed. `QuotationExpiryService.expire` is idempotent.
+
+**API.**
+
+| Method and path                                                                                                      | Access                                                                         | Purpose                    |
+| -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | -------------------------- |
+| `POST /requests` (Idempotency-Key), `GET /requests`, `GET /requests/:id`                                             | personal workspace, or organisation with `request.create` / `request.read_all` | Submit, list, view         |
+| `POST /requests/:id/cancel`, `/quotations/:qid/accept` (Idempotency-Key), `/quotations/:qid/reject`, `/order/cancel` | customer (`quotation.accept` in organisations)                                 | Customer decisions         |
+| `GET /platform/requests`, `GET /platform/requests/:id`, `POST …/review`, `…/accept`, `…/needs-quotation`, `…/cancel` | elevation + `platform.quotation.issue`                                         | Staff decisions            |
+| `PUT /platform/requests/:id/quotation`, `POST …/quotations/:qid/issue`                                               | elevation + `platform.quotation.issue`                                         | Quotation draft and issue  |
+| `GET /platform/orders`, `GET /platform/orders/:id`, `POST …/payments` (Idempotency-Key), `POST …/cancel`             | elevation + `platform.finance.manage`                                          | Orders and manual payments |
+| `GET/PUT /platform/organisations/:tenantId/billing`                                                                  | elevation + `platform.finance.manage`                                          | Payment terms              |
+
+**Web.** "Request this service" on public service pages leads to `/requests/new`; customers use "Requests" (list, detail, quotation accept/reject, payment instructions). Staff use "Requests" (queue, decisions, quotation editor with live totals) and finance uses "Orders" (payments, cancellation, billing terms).
+
+**Proof.** `orders.int.test.ts` (F1–F9), the contracts money property tests, web component tests and the Playwright `requests-journey.spec.ts` (F10).
+
+## 12. Architecture decisions
 
 | ID  | Decision                                                                  | Status                    |
 | --- | ------------------------------------------------------------------------- | ------------------------- |
