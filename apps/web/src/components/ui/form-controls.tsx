@@ -67,8 +67,8 @@ export function Notice({
       role={tone === 'error' ? 'alert' : 'status'}
       className={cn(
         'rounded-md border px-3 py-2 text-sm',
-        tone === 'error' && 'border-destructive/40 bg-destructive/5 text-destructive',
-        tone === 'success' && 'border-emerald-700/30 bg-emerald-50 text-emerald-900',
+        tone === 'error' && 'border-destructive bg-destructive/10 text-foreground',
+        tone === 'success' && 'border-success bg-success/10 text-foreground',
         tone === 'info' && 'bg-muted text-foreground',
       )}
     >

@@ -20,8 +20,8 @@ export function StatusBadge({
     <span
       className={cn(
         'inline-block rounded-full border px-2 py-0.5 text-xs font-medium',
-        tone === 'good' && 'border-emerald-700/30 bg-emerald-50 text-emerald-900',
-        tone === 'bad' && 'border-destructive/40 bg-destructive/5 text-destructive',
+        tone === 'good' && 'border-success bg-success/10 text-foreground',
+        tone === 'bad' && 'border-destructive bg-destructive/10 text-foreground',
       )}
     >
       {children}

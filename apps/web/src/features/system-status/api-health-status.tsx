@@ -23,7 +23,7 @@ export function ApiHealthStatus() {
             className={cn(
               'size-2 rounded-full',
               state.kind === 'loading' && 'bg-muted-foreground',
-              state.kind === 'online' && 'bg-emerald-500',
+              state.kind === 'online' && 'bg-success',
               state.kind === 'offline' && 'bg-destructive',
             )}
           />

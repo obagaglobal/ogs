@@ -6,6 +6,7 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import { defineConfig, globalIgnores } from 'eslint/config';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
+import ogsDesign from './eslint-rules/no-raw-colours.js';
 
 export default defineConfig(
   globalIgnores([
@@ -14,6 +15,9 @@ export default defineConfig(
     '**/coverage/**',
     '**/node_modules/**',
     'apps/api/src/generated/**',
+    // Hand-written type declarations for plain-JS modules (not in a TS project).
+    'eslint-rules/*.d.ts',
+    'apps/web/scripts/*.d.mts',
   ]),
 
   // Baseline for every file.
@@ -98,6 +102,12 @@ export default defineConfig(
     },
   },
 
+  // Static browser scripts served as-is (public/theme-init.js).
+  {
+    files: ['apps/web/public/**/*.js'],
+    languageOptions: { globals: globals.browser, sourceType: 'script' },
+  },
+
   // Frontend (React + Vite).
   {
     files: ['apps/web/**/*.{ts,tsx}'],
@@ -106,6 +116,13 @@ export default defineConfig(
   },
 
   // Tests.
+  {
+    // Design system (Phase 6b): colours come from tokens only (eslint-rules/no-raw-colours.js).
+    files: ['apps/web/src/**/*.{ts,tsx}'],
+    ignores: ['apps/web/src/test/no-raw-colours.test.ts', 'apps/web/src/test/contrast.test.ts'],
+    plugins: { ogs: ogsDesign },
+    rules: { 'ogs/no-raw-colours': 'error' },
+  },
   {
     files: ['**/*.test.{ts,tsx}', '**/test/**/*.ts'],
     rules: {
