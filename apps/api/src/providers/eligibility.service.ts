@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { EligibilityCandidate } from '@ogs/contracts';
+import { notFound } from '../common/domain-error.js';
 import { Prisma, TenantDb, type DbContext } from '../database/index.js';
 
 /**
@@ -37,7 +38,13 @@ export interface EligibilityQuery {
   readonly at?: Date;
   /** The service may be delivered remotely: remote providers outside the county qualify. */
   readonly remoteAllowed?: boolean;
+  /** Minimum experience per required skill (Phase 6 service requirements); default: any. */
+  readonly minExperience?: Readonly<Record<string, ExperienceBand>>;
+  /** Which kinds of provider the service allows (Phase 6 channels); default: both. */
+  readonly kinds?: readonly ('COMPANY' | 'INDIVIDUAL')[];
 }
+
+export type ExperienceBand = 'UNDER_1_YEAR' | 'YEARS_1_3' | 'YEARS_3_5' | 'OVER_5_YEARS';
 
 interface Row {
   id: string;
@@ -58,8 +65,46 @@ interface Row {
 export class EligibilityService {
   constructor(private readonly db: TenantDb) {}
 
+  /**
+   * What a catalogue service asks of a provider (Phase 6 plan §2.5): its
+   * required skills with minimum experience, whether it can be done remotely,
+   * and which kinds of provider may deliver it.
+   */
+  async requirementsOf(
+    ctx: DbContext,
+    serviceId: string,
+  ): Promise<Omit<EligibilityQuery, 'regionCode' | 'at'>> {
+    const service = await this.db.run(ctx, async (tx) =>
+      tx.service.findUnique({
+        where: { id: serviceId },
+        select: {
+          deliveryMode: true,
+          channelIndividual: true,
+          channelCompany: true,
+          skills: { select: { skillCode: true, minExperience: true } },
+        },
+      }),
+    );
+    if (service === null) {
+      throw notFound();
+    }
+    const kinds: ('COMPANY' | 'INDIVIDUAL')[] = [];
+    if (service.channelCompany) kinds.push('COMPANY');
+    if (service.channelIndividual) kinds.push('INDIVIDUAL');
+    return {
+      skillCodes: service.skills.map((skill) => skill.skillCode),
+      minExperience: Object.fromEntries(
+        service.skills.map((skill) => [skill.skillCode, skill.minExperience]),
+      ),
+      remoteAllowed: service.deliveryMode !== 'ON_SITE',
+      kinds,
+    };
+  }
+
   async find(ctx: DbContext, query: EligibilityQuery): Promise<EligibilityCandidate[]> {
     const skills = [...new Set(query.skillCodes)];
+    const minimums = skills.map((code) => query.minExperience?.[code] ?? 'UNDER_1_YEAR');
+    const kinds = [...(query.kinds ?? ['COMPANY', 'INDIVIDUAL'])];
     const when = query.at ?? new Date();
     const requireAvailable = query.at !== undefined;
     const remoteAllowed = query.remoteAllowed ?? false;
@@ -67,6 +112,8 @@ export class EligibilityService {
       tx.$queryRaw<Row[]>(Prisma.sql`
         WITH params AS (
           SELECT ${skills}::text[] AS skills,
+                 ${minimums}::text[] AS minimums,
+                 ${kinds}::text[] AS kinds,
                  ${query.regionCode}::text AS region,
                  (${when}::timestamptz AT TIME ZONE ${PROVIDER_TIME_ZONE}) AS local_at,
                  ${when}::timestamptz AS at
@@ -92,11 +139,13 @@ export class EligibilityService {
             LEFT JOIN tenant t ON t.id = p.tenant_id
            WHERE p.status = 'ACTIVE'
              AND p.accepting_work
+             AND p.kind::text = ANY (params.kinds)
              AND (p.kind = 'INDIVIDUAL' OR (t.status = 'ACTIVE' AND t.deleted_at IS NULL))
              AND NOT EXISTS (
-                   SELECT 1 FROM unnest(params.skills) AS required(code)
+                   SELECT 1 FROM unnest(params.skills, params.minimums) AS required(code, minimum)
                     WHERE NOT EXISTS (SELECT 1 FROM provider_skill s
-                                       WHERE s.provider_id = p.id AND s.skill_code = required.code))
+                                       WHERE s.provider_id = p.id AND s.skill_code = required.code
+                                         AND s.experience >= required.minimum::"ExperienceBand"))
         )
         SELECT c.id, c.kind::text AS kind, c.display_name, c.covers, c.available,
                (c.home_region = params.region) IS TRUE AS home,

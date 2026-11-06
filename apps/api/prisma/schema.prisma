@@ -544,6 +544,7 @@ model Skill {
   active    Boolean         @default(true)
   createdAt DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
   providers ProviderSkill[]
+  services  ServiceSkill[]
 
   @@map("skill")
 }
@@ -686,4 +687,135 @@ model ProviderVerification {
   application         ProviderApplication @relation(fields: [applicationId], references: [id], onDelete: Restrict)
 
   @@map("provider_verification")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 6: service catalogue (platform-owned, no tenant column; review §4.1).
+// Hand-written SQL in the migration adds the CHECK constraints, the search
+// vector trigger, the append-only price trigger and row-level security.
+// ---------------------------------------------------------------------------
+
+enum CatalogueStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum ServiceStatus {
+  DRAFT
+  PUBLISHED
+  RETIRED
+}
+
+enum ServiceAudience {
+  ALL
+  ORGANISATIONS
+  INDIVIDUALS
+}
+
+enum DeliveryMode {
+  ON_SITE
+  REMOTE
+  BOTH
+}
+
+enum PriceModel {
+  FIXED
+  PER_UNIT
+  FROM
+  QUOTE
+}
+
+enum PriceUnit {
+  HOUR
+  DEVICE
+  USER
+  VISIT
+  POINT
+}
+
+/// Two-level tree (top level and one level below). Slug fixed at creation.
+model ServiceCategory {
+  id        String            @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  parentId  String?           @map("parent_id") @db.Uuid
+  slug      String            @unique @db.VarChar(80)
+  name      String            @db.VarChar(120)
+  summary   String?           @db.VarChar(300)
+  icon      String            @default("folder") @db.VarChar(40)
+  position  Int               @default(0)
+  status    CatalogueStatus   @default(ACTIVE)
+  version   Int               @default(0)
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  parent    ServiceCategory?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children  ServiceCategory[] @relation("CategoryTree")
+  services  Service[]
+
+  @@index([parentId, position])
+  @@map("service_category")
+}
+
+model Service {
+  id                   String                   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  categoryId           String                   @map("category_id") @db.Uuid
+  /// Immutable once the service has been published (trigger).
+  slug                 String                   @unique @db.VarChar(100)
+  name                 String                   @db.VarChar(150)
+  summary              String                   @default("") @db.VarChar(300)
+  /// Plain text; paragraphs separated by blank lines. Never rendered as HTML.
+  description          String                   @default("")
+  inclusions           String[]                 @default([])
+  exclusions           String[]                 @default([])
+  customerRequirements String[]                 @default([]) @map("customer_requirements")
+  typicalDuration      String?                  @map("typical_duration") @db.VarChar(100)
+  audience             ServiceAudience          @default(ALL)
+  deliveryMode         DeliveryMode             @default(ON_SITE) @map("delivery_mode")
+  channelOgs           Boolean                  @default(true) @map("channel_ogs")
+  channelIndividual    Boolean                  @default(true) @map("channel_individual")
+  channelCompany       Boolean                  @default(true) @map("channel_company")
+  status               ServiceStatus            @default(DRAFT)
+  publishedAt          DateTime?                @map("published_at") @db.Timestamptz(6)
+  retiredAt            DateTime?                @map("retired_at") @db.Timestamptz(6)
+  createdBy            String?                  @map("created_by") @db.Uuid
+  version              Int                      @default(0)
+  createdAt            DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  /// Maintained by trigger (name unstemmed + stemmed English text); GIN index in SQL.
+  searchVector         Unsupported("tsvector")? @map("search_vector")
+  category             ServiceCategory          @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  prices               ServicePrice[]
+  skills               ServiceSkill[]
+
+  @@index([categoryId, status])
+  @@index([status, name])
+  @@index([searchVector], map: "service_search_vector_idx", type: Gin)
+  @@map("service")
+}
+
+/// Append-only price versions (P6-3). Amounts in integer minor units (cents), excluding VAT (P6-8).
+model ServicePrice {
+  id            String     @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  serviceId     String     @map("service_id") @db.Uuid
+  model         PriceModel
+  amountMinor   BigInt?    @map("amount_minor")
+  currency      String     @default("KES") @db.Char(3)
+  unit          PriceUnit?
+  minQuantity   Int        @default(1) @map("min_quantity")
+  effectiveFrom DateTime   @default(now()) @map("effective_from") @db.Timestamptz(6)
+  createdBy     String?    @map("created_by") @db.Uuid
+  service       Service    @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+
+  @@index([serviceId, effectiveFrom])
+  @@map("service_price")
+}
+
+model ServiceSkill {
+  serviceId     String         @map("service_id") @db.Uuid
+  skillCode     String         @map("skill_code") @db.VarChar(60)
+  minExperience ExperienceBand @default(UNDER_1_YEAR) @map("min_experience")
+  service       Service        @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  skill         Skill          @relation(fields: [skillCode], references: [code], onDelete: Restrict)
+
+  @@id([serviceId, skillCode])
+  @@index([skillCode])
+  @@map("service_skill")
 }

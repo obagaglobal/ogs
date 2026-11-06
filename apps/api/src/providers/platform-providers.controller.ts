@@ -32,20 +32,27 @@ import { CatalogueService } from './catalogue.service.js';
 import { EligibilityService } from './eligibility.service.js';
 import { ProviderReviewService } from './provider-review.service.js';
 
-const eligibilityQuerySchema = z.object({
-  skills: z
-    .string()
-    .transform((value) =>
-      value
-        .split(',')
-        .map((code) => code.trim())
-        .filter((code) => code !== ''),
-    )
-    .pipe(z.array(skillCodeSchema).min(1).max(20)),
-  region: regionCodeSchema,
-  at: z.iso.datetime({ offset: true }).optional(),
-  remote: z.enum(['true', 'false']).optional(),
-});
+const eligibilityQuerySchema = z
+  .object({
+    /** Either the required skills directly, or a catalogue service (Phase 6 plan §2.5). */
+    service: z.uuid().optional(),
+    skills: z
+      .string()
+      .transform((value) =>
+        value
+          .split(',')
+          .map((code) => code.trim())
+          .filter((code) => code !== ''),
+      )
+      .pipe(z.array(skillCodeSchema).min(1).max(20))
+      .optional(),
+    region: regionCodeSchema,
+    at: z.iso.datetime({ offset: true }).optional(),
+    remote: z.enum(['true', 'false']).optional(),
+  })
+  .refine((value) => (value.service === undefined) !== (value.skills === undefined), {
+    error: 'Give either skills or service',
+  });
 
 function permissionsOf(auth: AccessState): ReadonlySet<string> {
   return auth.workspace?.permissions ?? new Set<string>();
@@ -165,11 +172,22 @@ export class PlatformProvidersController {
     if (!parsed.success) {
       throw badRequest('invalid_request');
     }
-    const { skills, region, at, remote } = parsed.data;
+    const { service, skills, region, at, remote } = parsed.data;
+    const timing = at === undefined ? {} : { at: new Date(at) };
+    if (service !== undefined) {
+      // The service decides skills, minimum experience, remote delivery and channels.
+      const requirements = await this.eligibility.requirementsOf(ctx, service);
+      const candidates = await this.eligibility.find(ctx, {
+        ...requirements,
+        regionCode: region,
+        ...timing,
+      });
+      return { candidates };
+    }
     const candidates = await this.eligibility.find(ctx, {
-      skillCodes: skills,
+      skillCodes: skills ?? [],
       regionCode: region,
-      ...(at === undefined ? {} : { at: new Date(at) }),
+      ...timing,
       remoteAllowed: remote === 'true',
     });
     return { candidates };

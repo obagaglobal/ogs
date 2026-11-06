@@ -22,6 +22,8 @@ export const RATE_LIMITS = {
   resendPerAccount: { limit: 5, windowSeconds: 60 * 60 },
   /** TOTP and recovery-code attempts (a 6-digit code must not be guessable by volume). */
   mfaPerAccount: { limit: 10, windowSeconds: 15 * 60 },
+  /** Public catalogue reads (Phase 6, E8): generous for people, a ceiling for scrapers. */
+  cataloguePerIp: { limit: 240, windowSeconds: 60 },
 } as const satisfies Record<string, RateLimitRule>;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;
