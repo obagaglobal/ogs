@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
+import { MeController, WorkspaceController } from './workspace.controller.js';
 import { WorkspaceContextService } from './workspace-context.service.js';
 
-/** Workspace resolution. HTTP wiring (X-OGS-Workspace guard) arrives with sessions in Phase 3. */
+/** Workspace resolution (used by AccessGuard) and the workspace endpoints. */
 @Module({
+  controllers: [MeController, WorkspaceController],
   providers: [WorkspaceContextService],
   exports: [WorkspaceContextService],
 })

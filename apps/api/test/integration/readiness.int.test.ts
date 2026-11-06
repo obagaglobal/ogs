@@ -8,6 +8,7 @@ import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import type { TypedConfigService } from '../../src/config/env.js';
 import { createPrismaClient } from '../../src/database/prisma.factory.js';
 import { PrismaService } from '../../src/database/prisma.service.js';
+import { AuthzSyncService } from '../../src/authz/authz-sync.service.js';
 import { RedisService } from '../../src/redis/redis.service.js';
 import { urls } from './support.js';
 
@@ -37,7 +38,12 @@ describe('GET /api/v1/health/ready (T11)', () => {
       builder = builder.overrideProvider(RedisService).useValue(redisOverride);
     }
     if (prismaOverride !== undefined) {
-      builder = builder.overrideProvider(PrismaService).useValue(prismaOverride);
+      // The start-up catalogue sync needs the database this test takes away.
+      builder = builder
+        .overrideProvider(PrismaService)
+        .useValue(prismaOverride)
+        .overrideProvider(AuthzSyncService)
+        .useValue({ onApplicationBootstrap: () => undefined });
     }
     const moduleRef = await builder.compile();
     const nestApp = moduleRef.createNestApplication<NestExpressApplication>({ logger: false });
