@@ -232,3 +232,16 @@ No TOTP library is needed: the algorithm is about 30 lines on top of `node:crypt
 - **Role uniqueness:** the `(tenant_id, code)` index is `NULLS NOT DISTINCT`, so system role codes (no tenant) are unique too. A follow-up migration aligns its name with Prisma's model; nothing else changed.
 - **Identity data and the audit log:** sign-in activity goes to the append-only `authentication_event` table. Lockouts, password changes and resets are also written to `audit_log` (actor `SYSTEM`, since they run as identity jobs, with the user as the entity).
 - **Integration tests send `X-Forwarded-For`** (with `TRUST_PROXY_HOPS=1`) so each test client has its own IP and per-IP rate limits do not interfere between tests.
+
+## 10. Implementation notes for 3B (differences from this plan)
+
+- **SeaweedFS instead of MinIO in development (ADR-032).** MinIO's container images are no longer publicly pullable (Docker Hub reports no such repository; quay.io returns 401). Compose now runs the SeaweedFS S3 gateway (`chrislusf/seaweedfs:4.50`, Apache-2.0). The API speaks plain S3 through `@aws-sdk/client-s3`, so production can use any S3-compatible store (ADR-019 unchanged).
+- **MFA is mandatory for** every ACTIVE member of the PLATFORM tenant (all OGS staff, including finance and super admins) and for `org_admin` and `provider_admin`. Until such users enrol, they only reach the MFA enrolment routes, `/auth/session`, `/auth/csrf`, the session list and sign-out.
+- **Enrolling signs out every other session,** because those sessions were authenticated without the new factor.
+- **Users cannot change their own security fields.** A new trigger stops `app_user.status`, `email` and `mfa_enabled` from changing outside identity jobs or platform context. The 3A `app_user` update policy would otherwise have let a user update their own row, including those fields.
+- **Elevation** is `POST /platform/elevate`, which needs the PLATFORM workspace, `platform.cross_tenant_access` and a step-up within 15 minutes. Routes marked `@RequireElevation(code)` take `X-OGS-Elevation` and run in a `platform` `DbContext`. `GET /platform/tenants` is the first such route, so the mechanism is exercised end to end.
+- **No file HTTP endpoints yet,** as planned. `FileService` is proven by `files.int.test.ts`, and the first upload endpoints arrive with provider documents in Phase 5. Purposes are registered in `src/files/file-purposes.ts`.
+- **Web shell** uses React Router 8 and TanStack Query 5. The QR code is rendered in the browser with `qrcode`. The secret is also shown as text for manual entry.
+- **The Playwright smoke test runs against the development database.** It creates one `*@e2e.test` user per run, and grants it memberships with the maintenance connection because membership management is Phase 4. In CI it runs against a freshly migrated and seeded database.
+- **The ASVS checklist** (`docs/security/asvs-phase3.md`) uses ASVS 4.0.3 section numbering, as in §5. Re-mapping to ASVS 5.0 is follow-up F-6.
+- **Dependency versions** are picked to respect pnpm's one-day minimum release age, with no exclusions: `@aws-sdk/*` 3.1162.0, TanStack Query 5.106.0 and Playwright 1.64.1.

@@ -34,7 +34,7 @@ Edit the generated files and replace the `change-me-local-only` placeholders. Ke
 ## Start infrastructure and the database
 
 ```powershell
-pnpm infra:up         # start PostgreSQL 18, Redis 8 and Mailpit (docker compose up -d)
+pnpm infra:up         # start PostgreSQL 18, Redis 8, Mailpit and the object store
 pnpm db:roles         # create/refresh the ogs_* roles and the ogs_test database (idempotent)
 pnpm db:migrate       # apply migrations to ogs_dev as ogs_owner
 pnpm db:seed          # optional: roles, sample tenants, users with passwords, memberships (idempotent)
@@ -53,6 +53,15 @@ Seeded accounts. All are verified, and all use the password in `SEED_USER_PASSWO
 | `alice@acme.test`  | Acme Kenya Ltd (`org_admin`) and Nairobi Tech Partners (`provider_technician`)                  |
 | `bob@savanna.test` | Savanna Logistics (`org_admin`; the tenant is pending approval, so the workspace is restricted) |
 | `tech@ntp.test`    | Nairobi Tech Partners (`provider_admin`)                                                        |
+
+## Sign in to the web app
+
+Open http://localhost:5173 and sign in, or create a new account (the confirmation email arrives in Mailpit).
+
+- **Seeded admins must set up two-step verification first.** That covers `admin@ogs.test`, `alice@acme.test`, `bob@savanna.test` and `tech@ntp.test`, because MFA is mandatory for OGS staff and admin roles. The app takes you to the setup page: scan the QR code with any authenticator app, or type the key shown under it. Then keep the recovery codes it shows you.
+- **Losing the authenticator** on a dev database is not a problem: run `pnpm db:seed` again. It resets the seeded users' passwords, but not their MFA. To reset MFA for one user, delete their rows from `mfa_factor` and `recovery_code` as `ogs_maint`, set `app_user.mfa_enabled = false` inside a transaction with `set_config('app.is_platform', 'true', true)`, and sign in again.
+- Use the header to switch workspaces. The current workspace is always shown there.
+- **Security** lists your signed-in devices and your two-step verification status.
 
 ## Try the API with a session
 
@@ -95,10 +104,13 @@ pnpm dev:web          # web only     → http://localhost:5173
 
 ```powershell
 pnpm test               # unit + HTTP e2e tests (no Docker needed)
-pnpm test:integration   # RLS, isolation, outbox, readiness against real PostgreSQL + Redis
+pnpm test:integration   # RLS, isolation, auth, MFA, files: real PostgreSQL, Redis, Mailpit, object store
+pnpm test:e2e           # builds, then signs up/verifies/enrols in a real Chromium (Playwright)
 ```
 
 Integration tests need `pnpm infra:up` and `pnpm db:roles`. They run against the separate **`ogs_test`** database (never `ogs_dev`), apply migrations to it automatically, and use a unique Redis/BullMQ prefix per run. The API and the worker run in-process, and emails are read back from Mailpit. Tests create uniquely named rows and users and never wipe anything. If you edited an existing migration (rather than adding a new one), recreate the test database with `pnpm db:reset:test`.
+
+The browser test needs the dev database migrated and seeded (it joins the seeded Acme organisation). It also needs Chromium for Playwright, installed once with `pnpm --filter @ogs/web exec playwright install chromium`. It reuses an API, worker or web server that is already running. Each run adds one `e2e-*@e2e.test` user to the dev database.
 
 ## Database workflow
 

@@ -125,3 +125,6 @@ These rules protect tenant isolation (review §5–§6, ADR-009/010). CI enforce
 - Validate every body with a schema from `@ogs/contracts` via `parseBody`. Errors are `{ "error": "<code>" }`, with field paths but never values.
 - New permissions: add them to `catalogue.json`, run `pnpm --filter @ogs/api docs:permissions`, and commit both.
 - Any new tenant-scoped endpoint gets cases in `test/integration/api-isolation.int.test.ts` (foreign id → 404, foreign workspace header → 403, missing permission → 403).
+- Mark sensitive actions with `@RequireRecentMfa(minutes)` (step-up). Credential and MFA changes, role changes and anything platform-wide need it.
+- Cross-tenant staff features use `@RequireElevation(code)`, never `platform` contexts built by hand. The elevation carries the reason that `TenantDb` writes to the audit log.
+- Files are uploaded only through `FileService` with a registered purpose (`src/files/file-purposes.ts`). Never serve object-store URLs directly; issue `downloadUrl` for `CLEAN` files.
