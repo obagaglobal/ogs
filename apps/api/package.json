@@ -6,7 +6,7 @@
   "license": "UNLICENSED",
   "type": "module",
   "scripts": {
-    "build": "prisma generate && nest build -p tsconfig.build.json",
+    "build": "prisma generate --no-hints && nest build -p tsconfig.build.json",
     "dev": "nest start --watch -p tsconfig.build.json",
     "dev:worker": "nest start --watch --config nest-cli.worker.json",
     "start": "node dist/main.js",
@@ -17,7 +17,7 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "prisma:validate": "prisma validate",
     "prisma:format": "prisma format",
-    "prisma:generate": "prisma generate",
+    "prisma:generate": "prisma generate --no-hints",
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
     "db:seed": "node scripts/db-seed.mjs",

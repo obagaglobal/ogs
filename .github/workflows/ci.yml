@@ -135,8 +135,50 @@ jobs:
       - name: Migrate and seed the database
         run: pnpm build:packages && pnpm db:migrate && pnpm db:seed
 
-      - name: Install Chromium for Playwright
-        run: pnpm --filter @ogs/web exec playwright install --with-deps chromium
+      # Browsers download in seconds; the slow part used to be apt installing
+      # Chromium's system libraries from a throttled mirror (12+ minutes). The
+      # runner image already ships Chrome, so usually nothing is missing.
+      - name: Playwright version
+        id: playwright
+        run: echo "version=$(pnpm --filter @ogs/web exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium-headless-shell
+
+      - name: Install Chromium headless shell (cache miss only)
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm --filter @ogs/web exec playwright install --only-shell chromium
+
+      # `install-deps --dry-run` simulates the apt install (Playwright >= 1.64) and
+      # lists what is missing. On ubuntu-latest every library Chromium needs is
+      # present; only extra fonts (CJK, Thai, Cyrillic, 21 MB) are missing, and
+      # they once took 12 minutes from a throttled mirror. The tests use Latin
+      # text and take no screenshots, so fonts are skipped; any other missing
+      # package is installed. Unrecognised output falls back to installing all.
+      - name: Install missing Chromium system libraries
+        run: |
+          out=$(pnpm --filter @ogs/web exec playwright install-deps --dry-run chromium 2>&1 || true)
+          echo "$out"
+          if echo "$out" | grep -q "All system dependencies are installed."; then
+            exit 0
+          fi
+          if ! echo "$out" | grep -q "Missing system dependencies"; then
+            echo "::warning::Could not check Chromium's system libraries; installing all of them."
+            pnpm --filter @ogs/web exec playwright install-deps chromium
+            exit 0
+          fi
+          libs=$(echo "$out" | sed -n 's/^  \([a-z0-9][a-z0-9.+-]*\)$/\1/p' | grep -vE '^x?fonts-' || true)
+          if [ -z "$libs" ]; then
+            echo "Only fonts are missing; not needed for these tests."
+          else
+            echo "Installing:" $libs
+            sudo apt-get update -q
+            sudo apt-get install -y --no-install-recommends $libs
+          fi
 
       - name: Build and run the smoke test
         run: pnpm test:e2e
