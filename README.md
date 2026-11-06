@@ -2,8 +2,8 @@
 
 OGS is a multi-tenant business services platform owned by **ObagaGlobal**. It will serve individual customers, organisations with their own company portals, external individual and company service providers, and internal OGS employees. Planned features include a public service catalogue, hybrid service delivery and organisation approval workflows.
 
-> **Current status: Phase 2, tenancy, RLS and data foundations.**
-> The database enforces tenant isolation with PostgreSQL row-level security, proven by an integration test suite. The repository also has an audit log, a transactional outbox with a background worker, and health/readiness endpoints. No business features (authentication, organisations, catalogue, payments, ticketing) exist yet.
+> **Current status: Phase 3A, identity and access control.**
+> People can register, verify their email, sign in, pick a workspace and call the API in that workspace's context. Sessions, roles and permissions are enforced by the server. Tenant isolation is enforced by PostgreSQL row-level security and proven through the HTTP API. Not built yet: MFA, file storage and the web sign-in pages (Phase 3B), and business features (organisation onboarding, catalogue, orders, ticketing, payments).
 
 ---
 
@@ -15,7 +15,9 @@ OGS is a multi-tenant business services platform owned by **ObagaGlobal**. It wi
 | Language       | TypeScript 6.0 (strict), native ESM                                         |
 | Backend        | NestJS 12, `@nestjs/config`, Zod environment validation                     |
 | Data           | PostgreSQL 18 with row-level security, Prisma 7 (`@prisma/adapter-pg`)      |
-| Queues / cache | Redis 8, BullMQ (transactional outbox → worker)                             |
+| Queues / cache | Redis 8: sessions, rate limits, BullMQ (transactional outbox → worker)      |
+| Auth           | Argon2id (node:crypto), server-side sessions, CSRF tokens, role permissions |
+| Email (dev)    | Mailpit (SMTP + web inbox)                                                  |
 | Frontend       | React 19, Vite 8, Tailwind CSS 4, shadcn/ui                                 |
 | Quality        | ESLint 10 + typescript-eslint (strict, type-checked), Prettier 3            |
 | Testing        | Vitest 5, Supertest, Testing Library + jsdom, integration tests on real DBs |
@@ -31,6 +33,11 @@ OGS is a multi-tenant business services platform owned by **ObagaGlobal**. It wi
 │   │   ├── prisma/             Schema + migrations (RLS policies live in the migration SQL)
 │   │   ├── scripts/            db-seed, db-reset guards
 │   │   ├── src/
+│   │   │   ├── access/         Global access guard: session, CSRF, workspace, permission
+│   │   │   ├── identity/       Accounts, sign-in, passwords, lockout, rate limits
+│   │   │   ├── sessions/       Redis session store and cookie
+│   │   │   ├── authz/          Permission catalogue and system roles
+│   │   │   ├── notifications/  Identity emails (worker)
 │   │   │   ├── database/       TenantDb: the only door to the database (sets RLS context)
 │   │   │   ├── tenancy/        Workspace resolution (requested workspace → granted context)
 │   │   │   ├── audit/          Append-only audit log
@@ -62,10 +69,10 @@ pnpm install                 # install dependencies
 pnpm setup:env               # create .env files from templates (never overwrites)
 #   → edit .env and apps/api/.env and replace placeholder credentials (keep them consistent)
 
-pnpm infra:up                # start PostgreSQL + Redis
+pnpm infra:up                # start PostgreSQL, Redis and Mailpit
 pnpm db:roles                # create the ogs_* database roles (needed once per Docker volume)
 pnpm db:migrate              # apply migrations
-pnpm db:seed                 # optional sample data
+pnpm db:seed                 # optional: roles + sample tenants and users (password: SEED_USER_PASSWORD)
 pnpm dev                     # run API + worker + web
 ```
 
@@ -74,6 +81,7 @@ pnpm dev                     # run API + worker + web
 | Web           | http://localhost:5173                     |
 | API liveness  | http://127.0.0.1:3000/api/v1/health       |
 | API readiness | http://127.0.0.1:3000/api/v1/health/ready |
+| Mailpit inbox | http://localhost:8025                     |
 | PostgreSQL    | localhost:5432 (127.0.0.1 only)           |
 | Redis         | localhost:6379 (127.0.0.1 only)           |
 
@@ -101,7 +109,7 @@ pnpm dev                     # run API + worker + web
 
 ## API
 
-All routes are versioned under `/api/v1`.
+All routes are versioned under `/api/v1`. Every route is denied unless it declares an access rule. Signed-in clients send the session cookie, `X-CSRF-Token` on unsafe requests, and `X-OGS-Workspace` to pick a workspace. The endpoint list and request pipeline are in [architecture overview §7](docs/architecture/overview.md#7-identity-sessions-and-access). [Getting started](docs/development/getting-started.md#try-the-api-with-a-session) has a PowerShell walk-through.
 
 - `GET /api/v1/health`: liveness. Never touches PostgreSQL or Redis.
 - `GET /api/v1/health/ready`: readiness. `200` when PostgreSQL and Redis answer, `503` otherwise.
@@ -127,13 +135,16 @@ The API connects as `ogs_app`, a role that cannot bypass RLS and owns nothing. E
 - The running API only knows the `ogs_app` credentials. Migration (`ogs_owner`) and maintenance (`ogs_maint`) credentials are read only by Prisma CLI and dev scripts.
 - Docker Compose has no default credentials and binds ports to `127.0.0.1` only.
 - pnpm's supply-chain protections are left on. Only Prisma is allowed to run install scripts (`allowBuilds` in `pnpm-workspace.yaml`), and the minimum package release age is enforced.
+- Passwords: Argon2id, 12–128 characters, checked against a breached-password list. Accounts lock after repeated failures, and sign-in endpoints are rate limited and never reveal whether an account exists.
+- Sessions: server-side in Redis, with HttpOnly cookies (`__Host-` and Secure in production), CSRF tokens, 30-minute idle and 12-hour absolute timeouts.
 - Browser-visible variables (`VITE_*`) are public. Never put secrets in them.
 
 ## Documentation
 
 - [Architecture overview](docs/architecture/overview.md)
 - [Architecture review (approved)](docs/architecture/review.md) and [decision records](docs/DECISIONS.md)
-- [Phase 2 plan](docs/plans/phase-2-tenancy.md)
+- [Permissions and system roles](docs/architecture/permissions.md)
+- Phase plans: [Phase 2](docs/plans/phase-2-tenancy.md), [Phase 3](docs/plans/phase-3-identity.md)
 - [Getting started](docs/development/getting-started.md)
 - [Development standards](docs/development/standards.md)
 

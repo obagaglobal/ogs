@@ -114,3 +114,14 @@ These rules protect tenant isolation (review §5–§6, ADR-009/010). CI enforce
 **Tests**
 
 - Any new tenant-owned table gets cases in `test/integration/isolation.int.test.ts` (read/update/insert/delete across tenants) in the same PR.
+
+## 11. Endpoints and access control
+
+- ✔ Every route declares exactly one of `@Public()`, `@Authenticated(...)` or `@RequirePermission(code)`; the API refuses to start otherwise, and permission codes must exist in `src/authz/catalogue.json`.
+- Prefer `@RequirePermission`. Use `@Authenticated` only for the caller's own data (sessions, profile, workspace list). Use `@Public` only for sign-in flows and health.
+- Never read a tenant or user id from the request to decide whose data to touch. Use `@Ctx()` (the granted `DbContext`) and `@Auth()` (the caller).
+- **Always scope queries to `ctx.tenantId` as well.** RLS lets users see their _own_ rows in other tenants (e.g. their memberships), so "whatever RLS returns" is not the same as "this workspace's rows".
+- A record from another tenant answers 404, never 403, so ids cannot be probed.
+- Validate every body with a schema from `@ogs/contracts` via `parseBody`. Errors are `{ "error": "<code>" }`, with field paths but never values.
+- New permissions: add them to `catalogue.json`, run `pnpm --filter @ogs/api docs:permissions`, and commit both.
+- Any new tenant-scoped endpoint gets cases in `test/integration/api-isolation.int.test.ts` (foreign id → 404, foreign workspace header → 403, missing permission → 403).

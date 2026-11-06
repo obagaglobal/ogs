@@ -221,3 +221,14 @@ No TOTP library is needed: the algorithm is about 30 lines on top of `node:crypt
 - **`node:crypto` Argon2 is newer than the npm packages.** Mitigation: tests use the RFC 9106 test vectors, and the `PasswordHasher` interface allows a swap to `@node-rs/argon2` if needed.
 - **Timing-based enumeration.** Mitigation: unknown emails are hashed against a dummy hash, so the work done matches a real check, and A2 measures it.
 - **Cookies on localhost vs production.** Mitigation: the cookie settings are configured explicitly and A7 tests production mode.
+
+## 9. Implementation notes for 3A (differences from this plan)
+
+- **Permissions are not cached per session.** §2.4 proposed a per-session cache with a version counter. Instead, permissions are loaded in the request's own workspace transaction every time (one indexed query). A removed role or ended membership therefore stops working on the very next request, with no invalidation logic. Revisit only if metrics show a cost.
+- **Unsafe requests without a body** (e.g. `DELETE /auth/sessions/:id`) are allowed without `Content-Type: application/json`. A cross-site form always sends a body, and every authenticated unsafe request still needs `X-CSRF-Token`, a custom header that forces a CORS preflight. Requests whose body is not JSON are refused with 415.
+- **Status codes:** `register`, `forgot` and `resend-verification` return 202, `login` returns 200, and the other actions return 204.
+- **Members endpoints arrived early.** `GET /workspace/members` and `GET /workspace/members/:id` exist so that the API isolation suite has real tenant-scoped data to attack. Managing members (invite, suspend, roles) stays in Phase 4. A new RLS policy lets co-members of the current tenant see each other's `app_user` row (email and status only).
+- **The breached-password list is small.** Only 1,210 of the NCSC top-100k passwords are 12 characters or longer, so the length rule rejects the rest anyway. The check is case-insensitive. The policy also rejects passwords that contain the email's local part or the service name.
+- **Role uniqueness:** the `(tenant_id, code)` index is `NULLS NOT DISTINCT`, so system role codes (no tenant) are unique too. A follow-up migration aligns its name with Prisma's model; nothing else changed.
+- **Identity data and the audit log:** sign-in activity goes to the append-only `authentication_event` table. Lockouts, password changes and resets are also written to `audit_log` (actor `SYSTEM`, since they run as identity jobs, with the user as the entity).
+- **Integration tests send `X-Forwarded-For`** (with `TRUST_PROXY_HOPS=1`) so each test client has its own IP and per-IP rate limits do not interfere between tests.
