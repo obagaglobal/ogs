@@ -66,3 +66,42 @@ jobs:
 
       - name: Validate compose.yaml
         run: docker compose -f infrastructure/docker/compose.yaml --env-file .env.example config --quiet
+
+  integration:
+    name: Integration tests (PostgreSQL + Redis, RLS)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Placeholder credentials from the committed templates: CI-only, throwaway containers.
+      - name: Create .env files from templates
+        run: pnpm setup:env
+
+      # Same Compose file and role bootstrap as local development (the initdb hook
+      # creates ogs_owner/ogs_app/ogs_readonly/ogs_maint and the ogs_test database).
+      - name: Start PostgreSQL and Redis
+        run: docker compose -f infrastructure/docker/compose.yaml --env-file .env up -d --wait
+
+      - name: Apply migrations to the dev database (smoke test of db:migrate)
+        run: pnpm build:packages && pnpm db:migrate
+
+      - name: Integration tests
+        run: pnpm --filter @ogs/api test:integration
+
+      - name: Database and queue logs on failure
+        if: failure()
+        run: docker compose -f infrastructure/docker/compose.yaml --env-file .env logs --no-color

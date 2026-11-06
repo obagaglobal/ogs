@@ -19,11 +19,18 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER must be set in .env}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
       POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB must be set in .env}
+      # OGS roles (see postgres/init/00-ogs-roles.sh). Re-run on an existing volume with `pnpm db:roles`.
+      OGS_OWNER_PASSWORD: ${OGS_OWNER_PASSWORD:?OGS_OWNER_PASSWORD must be set in .env}
+      OGS_APP_PASSWORD: ${OGS_APP_PASSWORD:?OGS_APP_PASSWORD must be set in .env}
+      OGS_READONLY_PASSWORD: ${OGS_READONLY_PASSWORD:?OGS_READONLY_PASSWORD must be set in .env}
+      OGS_MAINT_PASSWORD: ${OGS_MAINT_PASSWORD:?OGS_MAINT_PASSWORD must be set in .env}
     ports:
       - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
     volumes:
       # PostgreSQL 18+ images store data under /var/lib/postgresql/<major>/.
       - postgres-data:/var/lib/postgresql
+      # Runs only when the volume is empty; mounted read-only.
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
       interval: 5s

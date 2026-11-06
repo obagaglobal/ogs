@@ -25,7 +25,7 @@ describe('ApiHealthStatus', () => {
 
     expect(await screen.findByText('Online')).toBeInTheDocument();
     expect(screen.getByText('ogs-api')).toBeInTheDocument();
-    expect(fetchSpy).toHaveBeenCalledWith('/api/health', expect.any(Object));
+    expect(fetchSpy).toHaveBeenCalledWith('/api/v1/health', expect.any(Object));
   });
 
   it('shows the API as unreachable when the request fails', async () => {

@@ -1,18 +1,10 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { validateEnv } from './config/env.js';
+import { CoreModule } from './core.module.js';
 import { HealthModule } from './health/health.module.js';
+import { TenancyModule } from './tenancy/tenancy.module.js';
 
+/** The HTTP API. */
 @Module({
-  imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-      cache: true,
-      // Resolved relative to the working directory (apps/api when run via pnpm).
-      envFilePath: ['.env'],
-      validate: validateEnv,
-    }),
-    HealthModule,
-  ],
+  imports: [CoreModule, HealthModule, TenancyModule],
 })
 export class AppModule {}

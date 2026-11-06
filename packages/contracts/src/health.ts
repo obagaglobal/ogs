@@ -1,11 +1,10 @@
 import { z } from 'zod';
 
 /**
- * Runtime schema for the `GET /api/health` response.
+ * Runtime schema for the `GET /api/v1/health` response.
  *
  * This is a liveness check only. It deliberately does not report database
- * or cache connectivity; readiness checks will be added once the API
- * depends on those services.
+ * or cache connectivity: see `readinessResponseSchema` for that.
  */
 export const healthCheckResponseSchema = z.object({
   /** `ok`: the service process is running and able to accept requests. */
@@ -18,8 +17,27 @@ export const healthCheckResponseSchema = z.object({
   uptimeSeconds: z.number().int().nonnegative(),
 });
 
-/** Response contract for `GET /api/health`, derived from the schema. */
+/** Response contract for `GET /api/v1/health`, derived from the schema. */
 export type HealthCheckResponse = z.infer<typeof healthCheckResponseSchema>;
 
 /** Overall status reported by a service health check. */
 export type ServiceStatus = HealthCheckResponse['status'];
+
+/** State of one external dependency in a readiness check. */
+export const dependencyStatusSchema = z.enum(['up', 'down']);
+
+/**
+ * Runtime schema for the `GET /api/v1/health/ready` response (HTTP 200 when
+ * ready, 503 when not). Never contains error messages or connection details.
+ */
+export const readinessResponseSchema = z.object({
+  status: z.enum(['ready', 'not_ready']),
+  checks: z.object({
+    database: dependencyStatusSchema,
+    redis: dependencyStatusSchema,
+  }),
+  timestamp: z.iso.datetime(),
+});
+
+export type DependencyStatus = z.infer<typeof dependencyStatusSchema>;
+export type ReadinessResponse = z.infer<typeof readinessResponseSchema>;

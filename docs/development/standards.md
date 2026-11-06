@@ -52,7 +52,8 @@ Backend features live in their own Nest module (`src/<feature>/`). Frontend feat
 ## 6. Testing
 
 - **Unit tests:** pure logic and services, with no network or database.
-- **API e2e tests:** boot `AppModule` through `@nestjs/testing`, apply `configureApp`, and send requests with Supertest.
+- **API e2e tests:** boot `AppModule` through `@nestjs/testing`, apply `configureApp`, and send requests with Supertest. They need no database: connections are lazy.
+- **Integration tests** (`apps/api/test/integration/*.int.test.ts`, `pnpm test:integration`): real PostgreSQL and Redis, connecting as the real roles. Required for anything touching RLS, transactions, the outbox or queues. Create your own uniquely named fixtures; never rely on an empty database.
 - **Web component tests:** Testing Library with jsdom. Query the way a user would (by role or text). Mock `fetch` at the boundary.
 - Every bug fix comes with a test that fails without the fix.
 
@@ -77,3 +78,39 @@ Backend features live in their own Nest module (`src/<feature>/`). Frontend feat
 - Add it to the workspace that uses it, not to the root, unless it is repo-wide tooling.
 - The lockfile (`pnpm-lock.yaml`) is committed. CI installs with `--frozen-lockfile`.
 - Packages that need install scripts must be explicitly allowed in `pnpm-workspace.yaml`.
+
+## 10. Database and multi-tenancy
+
+These rules protect tenant isolation (review §5–§6, ADR-009/010). CI enforces the ones marked ✔.
+
+**Access**
+
+- ✔ Only `apps/api/src/database/` may import Prisma (`../generated/prisma`, `@prisma/*`) or `pg`. Everything else imports from `src/database/index.js` (ESLint `no-restricted-imports`).
+- All application database work goes through `TenantDb.run(context, (db) => ...)`. The context is a required argument: `user`, `workspace`, `platform` (needs a reason, always audited) or `system` (worker jobs).
+- Pass the `db` handle down to services. Never keep it after `run` returns, and never start a second `run` inside the first: one unit of work is one transaction.
+- ✔ No `$queryRawUnsafe` / `$executeRawUnsafe`. Use the `$queryRaw` tagged template, which parameterises every value.
+- Never run session-level `SET`, `SET ROLE`, `RESET`, `LISTEN`, session advisory locks or anything else that outlives a transaction. The context is transaction-local by design so pooled connections (Prisma's pool, PgBouncer in transaction mode) cannot leak it.
+- The API and worker connect as `ogs_app` only. `ogs_owner` runs migrations; `ogs_maint` (BYPASSRLS) is for seeds and break-glass work and is never configured in the API.
+
+**Schema changes**
+
+- Create migrations with `prisma migrate dev --create-only`, then add the SQL Prisma cannot generate before applying:
+  - ✔ `ENABLE ROW LEVEL SECURITY, FORCE ROW LEVEL SECURITY` and at least one policy on every table (RLS catalogue test).
+  - Explicit grants to `ogs_app` (there are no default privileges for it). ✔ Never `TRUNCATE`, `REFERENCES` or `TRIGGER`. Grant `DELETE` only where hard deletion is a deliberate design decision.
+  - Policies read context only through `app.current_user_id()`, `app.current_tenant_id()`, `app.is_platform()`, `app.current_actor_kind()`.
+  - A policy on table X must never query a table whose policy queries X (no recursion). Today `tenant_select` reads `membership`, so `membership` policies must not read `tenant`.
+- RLS enforces **isolation** (whose rows). **Authorisation** (which actions a member may take) belongs in the API.
+- `INSERT ... RETURNING` needs SELECT rights on the new row. Where the writer may not read back (audit log, outbox), insert with `createMany`.
+- Prisma does not model partial indexes, CHECK constraints, triggers or policies; keep them in the migration SQL with a comment explaining why.
+- IDs are UUIDv7 from PostgreSQL 18's `uuidv7()`. Times are `timestamptz`. Money (Phase 7+) is integer minor units.
+- Never edit a migration that has reached `main`; add a new one.
+
+**Audit and events**
+
+- Record audit entries with `AuditService.record(db, …)` and publish events with `OutboxService.publish(db, …)` using the **same** `db` handle as the business change, so they commit or roll back together.
+- The audit actor is filled by the database from the context; do not pass it. Audit metadata must not contain secrets (keys like `password`, `token`, `secret` are rejected).
+- Event handlers must be idempotent on `eventId`: delivery is at least once.
+
+**Tests**
+
+- Any new tenant-owned table gets cases in `test/integration/isolation.int.test.ts` (read/update/insert/delete across tenants) in the same PR.
