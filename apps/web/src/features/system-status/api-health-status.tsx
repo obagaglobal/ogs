@@ -11,10 +11,10 @@ export function ApiHealthStatus() {
   return (
     <section
       aria-labelledby="api-status-heading"
-      className="rounded-lg border bg-card p-5 text-card-foreground"
+      className="rounded-md border border-border bg-surface p-5"
     >
       <div className="flex items-center justify-between gap-4">
-        <h2 id="api-status-heading" className="text-sm font-semibold">
+        <h2 id="api-status-heading" className="font-display text-sm font-medium">
           API status
         </h2>
         <span role="status" className="inline-flex items-center gap-2 text-sm">

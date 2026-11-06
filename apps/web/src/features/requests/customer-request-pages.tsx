@@ -1,6 +1,5 @@
 import {
   documentTotals,
-  formatKes,
   lineTotals,
   type PublicServiceDetail,
   type ServiceRequest,
@@ -8,6 +7,7 @@ import {
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState, type SubmitEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
+import { Money } from '@/components/ui/data-display';
 import { Button } from '@/components/ui/button';
 import { Card, Field, Notice } from '@/components/ui/form-controls';
 import { useRegions } from '@/features/provider/provider-data';
@@ -135,7 +135,9 @@ function RequestForm({ service, forWhom }: { service: PublicServiceDetail; forWh
   return (
     <div className="max-w-2xl space-y-4">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Request: {service.name}</h1>
+        <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
+          Request: {service.name}
+        </h1>
         <p className="text-sm text-muted-foreground">
           For {forWhom}. {service.summary}
         </p>
@@ -173,7 +175,7 @@ function RequestForm({ service, forWhom }: { service: PublicServiceDetail; forWh
               onChange={(event) => {
                 set('county')(event.target.value);
               }}
-              className="h-10 w-full rounded-md border bg-background px-2 text-sm"
+              className="min-h-11 md:min-h-10 w-full rounded-md border border-control-border bg-surface px-3 text-base text-ink hover:border-ink md:text-sm"
             >
               {(regions.data ?? []).map((region) => (
                 <option key={region.code} value={region.code}>
@@ -230,7 +232,7 @@ function RequestForm({ service, forWhom }: { service: PublicServiceDetail; forWh
               onChange={(event) => {
                 set('description')(event.target.value);
               }}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+              className="w-full py-2 rounded-md border border-control-border bg-surface px-3 text-base text-ink hover:border-ink md:text-sm"
             />
           </div>
           <div className="text-sm sm:col-span-2" aria-live="polite">
@@ -241,9 +243,13 @@ function RequestForm({ service, forWhom }: { service: PublicServiceDetail; forWh
               </p>
             ) : (
               <p>
-                Estimated total: <strong>{formatKes(estimate.totalMinor)}</strong> including VAT (
-                {formatKes(estimate.subtotalMinor)} + {formatKes(estimate.vatMinor)} VAT). OGS
-                confirms the price when it reviews your request.
+                Estimated total:{' '}
+                <strong>
+                  <Money minor={estimate.totalMinor} />
+                </strong>{' '}
+                including VAT (
+                <Money minor={estimate.subtotalMinor} /> + <Money minor={estimate.vatMinor} /> VAT).
+                OGS confirms the price when it reviews your request.
               </p>
             )}
           </div>
@@ -270,7 +276,7 @@ export function RequestsPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Requests</h1>
+        <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Requests</h1>
         <Link to="/services" className="text-sm underline-offset-4 hover:underline">
           Browse services
         </Link>
@@ -371,7 +377,7 @@ function RequestDetail({ request }: { request: ServiceRequest }) {
         <Link to="/requests" className="text-sm underline-offset-4 hover:underline">
           ← Requests
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">
+        <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
           {request.number} <StatusBadge>{requestLabel(request)}</StatusBadge>
         </h1>
         {request.cancelReason === null ? null : (
@@ -383,7 +389,7 @@ function RequestDetail({ request }: { request: ServiceRequest }) {
         <OrderSummary order={order}>
           {order.status === 'AWAITING_PAYMENT' ? (
             <Notice>
-              Pay {formatKes(order.totalMinor - order.paidMinor)} by bank transfer or M-Pesa
+              Pay <Money minor={order.totalMinor - order.paidMinor} /> by bank transfer or M-Pesa
               paybill, quoting <strong>{order.number}</strong> as the reference. We confirm the
               order as soon as the payment is recorded.
             </Notice>

@@ -144,9 +144,9 @@ export interface TimelineEntry {
 }
 
 /** Vertical history (request events, audit). The newest entry is highlighted. */
-export function Timeline({ entries }: { entries: TimelineEntry[] }) {
+export function Timeline({ entries, label }: { entries: TimelineEntry[]; label?: string }) {
   return (
-    <ol className="relative space-y-4 border-l border-border pl-5">
+    <ol aria-label={label} className="relative space-y-4 border-l border-border pl-5">
       {entries.map((entry, index) => (
         <li key={entry.key} className="relative">
           <span

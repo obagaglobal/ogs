@@ -73,15 +73,18 @@ export function EmptyState({
   title,
   body,
   action,
+  as: Title = 'p',
 }: {
   title: ReactNode;
   body?: ReactNode;
   action?: ReactNode;
+  /** Use a heading when the empty state is the whole page (e.g. "not found"). */
+  as?: 'p' | 'h1' | 'h2';
 }) {
   return (
     <div className="flex flex-col items-center gap-3 rounded-md border border-dashed border-border px-6 py-10 text-center">
       <KitengeMotif variant="divider" tone="muted" height={12} className="w-32" />
-      <p className="font-display text-lg font-medium">{title}</p>
+      <Title className="font-display text-lg font-medium">{title}</Title>
       {body ? <p className="max-w-md text-sm text-muted-foreground">{body}</p> : null}
       {action}
     </div>

@@ -10,6 +10,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type SubmitEvent } from 'react';
 import { Link, useParams } from 'react-router';
+import { Money } from '@/components/ui/data-display';
 import { Button } from '@/components/ui/button';
 import { Card, Field, Notice } from '@/components/ui/form-controls';
 import { minorToInput, parseKesToMinor } from '@/features/catalogue/catalogue-data';
@@ -68,7 +69,7 @@ function StatusFilter({
         onChange={(event) => {
           onChange(event.target.value);
         }}
-        className="h-9 rounded-md border bg-background px-2 text-sm"
+        className="min-h-11 md:min-h-9 rounded-md border border-control-border bg-surface px-3 text-base text-ink hover:border-ink md:text-sm"
       >
         {Object.entries(options).map(([key, text]) => (
           <option key={key} value={key}>
@@ -113,7 +114,7 @@ function useStaffWrite<V>(
 export function StaffRequestsPage() {
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Requests</h1>
+      <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Requests</h1>
       <ElevationGate>
         <RequestQueue />
       </ElevationGate>
@@ -215,7 +216,7 @@ function StaffRequest() {
   );
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">
+      <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
         {data.number} <StatusBadge>{requestLabel(data, true)}</StatusBadge>
       </h1>
       {decide.isError ? <Notice tone="error">{describeError(decide.error)}</Notice> : null}
@@ -439,7 +440,7 @@ function QuotationEditor({ request }: { request: ServiceRequest }) {
             />
           </div>
         </div>
-        <p className="text-sm" aria-live="polite">
+        <p className={totals === null ? 'text-sm' : 'tabular text-sm'} aria-live="polite">
           {totals === null
             ? 'Complete every line to see the totals.'
             : `Subtotal ${formatKes(totals.subtotalMinor)} + VAT ${formatKes(totals.vatMinor)} = ${formatKes(totals.totalMinor)}`}
@@ -484,7 +485,7 @@ interface OrderRow {
 export function OrdersPage() {
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Orders</h1>
+      <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Orders</h1>
       <ElevationGate>
         <OrderList />
       </ElevationGate>
@@ -531,7 +532,7 @@ function OrderList() {
               · {order.serviceName} · {order.customerName ?? '—'}
             </span>
             <span className="flex items-center gap-2 text-muted-foreground">
-              {formatKes(order.paidMinor)} of {formatKes(order.totalMinor)}
+              <Money minor={order.paidMinor} /> of <Money minor={order.totalMinor} />
               <StatusBadge>{ORDER_STATUS_LABELS[order.status]}</StatusBadge>
             </span>
           </li>
@@ -576,7 +577,7 @@ function FinanceOrder() {
   }
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">
+      <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
         {data.order.number}{' '}
         <span className="text-base font-normal text-muted-foreground">for {data.number}</span>
       </h1>
@@ -649,7 +650,7 @@ function PaymentForm({ orderId, balance }: { orderId: string; balance: number })
             onChange={(event) => {
               setMethod(event.target.value);
             }}
-            className="h-10 w-full rounded-md border bg-background px-2 text-sm"
+            className="min-h-11 md:min-h-10 w-full rounded-md border border-control-border bg-surface px-3 text-base text-ink hover:border-ink md:text-sm"
           >
             <option value="MPESA_PAYBILL">M-Pesa paybill</option>
             <option value="BANK_TRANSFER">Bank transfer</option>
@@ -771,7 +772,7 @@ function BillingTerms({ tenantId }: { tenantId: string }) {
             onChange={(event) => {
               setTerms(event.target.value);
             }}
-            className="h-10 rounded-md border bg-background px-2 text-sm"
+            className="min-h-11 md:min-h-10 rounded-md border border-control-border bg-surface px-3 text-base text-ink hover:border-ink md:text-sm"
           >
             <option value="PREPAY">Prepay</option>
             <option value="POSTPAID">Postpaid (invoice)</option>

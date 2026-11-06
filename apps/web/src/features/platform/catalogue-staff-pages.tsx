@@ -87,7 +87,7 @@ function Select({
         onChange={(event) => {
           onChange(event.target.value);
         }}
-        className="h-10 w-full rounded-md border bg-background px-2 text-sm"
+        className="min-h-11 md:min-h-10 w-full rounded-md border border-control-border bg-surface px-3 text-base text-ink hover:border-ink md:text-sm"
       >
         {Object.entries(options).map(([key, text]) => (
           <option key={key} value={key}>
@@ -125,7 +125,7 @@ function TextArea({
         onChange={(event) => {
           onChange(event.target.value);
         }}
-        className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+        className="w-full py-2 rounded-md border border-control-border bg-surface px-3 text-base text-ink hover:border-ink md:text-sm"
       />
       {hint === undefined ? null : <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
@@ -138,7 +138,7 @@ function TextArea({
 export function CatalogueAdminPage() {
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Catalogue</h1>
+      <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Catalogue</h1>
       <ElevationGate>
         <CategoriesCard />
         <ServicesCard />
@@ -447,7 +447,7 @@ function ServiceEditor() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{data.name}</h1>
+        <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">{data.name}</h1>
         <p className="text-sm text-muted-foreground">
           {STATUS_TEXT[data.status]} · {data.category.name} · <code>/services/{data.slug}</code>
           {data.status === 'PUBLISHED' ? (
@@ -831,7 +831,7 @@ function SkillsCard({ data }: { data: StaffService }) {
                   onChange={(event) => {
                     update(skill.code, event.target.value as ExperienceBand);
                   }}
-                  className="h-8 rounded-md border bg-background px-2 text-xs"
+                  className="min-h-11 md:min-h-8 rounded-md border border-control-border bg-surface px-3 text-base text-ink hover:border-ink md:text-sm"
                 >
                   {Object.entries(EXPERIENCE_LABELS).map(([band, text]) => (
                     <option key={band} value={band}>

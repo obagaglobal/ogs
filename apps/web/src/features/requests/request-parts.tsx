@@ -1,14 +1,12 @@
-import {
-  formatKes,
-  ORDER_STATUS_LABELS,
-  type Quotation,
-  type ServiceRequest,
-} from '@ogs/contracts';
+import { ORDER_STATUS_LABELS, type Quotation, type ServiceRequest } from '@ogs/contracts';
 import type { ReactNode } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Code, Money } from '@/components/ui/data-display';
+import { Timeline as TimelineList } from '@/components/ui/navigation';
 import { Card } from '@/components/ui/form-controls';
-import { cn } from '@/lib/utils';
 import { formatWhen } from './requests-data';
 
+/** Request, quotation and order states as a Badge with a dot (Phase 6b). */
 export function StatusBadge({
   children,
   tone = 'neutral',
@@ -17,15 +15,9 @@ export function StatusBadge({
   tone?: 'neutral' | 'good' | 'bad';
 }) {
   return (
-    <span
-      className={cn(
-        'inline-block rounded-full border px-2 py-0.5 text-xs font-medium',
-        tone === 'good' && 'border-success bg-success/10 text-foreground',
-        tone === 'bad' && 'border-destructive bg-destructive/10 text-foreground',
-      )}
-    >
+    <Badge dot tone={tone === 'good' ? 'success' : tone === 'bad' ? 'danger' : 'neutral'}>
       {children}
-    </span>
+    </Badge>
   );
 }
 
@@ -77,7 +69,7 @@ export function QuotationView({
     <Card>
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="font-medium">
-          Quotation {quotation.number}{' '}
+          Quotation <Code>{quotation.number}</Code>{' '}
           <span className="text-muted-foreground">(revision {quotation.revision})</span>
         </h2>
         <StatusBadge
@@ -93,7 +85,7 @@ export function QuotationView({
         </StatusBadge>
       </div>
       <table className="w-full text-sm" aria-label={`Quotation ${quotation.number} lines`}>
-        <thead className="text-left text-muted-foreground">
+        <thead className="text-left font-display text-xs uppercase tracking-wider text-muted-foreground">
           <tr>
             <th className="py-1 font-normal">Item</th>
             <th className="py-1 text-right font-normal">Qty</th>
@@ -103,32 +95,42 @@ export function QuotationView({
         </thead>
         <tbody>
           {quotation.lines.map((line) => (
-            <tr key={line.position} className="border-t">
+            <tr key={line.position} className="border-t border-border">
               <td className="py-1">{line.description}</td>
-              <td className="py-1 text-right">{line.quantity}</td>
-              <td className="py-1 text-right">{formatKes(line.unitAmountMinor)}</td>
-              <td className="py-1 text-right">{formatKes(line.netMinor)}</td>
+              <td className="tabular py-1 text-right">{line.quantity}</td>
+              <td className="py-1 text-right">
+                <Money minor={line.unitAmountMinor} />
+              </td>
+              <td className="py-1 text-right">
+                <Money minor={line.netMinor} />
+              </td>
             </tr>
           ))}
         </tbody>
         <tfoot>
-          <tr className="border-t">
+          <tr className="border-t border-border">
             <td colSpan={3} className="py-1 text-right text-muted-foreground">
               Subtotal
             </td>
-            <td className="py-1 text-right">{formatKes(quotation.subtotalMinor)}</td>
+            <td className="py-1 text-right">
+              <Money minor={quotation.subtotalMinor} />
+            </td>
           </tr>
           <tr>
             <td colSpan={3} className="py-1 text-right text-muted-foreground">
               VAT 16%
             </td>
-            <td className="py-1 text-right">{formatKes(quotation.vatMinor)}</td>
+            <td className="py-1 text-right">
+              <Money minor={quotation.vatMinor} />
+            </td>
           </tr>
-          <tr className="font-medium">
+          <tr className="border-t border-ink font-medium">
             <td colSpan={3} className="py-1 text-right">
               Total
             </td>
-            <td className="py-1 text-right">{formatKes(quotation.totalMinor)}</td>
+            <td className="py-1 text-right">
+              <Money minor={quotation.totalMinor} />
+            </td>
           </tr>
         </tfoot>
       </table>
@@ -161,7 +163,9 @@ export function OrderSummary({
   return (
     <Card>
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="font-medium">Order {order.number}</h2>
+        <h2 className="font-medium">
+          Order <Code>{order.number}</Code>
+        </h2>
         <StatusBadge
           tone={
             order.status === 'CANCELLED'
@@ -177,15 +181,21 @@ export function OrderSummary({
       <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-4">
         <div>
           <dt className="text-muted-foreground">Total (incl. VAT)</dt>
-          <dd>{formatKes(order.totalMinor)}</dd>
+          <dd>
+            <Money minor={order.totalMinor} />
+          </dd>
         </div>
         <div>
           <dt className="text-muted-foreground">Paid</dt>
-          <dd>{formatKes(order.paidMinor)}</dd>
+          <dd>
+            <Money minor={order.paidMinor} />
+          </dd>
         </div>
         <div>
           <dt className="text-muted-foreground">Balance</dt>
-          <dd>{formatKes(balance)}</dd>
+          <dd>
+            <Money minor={balance} />
+          </dd>
         </div>
         <div>
           <dt className="text-muted-foreground">Terms</dt>
@@ -200,7 +210,7 @@ export function OrderSummary({
         <ul className="mt-3 space-y-1 text-sm" aria-label="Payments">
           {order.payments.map((payment) => (
             <li key={payment.id}>
-              {formatWhen(payment.recordedAt)} — {formatKes(payment.amountMinor)} ·{' '}
+              {formatWhen(payment.recordedAt)} — <Money minor={payment.amountMinor} /> ·{' '}
               {payment.method === 'MPESA_PAYBILL' ? 'M-Pesa' : 'Bank transfer'} ·{' '}
               {payment.reference}
             </li>
@@ -208,7 +218,7 @@ export function OrderSummary({
         </ul>
       ) : null}
       {order.refundDue ? (
-        <p className="mt-2 text-sm text-destructive">
+        <p className="mt-2 text-sm text-danger">
           Refund due: OGS finance will contact the customer.
         </p>
       ) : null}
@@ -227,16 +237,16 @@ export function Timeline({ request }: { request: ServiceRequest }) {
   ].sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
   return (
     <Card>
-      <h2 className="mb-2 font-medium">History</h2>
-      <ol className="space-y-1 text-sm" aria-label="History">
-        {items.map((item, index) => (
-          <li key={`${item.occurredAt}-${String(index)}`}>
-            {formatWhen(item.occurredAt)} — {item.what}:{' '}
-            {item.toStatus.toLowerCase().replace(/_/g, ' ')}
-            {item.reason === null ? '' : ` (${item.reason})`}
-          </li>
-        ))}
-      </ol>
+      <h2 className="mb-3 font-medium">History</h2>
+      <TimelineList
+        label="History"
+        entries={items.map((item, index) => ({
+          key: `${item.occurredAt}-${String(index)}`,
+          title: `${item.what}: ${item.toStatus.toLowerCase().replace(/_/g, ' ')}`,
+          meta: formatWhen(item.occurredAt),
+          body: item.reason,
+        }))}
+      />
     </Card>
   );
 }

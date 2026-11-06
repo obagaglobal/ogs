@@ -28,7 +28,7 @@ export function SecurityPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Security</h1>
+      <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Security</h1>
 
       <Card>
         <h2 className="mb-2 font-medium">Two-step verification</h2>
