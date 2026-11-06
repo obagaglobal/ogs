@@ -28,6 +28,11 @@ export function WorkspaceNav() {
       <NavLink to="/services" className={link}>
         Browse services
       </NavLink>
+      {data?.kind === 'personal' || (data?.kind === 'ORGANISATION' && !data.restricted) ? (
+        <NavLink to="/requests" className={link}>
+          Requests
+        </NavLink>
+      ) : null}
       {data?.kind === 'ORGANISATION' && data.permissions.includes('organisation.profile.manage') ? (
         <NavLink to="/organisation/application" className={link}>
           {data.restricted ? 'Application' : 'Organisation'}
@@ -69,6 +74,16 @@ export function WorkspaceNav() {
       {data?.kind === 'PLATFORM' && can('ticket.assign') ? (
         <NavLink to="/platform/eligibility" className={link}>
           Eligibility
+        </NavLink>
+      ) : null}
+      {data?.kind === 'PLATFORM' && can('platform.quotation.issue') ? (
+        <NavLink to="/platform/requests" className={link}>
+          Requests
+        </NavLink>
+      ) : null}
+      {data?.kind === 'PLATFORM' && can('platform.finance.manage') ? (
+        <NavLink to="/platform/orders" className={link}>
+          Orders
         </NavLink>
       ) : null}
       {data?.kind === 'PLATFORM' && can('platform.catalogue.manage') ? (
