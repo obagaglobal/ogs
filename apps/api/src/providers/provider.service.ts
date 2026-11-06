@@ -579,6 +579,7 @@ export class ProviderService {
         reason: t.reason,
       })),
       documents: documents.map((d) => ({ ...d, createdAt: d.createdAt.toISOString() })),
+      business,
     };
   }
 }

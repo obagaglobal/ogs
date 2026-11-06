@@ -110,6 +110,16 @@ export const providerResponseSchema = z.object({
     }),
   ),
   documents: z.array(fileSummarySchema),
+  /** Business details of a provider company (null for individuals). */
+  business: z
+    .object({
+      legalName: z.string(),
+      registrationNumber: z.string().nullable(),
+      registrationNumberAbsentWhy: z.string().nullable(),
+      kraPin: z.string().nullable(),
+      kraPinAbsentWhy: z.string().nullable(),
+    })
+    .nullable(),
 });
 export type ProviderResponse = z.infer<typeof providerResponseSchema>;
 

@@ -24,6 +24,11 @@ export const ELIGIBILITY_WEIGHTS = {
 
 /** Working hours and time off are local to Kenya (plan §2.3). */
 export const PROVIDER_TIME_ZONE = 'Africa/Nairobi';
+const NAIROBI_TIME = new Intl.DateTimeFormat('en-KE', {
+  timeZone: PROVIDER_TIME_ZONE,
+  dateStyle: 'medium',
+  timeStyle: 'short',
+});
 
 export interface EligibilityQuery {
   readonly skillCodes: readonly string[];
@@ -139,7 +144,7 @@ function score(row: Row, region: string, when: Date, atRequested: boolean): Elig
     points: row.home ? w.homeRegion : 0,
     detail: row.home ? `Based in ${region}` : 'Based elsewhere',
   });
-  const moment = atRequested ? `at ${when.toISOString()}` : 'now';
+  const moment = atRequested ? `at ${NAIROBI_TIME.format(when)} (Kenya time)` : 'now';
   reasons.push({
     factor: 'availability',
     points: row.available ? w.available : 0,
