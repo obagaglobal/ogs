@@ -4,7 +4,7 @@ ADR-001 … ADR-008 were made during Phase 1 and are listed in [`architecture/ov
 
 ADR-027 … ADR-031 record the Phase 2 implementation decisions P2-1 … P2-5, approved with the [Phase 2 plan](plans/phase-2-tenancy.md) on 2026-11-05.
 
-ADR-046 … ADR-054 record the Phase 7 decisions P7-1 … P7-9, approved with the [Phase 7 plan](plans/phase-7-requests-orders.md) on 2026-11-06.
+ADR-046 … ADR-054 record the Phase 7 decisions P7-1 … P7-9, approved with the [Phase 7 plan](plans/phase-7-requests-orders.md) on 2026-11-06. The Phase 7 delivery refinements ([Phase 7 plan](plans/phase-7-requests-orders.md#8-delivery-notes-2026-11-06) §8: no DRAFT request state, payment completion in one transaction, customer-created orders checked by a trigger, personal records only in the personal workspace, cancellation rules, billing terms edited from the order page) were approved by the owner on 2026-11-07 after PR #8 was merged.
 
 ADR-038 … ADR-045 record the Phase 6 decisions P6-1 … P6-8, approved with the [Phase 6 plan](plans/phase-6-catalogue.md) on 2026-11-06.
 
