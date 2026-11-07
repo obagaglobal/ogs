@@ -12,7 +12,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { useId, useState, type SubmitEvent } from 'react';
 import { Link, useParams } from 'react-router';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Code, Money, StatTile } from '@/components/ui/data-display';
 import { DataTable, type Column } from '@/components/ui/data-table';
@@ -41,6 +41,7 @@ import {
 import { t } from '@/i18n';
 import { api, ApiError, describeError } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { useCurrentWorkspace } from '@/features/workspace/workspace-state';
 import { ElevationGate } from './elevation-gate';
 import { ELEVATION_KEY, useElevated } from './elevation-state';
 
@@ -137,9 +138,24 @@ function useStaffWrite<V>(
 
 /** /platform/requests — the request queue (platform.quotation.issue). */
 export function StaffRequestsPage() {
+  const workspace = useCurrentWorkspace();
+  const onBehalf =
+    workspace.data !== undefined &&
+    'permissions' in workspace.data &&
+    workspace.data.permissions.includes('platform.request.on_behalf');
   return (
     <div className="space-y-6">
-      <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Requests</h1>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Requests</h1>
+        {onBehalf ? (
+          <Link
+            to="/platform/requests/new"
+            className={buttonVariants({ variant: 'secondary', size: 'sm' })}
+          >
+            {t('tickets.enterRequest')}
+          </Link>
+        ) : null}
+      </div>
       <ElevationGate>
         <RequestQueue />
       </ElevationGate>

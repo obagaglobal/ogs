@@ -126,6 +126,19 @@ export function describeError(error: unknown): string {
     cannot_decide_own_application: 'You cannot decide an application you submitted yourself.',
     file_too_large: 'That file is too large (10 MB maximum).',
     file_type_not_allowed: 'Upload a PDF, JPEG or PNG file.',
+    attachment_invalid: 'One of the files cannot be attached. Upload it again.',
+    too_many_attachments: 'Attach at most 5 files at a time.',
+    reopen_window_passed: 'The time to reopen this ticket has passed. Open a new ticket instead.',
+    order_unknown: 'That order is not one of yours.',
+    related_ticket_unknown: 'That ticket is not one of yours.',
+    customer_unknown: 'That customer is not active.',
+    assignee_not_eligible: 'That person cannot work on tickets.',
+    priority_required: 'Choose a priority and a category.',
+    unchanged: 'Nothing changed.',
+    audience_mismatch: 'This service is not offered to this kind of customer.',
+    service_unavailable: 'This service is not available any more.',
+    below_minimum_quantity: 'The quantity is below the minimum for this service.',
+    region_unknown: 'Choose a county from the list.',
     invalid_request: 'Some fields are not valid. Check the form and try again.',
     slug_taken: 'That web address (slug) is already used.',
     slug_immutable: 'The web address cannot change once the service has been published.',
@@ -143,17 +156,25 @@ export function describeError(error: unknown): string {
   return messages[error.code] ?? 'Something went wrong. Please try again.';
 }
 
-/** Multipart upload to POST /files (the only multipart route). */
-export async function uploadFile<T>(form: FormData, workspace: string): Promise<T> {
+/**
+ * Multipart upload: POST /files by default, or a staff ticket upload
+ * (`/platform/tickets/:id/files`, with the elevation header).
+ */
+export async function uploadFile<T>(
+  form: FormData,
+  workspace: string,
+  options: { path?: string; headers?: Record<string, string> } = {},
+): Promise<T> {
   const token = await loadCsrfToken();
   const headers: Record<string, string> = {
     Accept: 'application/json',
     [WORKSPACE_HEADER]: workspace,
+    ...options.headers,
   };
   if (token !== undefined) {
     headers[CSRF_HEADER] = token;
   }
-  const response = await fetch('/api/v1/files', {
+  const response = await fetch(`/api/v1${options.path ?? '/files'}`, {
     method: 'POST',
     credentials: 'same-origin',
     headers,

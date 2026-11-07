@@ -107,6 +107,8 @@ test('motif: only where allowed, in the expected numbers', async ({ browser }) =
     ['/', true, 0, 'Get things done'],
     ['/requests', true, 1, 'No requests yet'], // the empty state
     ['/requests/new?service=home-wifi-setup', true, 0, /Estimated total/],
+    ['/support', true, 1, 'No tickets here'], // the empty state
+    ['/support/new', true, 0, 'How urgent is it?'], // a form: never a motif
     ['/security', true, 0, 'Two-step verification'],
   ];
   for (const [path, signedIn, count, ready] of expected) {

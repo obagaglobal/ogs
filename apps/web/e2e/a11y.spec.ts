@@ -15,7 +15,7 @@ import {
 
 /**
  * Phase 6b accessibility (WCAG 2.2 AA):
- * - axe on the thirteen design pages in both themes; serious or critical fails;
+ * - axe on the eighteen design pages in both themes; serious or critical fails;
  * - keyboard: skip link first, focus-trapping dialog that restores focus;
  * - no horizontal scrolling at 360/768/1024/1440 px;
  * - 44 px touch targets for controls on a 360 px phone.

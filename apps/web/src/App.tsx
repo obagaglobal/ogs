@@ -29,6 +29,8 @@ const catalogue = () => import('@/features/catalogue/public-pages');
 const catalogueStaff = () => import('@/features/platform/catalogue-staff-pages');
 const orderStaff = () => import('@/features/platform/order-staff-pages');
 const requests = () => import('@/features/requests/customer-request-pages');
+const tickets = () => import('@/features/tickets/customer-ticket-pages');
+const ticketStaff = () => import('@/features/tickets/staff-ticket-pages');
 
 const SignInPage = page(auth.signIn, 'SignInPage');
 const SignUpPage = page(auth.signUp, 'SignUpPage');
@@ -71,6 +73,13 @@ const StaffRequestsPage = page(orderStaff, 'StaffRequestsPage');
 const NewRequestPage = page(requests, 'NewRequestPage');
 const RequestDetailPage = page(requests, 'RequestDetailPage');
 const RequestsPage = page(requests, 'RequestsPage');
+const SupportPage = page(tickets, 'SupportPage');
+const NewTicketPage = page(tickets, 'NewTicketPage');
+const TicketDetailPage = page(tickets, 'TicketDetailPage');
+const StaffTicketsPage = page(ticketStaff, 'StaffTicketsPage');
+const StaffTicketPage = page(ticketStaff, 'StaffTicketPage');
+const StaffNewTicketPage = page(ticketStaff, 'StaffNewTicketPage');
+const StaffNewRequestPage = page(ticketStaff, 'StaffNewRequestPage');
 const DesignSystemPage = page(
   () => import('@/features/design-system/design-system-page'),
   'DesignSystemPage',
@@ -114,7 +123,14 @@ export function AppRoutes() {
           <Route path="/platform/skills" element={<SkillsCataloguePage />} />
           <Route path="/platform/catalogue" element={<CatalogueAdminPage />} />
           <Route path="/platform/requests" element={<StaffRequestsPage />} />
+          <Route path="/platform/requests/new" element={<StaffNewRequestPage />} />
           <Route path="/platform/requests/:id" element={<StaffRequestPage />} />
+          <Route path="/platform/tickets" element={<StaffTicketsPage />} />
+          <Route path="/platform/tickets/new" element={<StaffNewTicketPage />} />
+          <Route path="/platform/tickets/:id" element={<StaffTicketPage />} />
+          <Route path="/support" element={<SupportPage />} />
+          <Route path="/support/new" element={<NewTicketPage />} />
+          <Route path="/support/:id" element={<TicketDetailPage />} />
           <Route path="/platform/orders" element={<OrdersPage />} />
           <Route path="/platform/orders/:id" element={<OrderPage />} />
           <Route path="/requests" element={<RequestsPage />} />

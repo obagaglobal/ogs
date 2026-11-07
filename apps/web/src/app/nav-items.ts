@@ -5,9 +5,11 @@ import {
   CalendarClock,
   ClipboardList,
   FileText,
+  Headset,
   Inbox,
   House,
   LayoutGrid,
+  LifeBuoy,
   ListChecks,
   MapPin,
   Network,
@@ -52,6 +54,11 @@ export function navItemsFor(data: CurrentWorkspaceResponse | undefined): NavItem
       label: t('nav.requests'),
       icon: ClipboardList,
     },
+    (data?.kind === 'personal' || (data?.kind === 'ORGANISATION' && can('ticket.read'))) && {
+      to: '/support',
+      label: t('nav.support'),
+      icon: LifeBuoy,
+    },
     data?.kind === 'ORGANISATION' &&
       data.permissions.includes('organisation.profile.manage') && {
         to: '/organisation/application',
@@ -89,6 +96,12 @@ export function navItemsFor(data: CurrentWorkspaceResponse | undefined): NavItem
         to: '/platform/eligibility',
         label: t('nav.eligibility'),
         icon: ListChecks,
+      },
+    platform &&
+      can('ticket.read') && {
+        to: '/platform/tickets',
+        label: t('nav.tickets'),
+        icon: Headset,
       },
     platform &&
       can('platform.quotation.issue') && {
