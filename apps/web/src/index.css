@@ -1,56 +1,75 @@
 @import 'tailwindcss';
+@import './styles/tokens.css';
+@import './styles/fonts.css';
+@import 'react-day-picker/style.css';
 
-@custom-variant dark (&:is(.dark *));
+/* Dark utilities follow the data-theme attribute (light | dark), not a class. */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
-/* shadcn/ui design tokens (neutral base colour). */
+/*
+ * shadcn/ui variables mapped onto the Kitenge tokens, so every existing
+ * `bg-background`, `text-muted-foreground`, `border` … class follows the theme.
+ * Note the name clash: the Kitenge "muted" (secondary TEXT) is
+ * `text-muted-foreground`; shadcn's `bg-muted` is the surface-muted FILL.
+ */
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --radius: 4px;
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface);
+  --popover-foreground: var(--ink);
+  --primary: var(--ink);
+  --primary-foreground: var(--paper);
+  --secondary: var(--surface-muted);
+  --secondary-foreground: var(--ink);
+  --muted-fill: var(--surface-muted);
+  --muted-foreground: var(--muted);
+  --accent: var(--surface-muted);
+  --accent-foreground: var(--ink);
+  --destructive: var(--danger);
+  --input: var(--control-border);
+  --ring: var(--saffron);
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-base: 0ms;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  /* Shape: 4px radius everywhere; full-round only for avatars and status dots. */
+  --radius-sm: var(--radius);
+  --radius-md: var(--radius);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-xl: var(--radius);
+
+  /* Kitenge tokens as utilities: bg-paper, text-ink, border-control-border, bg-saffron … */
+  --color-ink: var(--ink);
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-saffron: var(--saffron);
+  --color-on-saffron: var(--on-saffron);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-control-border: var(--control-border);
+
+  /* shadcn names. */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -61,7 +80,7 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
+  --color-muted: var(--muted-fill);
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
@@ -69,13 +88,115 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+
+  /* Typography: Inter body, Space Grotesk headings and labels, JetBrains Mono for numbers and codes. */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Space Grotesk', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* Type scale: 12, 14, 16, 18, 22, 28, 36, 48 px. */
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.5;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.55;
+  --text-base: 1rem;
+  --text-base--line-height: 1.6;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.5;
+  --text-xl: 1.375rem;
+  --text-xl--line-height: 1.35;
+  --text-2xl: 1.75rem;
+  --text-2xl--line-height: 1.25;
+  --text-3xl: 2.25rem;
+  --text-3xl--line-height: 1.15;
+  --text-4xl: 3rem;
+  --text-4xl--line-height: 1.1;
+
+  /* One subtle shadow, for floating menus and dialogs only. */
+  --shadow-float: var(--shadow-float);
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
+  }
+  html {
+    background: var(--paper);
   }
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply bg-background font-sans text-base text-foreground antialiased;
   }
+  h1,
+  h2,
+  h3,
+  h4,
+  label,
+  legend,
+  th,
+  button {
+    font-family: var(--font-display);
+  }
+  strong,
+  b {
+    font-weight: 500;
+  }
+  code,
+  kbd,
+  samp {
+    font-family: var(--font-mono);
+  }
+
+  /*
+   * Focus: a two-tone ring on every interactive element (WCAG 2.2).
+   * Saffron alone is only 2.07:1 on light paper, so a 2px ink line sits inside
+   * it: ink gives the contrast, saffron gives the brand.
+   */
+  :focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 1px;
+    box-shadow: 0 0 0 5px var(--saffron);
+  }
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+}
+
+@layer utilities {
+  /* Money, numbers, references: mono with tabular figures. */
+  .tabular {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+  .motion-base {
+    transition-duration: var(--duration-base);
+    transition-timing-function: var(--ease-out);
+  }
+  .motion-fast {
+    transition-duration: var(--duration-fast);
+    transition-timing-function: var(--ease-out);
+  }
+}
+
+/* react-day-picker on tokens (DatePicker). */
+.ogs-day-picker .rdp-root {
+  --rdp-accent-color: var(--ink);
+  --rdp-accent-background-color: var(--surface-muted);
+  --rdp-today-color: var(--ink);
+  --rdp-day-height: 2.75rem;
+  --rdp-day-width: 2.75rem;
+  --rdp-selected-border: 2px solid var(--ink);
+  font-family: var(--font-sans);
+}
+.ogs-day-picker .rdp-selected .rdp-day_button {
+  background: var(--saffron);
+  color: var(--on-saffron);
+}
+.ogs-day-picker .rdp-today:not(.rdp-selected) .rdp-day_button {
+  text-decoration: underline;
+  text-decoration-color: var(--saffron);
+  text-underline-offset: 4px;
+}
+.ogs-day-picker .rdp-caption_label {
+  font-family: var(--font-display);
 }

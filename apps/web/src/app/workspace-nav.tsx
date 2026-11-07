@@ -1,101 +1,47 @@
 import { NavLink } from 'react-router';
+import { t } from '@/i18n';
 import { useCurrentWorkspace } from '@/features/workspace/workspace-state';
 import { cn } from '@/lib/utils';
+import { navItemsFor } from './nav-items';
 
-const link = ({ isActive }: { isActive: boolean }) =>
-  cn('rounded-md px-2 py-1 hover:bg-accent', isActive && 'bg-accent font-medium');
-
-/** Links for what the current workspace allows (the server still checks every call). */
-export function WorkspaceNav() {
+/**
+ * The workspace's sections, vertical (sidebar and mobile drawer). Active link:
+ * ink text, surface-muted fill and a saffron bar. When collapsed only icons
+ * show; the label stays as the accessible name.
+ */
+export function WorkspaceNav({
+  collapsed = false,
+  onNavigate,
+}: {
+  collapsed?: boolean;
+  onNavigate?: () => void;
+}) {
   const { data } = useCurrentWorkspace();
-  const can = (code: string) =>
-    data !== undefined &&
-    'permissions' in data &&
-    !data.restricted &&
-    data.permissions.includes(code);
-
-  // The individual Provider workspace, or a provider company the member can see.
-  const providerArea =
-    data !== undefined &&
-    (data.kind === 'provider' ||
-      (data.kind === 'PROVIDER_COMPANY' && data.permissions.includes('workspace.read')));
-
   return (
-    <nav aria-label="Workspace sections" className="flex flex-wrap gap-1 text-sm">
-      <NavLink to="/" end className={link}>
-        Home
-      </NavLink>
-      <NavLink to="/services" className={link}>
-        Browse services
-      </NavLink>
-      {data?.kind === 'personal' || (data?.kind === 'ORGANISATION' && !data.restricted) ? (
-        <NavLink to="/requests" className={link}>
-          Requests
-        </NavLink>
-      ) : null}
-      {data?.kind === 'ORGANISATION' && data.permissions.includes('organisation.profile.manage') ? (
-        <NavLink to="/organisation/application" className={link}>
-          {data.restricted ? 'Application' : 'Organisation'}
-        </NavLink>
-      ) : null}
-      {can('membership.read') ? (
-        <NavLink to="/team" end className={link}>
-          Team
-        </NavLink>
-      ) : null}
-      {can('role.read') ? (
-        <NavLink to="/team/roles" className={link}>
-          Roles
-        </NavLink>
-      ) : null}
-      {data?.kind === 'ORGANISATION' && can('membership.read') ? (
-        <NavLink to="/team/departments" className={link}>
-          Departments
-        </NavLink>
-      ) : null}
-      {providerArea ? (
-        <>
-          <NavLink to="/provider" end className={link}>
-            {data.restricted ? 'Application' : 'Profile & skills'}
-          </NavLink>
-          <NavLink to="/provider/coverage" className={link}>
-            Coverage
-          </NavLink>
-          <NavLink to="/provider/availability" className={link}>
-            Availability
-          </NavLink>
-        </>
-      ) : null}
-      {data?.kind === 'PLATFORM' && can('platform.tenant.review') ? (
-        <NavLink to="/platform/applications" className={link}>
-          Applications
-        </NavLink>
-      ) : null}
-      {data?.kind === 'PLATFORM' && can('ticket.assign') ? (
-        <NavLink to="/platform/eligibility" className={link}>
-          Eligibility
-        </NavLink>
-      ) : null}
-      {data?.kind === 'PLATFORM' && can('platform.quotation.issue') ? (
-        <NavLink to="/platform/requests" className={link}>
-          Requests
-        </NavLink>
-      ) : null}
-      {data?.kind === 'PLATFORM' && can('platform.finance.manage') ? (
-        <NavLink to="/platform/orders" className={link}>
-          Orders
-        </NavLink>
-      ) : null}
-      {data?.kind === 'PLATFORM' && can('platform.catalogue.manage') ? (
-        <NavLink to="/platform/catalogue" className={link}>
-          Catalogue
-        </NavLink>
-      ) : null}
-      {data?.kind === 'PLATFORM' && can('platform.catalogue.manage') ? (
-        <NavLink to="/platform/skills" className={link}>
-          Skills
-        </NavLink>
-      ) : null}
+    <nav aria-label={t('shell.navigation')}>
+      <ul className="space-y-0.5">
+        {navItemsFor(data).map(({ to, label, icon: Icon, end }) => (
+          <li key={to}>
+            <NavLink
+              to={to}
+              end={end ?? false}
+              {...(onNavigate ? { onClick: onNavigate } : {})}
+              {...(collapsed ? { title: label } : {})}
+              className={({ isActive }) =>
+                cn(
+                  'relative flex min-h-11 items-center gap-3 rounded-md px-3 text-sm text-muted-foreground motion-fast transition-colors hover:bg-surface-muted hover:text-ink md:min-h-9',
+                  collapsed && 'justify-center px-0',
+                  isActive &&
+                    'bg-surface-muted font-medium text-ink before:absolute before:inset-y-1.5 before:left-0 before:w-1 before:rounded-full before:bg-saffron',
+                )
+              }
+            >
+              <Icon aria-hidden="true" className="size-4 shrink-0" />
+              <span className={cn(collapsed && 'sr-only')}>{label}</span>
+            </NavLink>
+          </li>
+        ))}
+      </ul>
     </nav>
   );
 }

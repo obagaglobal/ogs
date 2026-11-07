@@ -118,7 +118,7 @@ export function MfaSetupPage() {
         title="Save your recovery codes"
         intro="Each code works once if you lose your phone. Store them somewhere safe: they are not shown again."
       >
-        <ul className="grid grid-cols-2 gap-2 font-mono text-sm" aria-label="Recovery codes">
+        <ul className="grid grid-cols-2 gap-2 tabular text-sm" aria-label="Recovery codes">
           {recoveryCodes.map((recovery) => (
             <li key={recovery} className="rounded border px-2 py-1">
               {recovery}
@@ -150,7 +150,7 @@ export function MfaSetupPage() {
         {setup.data ? (
           <p className="text-center text-xs text-muted-foreground">
             Can’t scan? Enter this key:{' '}
-            <code className="break-all font-mono">{setup.data.secret}</code>
+            <code className="break-all tabular">{setup.data.secret}</code>
           </p>
         ) : null}
         <form

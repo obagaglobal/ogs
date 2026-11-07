@@ -1,9 +1,37 @@
-import { formatKes, type PublicPrice, type PublicServiceSummary } from '@ogs/contracts';
-import { useState, type ReactNode, type SubmitEvent } from 'react';
+import {
+  formatKes,
+  type PublicCategory,
+  type PublicPrice,
+  type PublicServiceSummary,
+} from '@ogs/contracts';
+import {
+  ArrowRight,
+  Camera,
+  Cloud,
+  Folder,
+  HardDrive,
+  Laptop,
+  Network,
+  Phone,
+  Printer,
+  Search,
+  Server,
+  ShieldCheck,
+  Wifi,
+  type LucideIcon,
+} from 'lucide-react';
+import { Suspense, useEffect, useState, type SubmitEvent } from 'react';
 import { Link, Outlet, useParams, useSearchParams } from 'react-router';
-import { Button } from '@/components/ui/button';
-import { Card, Notice } from '@/components/ui/form-controls';
+import { BrandMark } from '@/components/ui/brand';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { EmptyState, ErrorState, RouteFallback, Skeleton } from '@/components/ui/feedback';
+import { Input, Select } from '@/components/ui/input';
+import { KitengeMotif } from '@/components/ui/kitenge-motif';
+import { Breadcrumbs, type Crumb } from '@/components/ui/navigation';
 import { useSession } from '@/features/auth/session';
+import { t } from '@/i18n';
+import { cn } from '@/lib/utils';
 import { ApiError, describeError } from '@/lib/api';
 import {
   AUDIENCE_LABELS,
@@ -46,48 +74,78 @@ function PageMeta({
   );
 }
 
-/** Light layout for signed-out visitors (and signed-in people browsing). */
+/**
+ * Public layout (Phase 6b): the motif header strip, a light top bar, and a
+ * footer. Pages render inside their own Suspense boundary.
+ */
 export function PublicLayout() {
   const session = useSession();
   return (
-    <div className="min-h-svh">
-      <header className="border-b">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-6 py-3">
-          <Link to="/services" className="font-semibold tracking-tight">
+    <div className="flex min-h-svh flex-col bg-paper text-ink">
+      <a
+        href="#main"
+        className="sr-only z-[60] rounded-md bg-saffron px-4 py-2 font-display font-medium text-on-saffron focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
+      >
+        {t('shell.skipToContent')}
+      </a>
+      <KitengeMotif variant="band" height={6} />
+      <header className="border-b border-border bg-paper">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-2 sm:px-6">
+          <Link
+            to="/services"
+            className="flex min-h-11 items-center gap-2 rounded-md font-display text-lg font-bold tracking-tight"
+          >
+            <BrandMark />
             OGS services
           </Link>
-          <nav aria-label="Site" className="flex items-center gap-4 text-sm">
-            <Link to="/services" className="underline-offset-4 hover:underline">
-              All services
+          <nav aria-label="Site" className="flex items-center gap-1 text-sm sm:gap-3">
+            <Link
+              to="/services"
+              className="hidden min-h-11 items-center rounded-md px-2 underline-offset-4 hover:underline sm:inline-flex"
+            >
+              {t('public.allServices')}
             </Link>
             {session.data ? (
-              <Link to="/" className="underline-offset-4 hover:underline">
-                Open OGS
+              <Link to="/" className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
+                {t('public.openOgs')}
               </Link>
             ) : (
-              <Link to="/sign-in" className="underline-offset-4 hover:underline">
-                Sign in
+              <Link to="/sign-in" className={buttonVariants({ variant: 'primary', size: 'sm' })}>
+                {t('public.signIn')}
               </Link>
             )}
           </nav>
         </div>
       </header>
-      <main className="mx-auto max-w-5xl px-6 py-8">
-        <Outlet />
+      <main
+        id="main"
+        tabIndex={-1}
+        className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8"
+      >
+        <Suspense fallback={<RouteFallback />}>
+          <Outlet />
+        </Suspense>
       </main>
+      <footer className="border-t border-border">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-6 text-sm text-muted-foreground sm:px-6">
+          <span>{t('shell.brandLong')}</span>
+          <span>{t('public.pricesNote')}</span>
+        </div>
+      </footer>
     </div>
   );
 }
 
-function PriceTag({ price }: { price: PublicPrice | null }) {
+/** Prices are always mono with tabular figures: "KES 84,500". */
+function PriceTag({ price, large = false }: { price: PublicPrice | null; large?: boolean }) {
   if (price === null) {
     return <span className="text-sm text-muted-foreground">Price on request</span>;
   }
   return (
-    <span className="text-sm">
-      <span className="font-medium">{price.label}</span>
+    <span className={large ? 'text-2xl' : 'text-sm'}>
+      <span className="tabular font-medium">{price.label}</span>
       {price.vatInclusiveMinor === null ? null : (
-        <span className="text-muted-foreground"> + VAT</span>
+        <span className="text-sm text-muted-foreground"> + VAT</span>
       )}
     </span>
   );
@@ -95,18 +153,23 @@ function PriceTag({ price }: { price: PublicPrice | null }) {
 
 function ServiceCard({ service }: { service: PublicServiceSummary }) {
   return (
-    <li className="rounded-lg border p-4">
-      <Link
-        to={`/services/${service.slug}`}
-        className="font-medium underline-offset-4 hover:underline"
-      >
-        {service.name}
-      </Link>
-      <p className="mt-1 text-sm text-muted-foreground">{service.summary}</p>
-      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+    <li className="group relative flex flex-col rounded-md border border-border bg-surface p-5 motion-fast transition-colors hover:border-ink">
+      <p className="mb-2 font-display text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        {service.category.name}
+      </p>
+      <h2 className="font-display text-lg font-medium leading-snug">
+        <Link
+          to={`/services/${service.slug}`}
+          className="underline-offset-4 after:absolute after:inset-0 after:rounded-md group-hover:underline"
+        >
+          {service.name}
+        </Link>
+      </h2>
+      <p className="mt-1 flex-1 text-sm text-muted-foreground">{service.summary}</p>
+      <div className="mt-4 flex flex-wrap items-end justify-between gap-2 border-t border-border pt-3">
         <PriceTag price={service.price} />
         <span className="text-xs text-muted-foreground">
-          {service.category.name} · {DELIVERY_LABELS[service.deliveryMode]}
+          {DELIVERY_LABELS[service.deliveryMode]}
           {service.audience === 'ALL' ? '' : ` · ${AUDIENCE_LABELS[service.audience] ?? ''} only`}
         </span>
       </div>
@@ -118,18 +181,34 @@ function ServiceCard({ service }: { service: PublicServiceSummary }) {
 function ServiceResults({ filters }: { filters: CatalogueFilters }) {
   const search = useServiceSearch(filters);
   if (search.isLoading) {
-    return <p className="text-sm text-muted-foreground">Loading services…</p>;
+    return (
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">
+        {Array.from({ length: 3 }, (_, index) => (
+          <Skeleton key={index} className="h-40" />
+        ))}
+      </div>
+    );
   }
   if (search.isError) {
-    return <Notice tone="error">{describeError(search.error)}</Notice>;
+    return <ErrorState body={describeError(search.error)} />;
   }
   const services = search.data?.pages.flatMap((page) => page.services) ?? [];
+  const count = services.length;
   return (
     <div className="space-y-4">
-      {services.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No services match. Try other words.</p>
+      <p className="text-sm text-muted-foreground" aria-live="polite">
+        {search.isFetching && !search.isFetchingNextPage
+          ? t('public.searching')
+          : count === 1
+            ? t('public.resultsOne')
+            : t('public.resultsCount', {
+                count: search.hasNextPage ? `${String(count)}+` : count,
+              })}
+      </p>
+      {count === 0 ? (
+        <EmptyState title={t('public.noResults')} />
       ) : (
-        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2" aria-label="Services">
+        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="Services">
           {services.map((service) => (
             <ServiceCard key={service.slug} service={service} />
           ))}
@@ -137,13 +216,13 @@ function ServiceResults({ filters }: { filters: CatalogueFilters }) {
       )}
       {search.hasNextPage ? (
         <Button
-          variant="outline"
+          variant="secondary"
           disabled={search.isFetchingNextPage}
           onClick={() => {
             void search.fetchNextPage();
           }}
         >
-          Load more
+          {t('public.loadMore')}
         </Button>
       ) : null}
     </div>
@@ -163,17 +242,17 @@ function FilterSelect({
 }) {
   const id = `filter-${label.toLowerCase().replace(/\s+/g, '-')}`;
   return (
-    <div className="space-y-1">
-      <label htmlFor={id} className="text-xs font-medium text-muted-foreground">
+    <div className="space-y-1.5">
+      <label htmlFor={id} className="block font-display text-sm font-medium">
         {label}
       </label>
-      <select
+      <Select
         id={id}
         value={value}
         onChange={(event) => {
           onChange(event.target.value);
         }}
-        className="h-9 rounded-md border bg-background px-2 text-sm"
+        className="w-auto min-w-36"
       >
         <option value="">Any</option>
         {Object.entries(options).map(([key, text]) => (
@@ -181,12 +260,16 @@ function FilterSelect({
             {text}
           </option>
         ))}
-      </select>
+      </Select>
     </div>
   );
 }
 
-/** Search box + filters, kept in the URL so results can be shared and bookmarked. */
+/**
+ * Instant search: results follow the text box after a short pause (300 ms);
+ * Enter or the Search button applies it at once. Filters live in the URL so
+ * results can be shared and bookmarked.
+ */
 function SearchAndFilters({ category }: { category?: string }) {
   const [params, setParams] = useSearchParams();
   const [text, setText] = useState(params.get('q') ?? '');
@@ -198,11 +281,35 @@ function SearchAndFilters({ category }: { category?: string }) {
     ...(category === undefined ? {} : { category }),
   };
   const set = (key: string, value: string) => {
-    const next = new URLSearchParams(params);
-    if (value === '') next.delete(key);
-    else next.set(key, value);
-    setParams(next, { replace: true });
+    setParams(
+      (previous) => {
+        const next = new URLSearchParams(previous);
+        if (value === '') next.delete(key);
+        else next.set(key, value);
+        return next;
+      },
+      { replace: true },
+    );
   };
+  const applied = params.get('q') ?? '';
+  useEffect(() => {
+    const query = text.trim();
+    if (query === applied) return;
+    const timer = window.setTimeout(() => {
+      setParams(
+        (previous) => {
+          const next = new URLSearchParams(previous);
+          if (query === '') next.delete('q');
+          else next.set('q', query);
+          return next;
+        },
+        { replace: true },
+      );
+    }, 300);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [text, applied, setParams]);
   return (
     <div className="space-y-6">
       <form
@@ -213,21 +320,27 @@ function SearchAndFilters({ category }: { category?: string }) {
           set('q', text.trim());
         }}
       >
-        <div className="min-w-64 flex-1 space-y-1">
-          <label htmlFor="catalogue-search" className="text-xs font-medium text-muted-foreground">
-            Search services
+        <div className="min-w-64 flex-1 space-y-1.5">
+          <label htmlFor="catalogue-search" className="block font-display text-sm font-medium">
+            {t('public.searchLabel')}
           </label>
-          <input
-            id="catalogue-search"
-            type="search"
-            maxLength={100}
-            value={text}
-            placeholder="e.g. Wi-Fi, CCTV, laptop repair"
-            onChange={(event) => {
-              setText(event.target.value);
-            }}
-            className="h-9 w-full rounded-md border bg-background px-3 text-sm"
-          />
+          <div className="relative">
+            <Search
+              aria-hidden="true"
+              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+            />
+            <Input
+              id="catalogue-search"
+              type="search"
+              maxLength={100}
+              value={text}
+              placeholder={t('public.searchPlaceholder')}
+              onChange={(event) => {
+                setText(event.target.value);
+              }}
+              className="pl-9"
+            />
+          </div>
         </div>
         <Button type="submit">Search</Button>
         <FilterSelect
@@ -260,55 +373,122 @@ function SearchAndFilters({ category }: { category?: string }) {
   );
 }
 
-/** /services — the catalogue home: categories, search and results. */
+/** Category icons are free-text slugs set by staff; unknown ones get a folder. */
+const CATEGORY_ICONS: Record<string, LucideIcon> = {
+  wifi: Wifi,
+  network: Network,
+  networks: Network,
+  cctv: Camera,
+  camera: Camera,
+  security: ShieldCheck,
+  laptop: Laptop,
+  computer: Laptop,
+  repair: Laptop,
+  cloud: Cloud,
+  server: Server,
+  storage: HardDrive,
+  printer: Printer,
+  phone: Phone,
+  telephony: Phone,
+};
+
+function CategoryCard({ category }: { category: PublicCategory }) {
+  const Icon = CATEGORY_ICONS[category.icon] ?? Folder;
+  return (
+    <li>
+      <Link
+        to={`/services/c/${category.slug}`}
+        className="group flex h-full items-start gap-3 rounded-md border border-border bg-surface p-4 motion-fast transition-colors hover:border-ink"
+      >
+        <span
+          aria-hidden="true"
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-sm bg-surface-muted group-hover:bg-saffron group-hover:text-on-saffron"
+        >
+          <Icon className="size-5" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center justify-between gap-2 font-display font-medium">
+            {category.name}
+            <ArrowRight
+              aria-hidden="true"
+              className="size-4 shrink-0 text-muted-foreground motion-fast transition-transform group-hover:translate-x-0.5 group-hover:text-ink"
+            />
+          </span>
+          <span className="tabular block text-xs text-muted-foreground">
+            ({category.serviceCount})
+          </span>
+        </span>
+      </Link>
+    </li>
+  );
+}
+
+/** /services — the catalogue home: Karibu hero, categories, search and results. */
 export function CataloguePage() {
   const tree = useCategoryTree();
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       <PageMeta
         title="ICT services in Kenya"
         description="Wi-Fi, networking, CCTV, computer repair, cloud and more, delivered by vetted OGS technicians. Clear prices in KES."
         path="/services"
       />
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">ICT services</h1>
-        <p className="text-sm text-muted-foreground">
-          Delivered by OGS and vetted providers. Prices are in KES and exclude VAT.
-        </p>
-      </div>
-      {tree.isError ? <Notice tone="error">{describeError(tree.error)}</Notice> : null}
-      <nav aria-label="Categories">
-        <ul className="flex flex-wrap gap-2">
-          {(tree.data ?? []).map((category) => (
-            <li key={category.slug}>
-              <Link
-                to={`/services/c/${category.slug}`}
-                className="inline-block rounded-full border px-3 py-1 text-sm hover:bg-accent"
-              >
-                {category.name}{' '}
-                <span className="text-muted-foreground">({category.serviceCount})</span>
-              </Link>
-            </li>
-          ))}
+      <section className="overflow-hidden rounded-md border border-ink bg-surface">
+        <div className="grid gap-6 p-6 sm:p-10 lg:grid-cols-[1fr_auto] lg:items-end">
+          <div className="max-w-2xl space-y-3">
+            <p className="font-display text-sm font-medium uppercase tracking-wider text-muted-foreground">
+              {t('greeting.karibuTo')}
+            </p>
+            <h1 className="font-display text-4xl font-bold leading-tight tracking-tight sm:text-5xl">
+              ICT services
+            </h1>
+            <p className="font-display text-xl">{t('public.heroTitle')}</p>
+            <p className="text-muted-foreground">{t('public.heroBody')}</p>
+          </div>
+          <KitengeMotif variant="corner" height={20} className="hidden lg:block" />
+        </div>
+        <KitengeMotif variant="band" height={14} />
+      </section>
+      {tree.isError ? <ErrorState body={describeError(tree.error)} /> : null}
+      <nav aria-labelledby="categories-heading" className="space-y-3">
+        <h2 id="categories-heading" className="font-display text-xl font-medium">
+          {t('public.categories')}
+        </h2>
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {tree.isLoading
+            ? Array.from({ length: 4 }, (_, index) => (
+                <li key={index}>
+                  <Skeleton className="h-20" />
+                </li>
+              ))
+            : (tree.data ?? []).map((category) => (
+                <CategoryCard key={category.slug} category={category} />
+              ))}
         </ul>
       </nav>
-      <SearchAndFilters />
+      <KitengeMotif variant="divider" tone="muted" height={8} />
+      <section aria-labelledby="find-heading" className="space-y-4">
+        <h2 id="find-heading" className="font-display text-xl font-medium">
+          {t('nav.services')}
+        </h2>
+        <SearchAndFilters />
+      </section>
     </div>
   );
 }
 
 function NotFound({ what }: { what: string }) {
   return (
-    <Card>
-      <h1 className="mb-2 text-xl font-semibold">{what} not found</h1>
-      <p className="text-sm text-muted-foreground">
-        It may have been withdrawn.{' '}
-        <Link to="/services" className="underline">
-          Browse all services
+    <EmptyState
+      as="h1"
+      title={t('public.notFound', { what })}
+      body={t('public.notFoundBody')}
+      action={
+        <Link to="/services" className={buttonVariants({ variant: 'secondary' })}>
+          {t('public.browseAll')}
         </Link>
-        .
-      </p>
-    </Card>
+      }
+    />
   );
 }
 
@@ -316,21 +496,34 @@ function isNotFound(error: unknown): boolean {
   return error instanceof ApiError && error.status === 404;
 }
 
+function PageSkeleton() {
+  return (
+    <div className="space-y-4" aria-busy="true">
+      <Skeleton className="h-4 w-48" />
+      <Skeleton className="h-10 w-80 max-w-full" />
+      <Skeleton className="h-32 w-full" />
+    </div>
+  );
+}
+
 /** /services/c/:category — one category, its sub-categories and services. */
 export function CategoryPage() {
   const { category: slug = '' } = useParams();
   const category = usePublicCategory(slug);
   if (category.isLoading) {
-    return <p className="text-sm text-muted-foreground">Loading…</p>;
+    return <PageSkeleton />;
   }
   if (category.isError || category.data === undefined) {
     return isNotFound(category.error) ? (
       <NotFound what="Category" />
     ) : (
-      <Notice tone="error">{describeError(category.error)}</Notice>
+      <ErrorState body={describeError(category.error)} />
     );
   }
   const { category: data, parent } = category.data;
+  const crumbs: Crumb[] = [{ label: 'Services', to: '/services' }];
+  if (parent !== null) crumbs.push({ label: parent.name, to: `/services/c/${parent.slug}` });
+  crumbs.push({ label: data.name });
   return (
     <div className="space-y-6">
       <PageMeta
@@ -338,23 +531,11 @@ export function CategoryPage() {
         description={data.summary ?? `${data.name} services from OGS, with clear prices in KES.`}
         path={`/services/c/${data.slug}`}
       />
-      <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
-        <Link to="/services" className="underline-offset-4 hover:underline">
-          Services
-        </Link>
-        {parent === null ? null : (
-          <>
-            {' › '}
-            <Link to={`/services/c/${parent.slug}`} className="underline-offset-4 hover:underline">
-              {parent.name}
-            </Link>
-          </>
-        )}
-      </nav>
+      <Breadcrumbs items={crumbs} />
       <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">{data.name}</h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">{data.name}</h1>
         {data.summary === null ? null : (
-          <p className="text-sm text-muted-foreground">{data.summary}</p>
+          <p className="max-w-2xl text-muted-foreground">{data.summary}</p>
         )}
       </div>
       {data.children.length > 0 ? (
@@ -363,7 +544,7 @@ export function CategoryPage() {
             <li key={child.slug}>
               <Link
                 to={`/services/c/${child.slug}`}
-                className="inline-block rounded-full border px-3 py-1 text-sm hover:bg-accent"
+                className="inline-flex min-h-11 items-center rounded-sm border border-control-border bg-surface px-3 text-sm hover:border-ink md:min-h-9"
               >
                 {child.name}
               </Link>
@@ -382,8 +563,8 @@ function ListSection({ title, items }: { title: string; items: readonly string[]
   }
   return (
     <section>
-      <h2 className="mb-1 font-medium">{title}</h2>
-      <ul className="list-inside list-disc text-sm text-muted-foreground">
+      <h2 className="mb-2 font-display text-lg font-medium">{title}</h2>
+      <ul className="list-inside list-disc space-y-1 text-muted-foreground">
         {items.map((item) => (
           <li key={item}>{item}</li>
         ))}
@@ -392,16 +573,26 @@ function ListSection({ title, items }: { title: string; items: readonly string[]
   );
 }
 
-/** Signed in: straight to the request form; signed out: sign in first, then come back. */
+/**
+ * Signed in: straight to the request form ("Request this service"); signed
+ * out: "Sign in to request", then back to the form.
+ */
 function RequestButton({ slug }: { slug: string }) {
   const session = useSession();
   const target = `/requests/new?service=${encodeURIComponent(slug)}`;
-  return (
+  return session.data ? (
     <Link
-      to={session.data ? target : `/sign-in?next=${encodeURIComponent(target)}`}
-      className="mt-4 inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+      to={target}
+      className={cn(buttonVariants({ variant: 'highlight', size: 'lg' }), 'w-full')}
     >
-      Request this service
+      {t('public.requestService')}
+    </Link>
+  ) : (
+    <Link
+      to={`/sign-in?next=${encodeURIComponent(target)}`}
+      className={cn(buttonVariants({ variant: 'highlight', size: 'lg' }), 'w-full')}
+    >
+      {t('public.signInToRequest')}
     </Link>
   );
 }
@@ -411,13 +602,13 @@ export function ServicePage() {
   const { slug = '' } = useParams();
   const service = usePublicService(slug);
   if (service.isLoading) {
-    return <p className="text-sm text-muted-foreground">Loading…</p>;
+    return <PageSkeleton />;
   }
   if (service.isError || service.data === undefined) {
     return isNotFound(service.error) ? (
       <NotFound what="Service" />
     ) : (
-      <Notice tone="error">{describeError(service.error)}</Notice>
+      <ErrorState body={describeError(service.error)} />
     );
   }
   const data = service.data;
@@ -442,33 +633,15 @@ export function ServicePage() {
           },
         }),
   };
-  const breadcrumb: ReactNode[] = [
-    <Link key="all" to="/services" className="underline-offset-4 hover:underline">
-      Services
-    </Link>,
-  ];
+  const crumbs: Crumb[] = [{ label: 'Services', to: '/services' }];
   if (data.parentCategory !== null) {
-    breadcrumb.push(
-      ' › ',
-      <Link
-        key="parent"
-        to={`/services/c/${data.parentCategory.slug}`}
-        className="underline-offset-4 hover:underline"
-      >
-        {data.parentCategory.name}
-      </Link>,
-    );
+    crumbs.push({
+      label: data.parentCategory.name,
+      to: `/services/c/${data.parentCategory.slug}`,
+    });
   }
-  breadcrumb.push(
-    ' › ',
-    <Link
-      key="cat"
-      to={`/services/c/${data.category.slug}`}
-      className="underline-offset-4 hover:underline"
-    >
-      {data.category.name}
-    </Link>,
-  );
+  crumbs.push({ label: data.category.name, to: `/services/c/${data.category.slug}` });
+  crumbs.push({ label: data.name });
   return (
     <article className="space-y-6">
       <PageMeta
@@ -477,47 +650,51 @@ export function ServicePage() {
         path={`/services/${data.slug}`}
         jsonLd={jsonLd}
       />
-      <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
-        {breadcrumb}
-      </nav>
+      <Breadcrumbs items={crumbs} />
       <header className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">{data.name}</h1>
-        <p className="text-muted-foreground">{data.summary}</p>
-        <p className="text-xs text-muted-foreground">
+        <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">{data.name}</h1>
+        <p className="text-lg text-muted-foreground">{data.summary}</p>
+        <p className="text-sm text-muted-foreground">
           {DELIVERY_LABELS[data.deliveryMode]}
           {data.audience === 'ALL' ? '' : ` · for ${AUDIENCE_LABELS[data.audience] ?? ''}`}
           {data.typicalDuration === null ? '' : ` · typically ${data.typicalDuration}`}
         </p>
       </header>
-      <Card>
-        <p className="text-lg">
-          <PriceTag price={price} />
-        </p>
-        {vatInclusiveMinor === null ? null : (
-          <p className="text-xs text-muted-foreground">
-            About {formatKes(vatInclusiveMinor)} including 16% VAT (indicative).
+      {/* Phones: price and request first, then the details. */}
+      <div className="grid gap-8 lg:grid-cols-[1fr_20rem] lg:items-start">
+        <div className="order-2 space-y-6 lg:order-1">
+          <section className="max-w-prose space-y-3">
+            {data.description
+              .split(/\n\s*\n/)
+              .filter((paragraph) => paragraph.trim() !== '')
+              .map((paragraph) => (
+                <p key={paragraph}>{paragraph}</p>
+              ))}
+          </section>
+          <ListSection title="What's included" items={data.inclusions} />
+          <ListSection title="Not included" items={data.exclusions} />
+          <ListSection title="What we need from you" items={data.customerRequirements} />
+        </div>
+        <Card emphasis className="order-1 space-y-3 lg:sticky lg:top-6 lg:order-2">
+          <p className="font-display text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Price
           </p>
-        )}
-        {price?.model === 'FROM' || price?.model === 'QUOTE' ? (
-          <p className="mt-1 text-xs text-muted-foreground">
-            The final price is set in a quotation after we understand your needs.
+          <p>
+            <PriceTag price={price} large />
           </p>
-        ) : null}
-        <RequestButton slug={data.slug} />
-      </Card>
-      <section className="space-y-3">
-        {data.description
-          .split(/\n\s*\n/)
-          .filter((paragraph) => paragraph.trim() !== '')
-          .map((paragraph) => (
-            <p key={paragraph} className="text-sm">
-              {paragraph}
+          {vatInclusiveMinor === null ? null : (
+            <p className="text-sm text-muted-foreground">
+              {`About ${formatKes(vatInclusiveMinor)} including 16% VAT (indicative).`}
             </p>
-          ))}
-      </section>
-      <ListSection title="What's included" items={data.inclusions} />
-      <ListSection title="Not included" items={data.exclusions} />
-      <ListSection title="What we need from you" items={data.customerRequirements} />
+          )}
+          {price?.model === 'FROM' || price?.model === 'QUOTE' ? (
+            <p className="text-sm text-muted-foreground">
+              The final price is set in a quotation after we understand your needs.
+            </p>
+          ) : null}
+          <RequestButton slug={data.slug} />
+        </Card>
+      </div>
     </article>
   );
 }

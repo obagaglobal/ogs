@@ -35,7 +35,9 @@ describe('web shell (B5)', () => {
   it('sends a signed-out visitor to sign-in', async () => {
     mockApi({ 'GET /auth/session': { status: 401, body: { error: 'unauthenticated' } } });
     renderApp('/');
-    expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Karibu. Sign in to OGS' }),
+    ).toBeInTheDocument();
   });
 
   it('signs in with JSON and moves on to the MFA prompt when a second factor is owed', async () => {
@@ -45,7 +47,7 @@ describe('web shell (B5)', () => {
       'POST /auth/login': signedIn({ mfaPending: true }),
     });
     renderApp('/sign-in');
-    await userEvent.type(screen.getByLabelText('Email'), 'alice@acme.test');
+    await userEvent.type(await screen.findByLabelText('Email'), 'alice@acme.test');
     await userEvent.type(screen.getByLabelText('Password'), 'change-me-local-only');
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
 
@@ -63,7 +65,7 @@ describe('web shell (B5)', () => {
       'POST /auth/login': { status: 401, body: { error: 'invalid_credentials' } },
     });
     renderApp('/sign-in');
-    await userEvent.type(screen.getByLabelText('Email'), 'alice@acme.test');
+    await userEvent.type(await screen.findByLabelText('Email'), 'alice@acme.test');
     await userEvent.type(screen.getByLabelText('Password'), 'wrong password');
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(await screen.findByRole('alert')).toHaveTextContent(

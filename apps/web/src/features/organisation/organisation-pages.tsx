@@ -52,7 +52,9 @@ export function RegisterOrganisationPage() {
 
   return (
     <div className="max-w-xl space-y-4">
-      <h1 className="text-2xl font-semibold tracking-tight">Register an organisation</h1>
+      <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
+        Register an organisation
+      </h1>
       <p className="text-sm text-muted-foreground">
         Your organisation can order services and manage its team once OGS approves it. You will be
         its first administrator.
@@ -131,7 +133,9 @@ export function ApplicationPage() {
   return (
     <div className="space-y-6">
       <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">{data.profile.legalName}</h1>
+        <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
+          {data.profile.legalName}
+        </h1>
         <p className="text-sm">{STATUS_TEXT[data.status]}</p>
       </div>
       {data.decisionReason !== null && data.status !== 'APPROVED' ? (
@@ -336,7 +340,7 @@ function ProfileForm({
             onChange={(event) => {
               setForm({ ...form, employeeBand: event.target.value });
             }}
-            className="h-10 w-full rounded-md border bg-background px-2 text-sm"
+            className="min-h-11 md:min-h-10 w-full rounded-md border border-control-border bg-surface px-3 text-base text-ink hover:border-ink md:text-sm"
           >
             <option value="">—</option>
             {EMPLOYEE_BANDS.map((band) => (

@@ -124,7 +124,7 @@ function SkillRow({
           onChange={(event) => {
             onExperience(event.target.value as ExperienceBand);
           }}
-          className="h-8 rounded-md border bg-background px-2 text-sm"
+          className="min-h-11 md:min-h-8 rounded-md border border-control-border bg-surface px-3 text-base text-ink hover:border-ink md:text-sm"
         >
           {Object.entries(EXPERIENCE_LABELS).map(([band, text]) => (
             <option key={band} value={band}>
@@ -167,7 +167,7 @@ export function RegionPicker({
           onChange={(event) => {
             setFilter(event.target.value);
           }}
-          className="h-9 rounded-md border bg-background px-2 text-sm"
+          className="min-h-11 md:min-h-9 rounded-md border border-control-border bg-surface px-3 text-base text-ink hover:border-ink md:text-sm"
         />
         <span className="text-sm text-muted-foreground">{value.length} selected</span>
       </div>
@@ -249,7 +249,7 @@ export function AvailabilityEditor({
                   onChange={(event) => {
                     update(weekday, { ...entry, start: event.target.value });
                   }}
-                  className="h-8 rounded-md border bg-background px-2"
+                  className="min-h-11 md:min-h-8 rounded-md border border-control-border bg-surface px-3 text-base text-ink hover:border-ink md:text-sm"
                 />
                 <span aria-hidden="true">–</span>
                 <input
@@ -261,10 +261,10 @@ export function AvailabilityEditor({
                     const end = event.target.value === '00:00' ? '24:00' : event.target.value;
                     update(weekday, { ...entry, end });
                   }}
-                  className="h-8 rounded-md border bg-background px-2"
+                  className="min-h-11 md:min-h-8 rounded-md border border-control-border bg-surface px-3 text-base text-ink hover:border-ink md:text-sm"
                 />
                 {entry.start >= entry.end ? (
-                  <span className="text-destructive">End must be after start</span>
+                  <span className="text-danger">End must be after start</span>
                 ) : null}
               </>
             )}

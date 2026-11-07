@@ -4,6 +4,8 @@ ADR-001 … ADR-008 were made during Phase 1 and are listed in [`architecture/ov
 
 ADR-027 … ADR-031 record the Phase 2 implementation decisions P2-1 … P2-5, approved with the [Phase 2 plan](plans/phase-2-tenancy.md) on 2026-11-05.
 
+ADR-055 records the Phase 6b visual direction, approved with the [Phase 6b plan](plans/phase-6b-design-system.md) on 2026-11-06.
+
 ADR-046 … ADR-054 record the Phase 7 decisions P7-1 … P7-9, approved with the [Phase 7 plan](plans/phase-7-requests-orders.md) on 2026-11-06. The Phase 7 delivery refinements ([Phase 7 plan](plans/phase-7-requests-orders.md#8-delivery-notes-2026-11-06) §8: no DRAFT request state, payment completion in one transaction, customer-created orders checked by a trigger, personal records only in the personal workspace, cancellation rules, billing terms edited from the order page) were approved by the owner on 2026-11-07 after PR #8 was merged.
 
 ADR-038 … ADR-045 record the Phase 6 decisions P6-1 … P6-8, approved with the [Phase 6 plan](plans/phase-6-catalogue.md) on 2026-11-06.
@@ -61,6 +63,7 @@ ADR-009 … ADR-026 record the owner's answers to decisions D-1 … D-18 of the 
 | 052 | P7-7      | Idempotency keys                                                 | Accepted                                            |
 | 053 | P7-8      | Document numbers                                                 | Accepted                                            |
 | 054 | P7-9      | Who in an organisation sees which requests                       | Accepted                                            |
+| 055 | 6b        | Visual direction: Kitenge signal                                 | Accepted                                            |
 
 ---
 
@@ -307,6 +310,24 @@ A restricted (pending) workspace may upload application evidence only.
 
 **Decision:** Members with `request.read_all` (administrators) see all of the organisation's requests; other members see their own. RLS enforces the tenant boundary, and the service layer enforces the member/admin split. A person's own requests are visible only from their personal workspace.
 **Why:** It matches the permission catalogue and the review matrix.
+
+## ADR-055 — Visual direction: Kitenge signal (Phase 6b)
+
+**Decision:** OGS uses one token-driven design system, "Kitenge signal":
+
+- **Colour:** ink on paper, with saffron as the single accent for the key action, focus and "live". Every colour is a CSS variable in `apps/web/src/styles/tokens.css`, in light and dark. Raw colours anywhere else fail lint (`ogs/no-raw-colours`) and a unit test, and a unit test checks the WCAG contrast of every pair in use.
+- **Type:** Space Grotesk for headings, Inter for body text, and JetBrains Mono with tabular figures for money ("KES 84,500"), references and IDs. The fonts are self-hosted Latin woff2 files.
+- **Shape:** 4 px radius, 1 px hairlines, and a shadow only on floating surfaces.
+- **Focus:** a two-tone ring, an ink line inside saffron, because saffron alone is 2.07:1 on paper.
+- **Themes:** light, dark and system, remembered per browser. `public/theme-init.js` applies the theme before first paint.
+- **Signature:** an original geometric kitenge motif (`<KitengeMotif />`, decorative). It appears only in the public header strip and hero, empty states, the page loader, sign-in/sign-up and marketing dividers. It never goes behind text, in tables or in forms, and appears at most once per signed-in page; e2e tests enforce this.
+- **Voice:** "Karibu" on first visit and sign-in, and "Habari {name}" on dashboards. All other text is plain sentence-case English through `t()`.
+
+**Why:**
+
+- It gives OGS a recognisably East African identity without decoration getting in the way of work screens.
+- It meets WCAG 2.2 AA by construction (tokens, contrast tests, axe in CI).
+- It stays fast on mid-range phones over mobile data: the Lighthouse CI target on `/services` is performance ≥ 85 and accessibility ≥ 95.
 
 ---
 

@@ -61,74 +61,76 @@ export function MembersPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Team</h1>
+      <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Team</h1>
       {failure ? <Notice tone="error">{describeError(failure)}</Notice> : null}
       <Card>
-        <table className="w-full text-left text-sm">
-          <thead className="text-muted-foreground">
-            <tr>
-              <th className="py-2 font-medium">Member</th>
-              <th className="py-2 font-medium">Role</th>
-              <th className="py-2 font-medium">Status</th>
-              <th className="py-2" />
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {(members.data ?? []).map((member) => (
-              <tr key={member.membershipId}>
-                <td className="py-2">{member.email}</td>
-                <td className="py-2">
-                  {canRoles && roles.data ? (
-                    <select
-                      aria-label={`Role of ${member.email}`}
-                      value={roles.data.find((role) => role.code === member.roles[0])?.id ?? ''}
-                      onChange={(event) => {
-                        setRole.mutate({ id: member.membershipId, roleId: event.target.value });
-                      }}
-                      className="h-8 rounded-md border bg-background px-2"
-                    >
-                      {roles.data.map((role) => (
-                        <option key={role.id} value={role.id}>
-                          {role.name}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <span className="font-mono">{member.roles.join(', ')}</span>
-                  )}
-                </td>
-                <td className="py-2">{member.status.toLowerCase()}</td>
-                <td className="py-2 text-right">
-                  {canManage && member.status !== 'ENDED' ? (
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          update.mutate({
-                            id: member.membershipId,
-                            status: member.status === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED',
-                          });
-                        }}
-                      >
-                        {member.status === 'SUSPENDED' ? 'Reactivate' : 'Suspend'}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          update.mutate({ id: member.membershipId, status: 'ENDED' });
-                        }}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                  ) : null}
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[32rem] text-left text-sm">
+            <thead className="border-b border-border font-display text-xs uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="py-2 font-medium">Member</th>
+                <th className="py-2 font-medium">Role</th>
+                <th className="py-2 font-medium">Status</th>
+                <th className="py-2" />
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y">
+              {(members.data ?? []).map((member) => (
+                <tr key={member.membershipId}>
+                  <td className="py-2">{member.email}</td>
+                  <td className="py-2">
+                    {canRoles && roles.data ? (
+                      <select
+                        aria-label={`Role of ${member.email}`}
+                        value={roles.data.find((role) => role.code === member.roles[0])?.id ?? ''}
+                        onChange={(event) => {
+                          setRole.mutate({ id: member.membershipId, roleId: event.target.value });
+                        }}
+                        className="min-h-11 md:min-h-8 rounded-md border border-control-border bg-surface px-3 text-base text-ink hover:border-ink md:text-sm"
+                      >
+                        {roles.data.map((role) => (
+                          <option key={role.id} value={role.id}>
+                            {role.name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="tabular">{member.roles.join(', ')}</span>
+                    )}
+                  </td>
+                  <td className="py-2">{member.status.toLowerCase()}</td>
+                  <td className="py-2 text-right">
+                    {canManage && member.status !== 'ENDED' ? (
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            update.mutate({
+                              id: member.membershipId,
+                              status: member.status === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED',
+                            });
+                          }}
+                        >
+                          {member.status === 'SUSPENDED' ? 'Reactivate' : 'Suspend'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            update.mutate({ id: member.membershipId, status: 'ENDED' });
+                          }}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ) : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </Card>
       {canInvite ? <Invitations workspace={selected} roles={roles.data ?? []} /> : null}
     </div>
@@ -203,7 +205,7 @@ function Invitations({
             onChange={(event) => {
               setRoleId(event.target.value);
             }}
-            className="h-10 rounded-md border bg-background px-2 text-sm"
+            className="min-h-11 md:min-h-10 rounded-md border border-control-border bg-surface px-3 text-base text-ink hover:border-ink md:text-sm"
           >
             {roles.map((role) => (
               <option key={role.id} value={role.id}>
@@ -292,7 +294,7 @@ export function RolesPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Roles</h1>
+      <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Roles</h1>
       {roles.isError || remove.isError ? (
         <Notice tone="error">{describeError(roles.error ?? remove.error)}</Notice>
       ) : null}
@@ -305,7 +307,7 @@ export function RolesPage() {
                   {role.name}{' '}
                   {role.isSystem ? <span className="text-muted-foreground">· built-in</span> : null}
                 </p>
-                <p className="font-mono text-xs text-muted-foreground">
+                <p className="tabular text-xs text-muted-foreground">
                   {role.permissions.join(', ')}
                 </p>
               </div>
@@ -370,7 +372,7 @@ export function RolesPage() {
                     }}
                   />
                   <span>
-                    <span className="font-mono text-xs">{permission.code}</span>
+                    <span className="tabular text-xs">{permission.code}</span>
                     <br />
                     <span className="text-muted-foreground">{permission.description}</span>
                   </span>
@@ -423,7 +425,7 @@ export function DepartmentsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Departments</h1>
+      <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Departments</h1>
       {departments.isError ? (
         <Notice tone="error">{describeError(departments.error)}</Notice>
       ) : null}
@@ -514,7 +516,9 @@ export function AcceptInvitationPage() {
   const next = encodeURIComponent('/invitations/accept');
   return (
     <main className="mx-auto flex min-h-svh max-w-md flex-col justify-center gap-4 px-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Join a workspace on OGS</h1>
+      <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
+        Join a workspace on OGS
+      </h1>
       {token === '' ? <Notice tone="error">This invitation link is incomplete.</Notice> : null}
       {accept.isError ? <Notice tone="error">{describeError(accept.error)}</Notice> : null}
       {session.data ? (

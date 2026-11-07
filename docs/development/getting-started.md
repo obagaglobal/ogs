@@ -115,7 +115,7 @@ pnpm dev:web          # web only     → http://localhost:5173
 ```powershell
 pnpm test               # unit + HTTP e2e tests (no Docker needed)
 pnpm test:integration   # RLS, isolation, auth, MFA, files: real PostgreSQL, Redis, Mailpit, object store
-pnpm test:e2e           # builds, then signs up/verifies/enrols in a real Chromium (Playwright)
+pnpm test:e2e           # builds, then runs the journeys and design suites in a real Chromium (Playwright)
 ```
 
 Integration tests need `pnpm infra:up` and `pnpm db:roles`. They run against the separate **`ogs_test`** database (never `ogs_dev`), apply migrations to it automatically, and use a unique Redis/BullMQ prefix per run. The API and the worker run in-process, and emails are read back from Mailpit. Tests create uniquely named rows and users and never wipe anything. If you edited an existing migration (rather than adding a new one), recreate the test database with `pnpm db:reset:test`.
@@ -125,6 +125,40 @@ The browser tests need the dev database migrated and seeded (one joins the seede
 The public catalogue is at http://localhost:5173/services (no sign-in needed). The seed adds 8 categories and 17 published services; staff manage them under **Catalogue** in the OGS Platform workspace (seeded `admin@ogs.test`, after starting an elevation).
 
 Requests (Phase 7): sign in, open a service and choose **Request this service**. Staff handle requests under **Requests**, and finance records payments under **Orders**. The seeded Acme Kenya Ltd is postpaid (30 days), so its orders are confirmed without a payment step; everyone else prepays.
+
+## Design system
+
+The look and feel ("Kitenge signal") is described in [docs/design/DESIGN_SYSTEM.md](../design/DESIGN_SYSTEM.md).
+
+- **Reference page:** sign in and open http://localhost:5173/design-system. It is open to everyone in development. In a production build only OGS platform staff can see it: select the **OGS Platform** workspace first.
+- **Theme:** use the account menu (avatar, top right): Light, Dark or System.
+- **Fonts:** after upgrading the `@fontsource/*` packages, run `pnpm --filter @ogs/web fonts:sync` to refresh `apps/web/public/fonts`.
+
+### On your phone over Wi-Fi
+
+1. Start the API as usual. Then start the web app on your network: `pnpm --filter @ogs/web dev --host`. Vite prints a `Network:` address such as `http://192.168.1.23:5173`.
+2. Connect the phone to the same Wi-Fi and open that address. If Windows asks, allow Node.js on **private** networks.
+3. The web server proxies `/api` to the API on the PC, so sign-in works. Email links still point to `localhost`, so open those on the PC.
+
+To check the production build instead (as Lighthouse sees it): `pnpm --filter @ogs/web build`, then `pnpm --filter @ogs/web exec vite preview --host` (port 4173).
+
+### Design tests
+
+```powershell
+pnpm --filter @ogs/web exec playwright test e2e/visual.spec.ts        # 52 screenshots
+pnpm --filter @ogs/web exec playwright test e2e/a11y.spec.ts          # axe, keyboard, responsive, touch targets
+pnpm --filter @ogs/web exec playwright test e2e/theme-motif.spec.ts   # theme persistence, no flash, motif rules
+pnpm --filter @ogs/web exec playwright show-report                    # after a failure: diffs side by side
+pnpm --filter @ogs/web lighthouse                                     # needs the API on :3000 and a web build
+```
+
+The design tests need the same set-up as the other browser tests (infrastructure up, dev database seeded). They also run as part of `pnpm test:e2e`.
+
+**Screenshots:**
+
+- Each platform keeps its own baselines. Only the **Linux** images, produced by CI, are committed (`apps/web/e2e/__screenshots__/`). Windows and macOS images are written locally on the first run, for viewing, and are git-ignored.
+- After an intended visual change, delete the affected `*-linux.png` files and push. CI then writes new baselines and uploads them as the `screenshot-baselines-linux` artifact; download it (`gh run download <run-id> -n screenshot-baselines-linux`) and commit the images.
+- To refresh your local images: add `--update-snapshots` to the first command above.
 
 ## Database workflow
 

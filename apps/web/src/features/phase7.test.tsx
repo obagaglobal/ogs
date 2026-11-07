@@ -170,7 +170,8 @@ describe('Phase 7 customer pages (F10)', () => {
     expect(table).toHaveTextContent('KES 10,000.50');
     expect(table).toHaveTextContent('KES 3,200.16');
     expect(table).toHaveTextContent('KES 23,201.16');
-    expect(screen.getByText('Quotation ready')).toBeInTheDocument();
+    // The status sits in the heading (the progress stepper repeats the words).
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Quotation ready');
     // Rejecting needs a reason; accepting does not.
     expect(screen.getByRole('button', { name: 'Reject quotation' })).toBeDisabled();
     await user.click(screen.getByRole('button', { name: 'Accept quotation' }));

@@ -17,6 +17,11 @@ export default defineConfig({
   forbidOnly: ci,
   retries: ci ? 1 : 0,
   timeout: 60_000,
+  // Phase 6b screenshots: one baseline per platform. CI (Linux) is the
+  // reference; missing baselines are written so they can be committed.
+  snapshotPathTemplate: '{testDir}/__screenshots__/{testFilePath}/{arg}-{platform}{ext}',
+  updateSnapshots: 'missing',
+  expect: { toHaveScreenshot: { animations: 'disabled', caret: 'hide' } },
   reporter: ci ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL: 'http://localhost:5173',

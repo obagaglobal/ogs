@@ -1,13 +1,7 @@
 import { estimateStrength } from '@/lib/password-strength';
 import { cn } from '@/lib/utils';
 
-const BAR = [
-  'bg-destructive',
-  'bg-destructive',
-  'bg-amber-500',
-  'bg-emerald-600',
-  'bg-emerald-700',
-];
+const BAR = ['bg-destructive', 'bg-destructive', 'bg-warning', 'bg-success', 'bg-success'];
 
 /** Advisory strength bar under a new-password field (F-1). Announced politely. */
 export function PasswordStrengthMeter({ password }: { password: string }) {

@@ -1,3 +1,4 @@
+import { t } from '@/i18n';
 import type { CurrentSessionResponse } from '@ogs/contracts';
 import { loginRequestSchema } from '@ogs/contracts';
 import { useMutation } from '@tanstack/react-query';
@@ -40,7 +41,7 @@ export function SignInPage() {
   }
 
   return (
-    <AuthLayout title="Sign in">
+    <AuthLayout title={t('auth.signInTitle')} motif>
       <form onSubmit={submit} className="space-y-4" noValidate>
         {signIn.isError ? <Notice tone="error">{describeError(signIn.error)}</Notice> : null}
         <Field

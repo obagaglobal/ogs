@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { formatKes } from './money.js';
 import { experienceBandSchema, skillCodeSchema } from './providers.js';
 
 /**
@@ -63,17 +64,6 @@ const UNIT_LABELS: Record<PriceUnit, [string, string]> = {
   VISIT: ['visit', 'visits'],
   POINT: ['cabling point', 'cabling points'],
 };
-
-/** "KES 3,500" or "KES 3,500.50". Deterministic: no locale data involved. */
-export function formatKes(amountMinor: number): string {
-  if (!Number.isSafeInteger(amountMinor) || amountMinor < 0) {
-    throw new RangeError('amountMinor must be a non-negative safe integer');
-  }
-  const shillings = Math.floor(amountMinor / 100);
-  const cents = amountMinor % 100;
-  const grouped = String(shillings).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  return cents === 0 ? `KES ${grouped}` : `KES ${grouped}.${String(cents).padStart(2, '0')}`;
-}
 
 /** Indicative VAT-inclusive amount, rounded half up to the cent. */
 export function withIndicativeVat(amountMinor: number): number {

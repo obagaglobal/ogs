@@ -1,0 +1,47 @@
+/*
+ * "Kitenge signal" design tokens (Phase 6b, ADR-055).
+ * THE ONLY FILE in apps/web/src allowed to contain raw colour values: a lint
+ * rule and src/test/no-raw-colours.test.ts fail anywhere else.
+ *
+ * The theme is chosen by <html data-theme="light|dark">, set before first
+ * paint by public/theme-init.js. Contrast of every pair in use is checked by
+ * src/test/contrast.test.ts (WCAG 2.2 AA).
+ */
+
+:root,
+:root[data-theme='light'] {
+  color-scheme: light;
+  --ink: #151515;
+  --paper: #fafaf7;
+  --surface: #ffffff;
+  --surface-muted: #f1f0ea;
+  --muted: #5e5e5a;
+  --border: #dedcd4;
+  /* Form-control outlines need 3:1 (WCAG 1.4.11); the hairline border is decorative. */
+  --control-border: #86847c;
+  --saffron: #e8a317;
+  --on-saffron: #151515;
+  --danger: #c23b22;
+  /* Darkened from #2E7D4F for 4.5:1 on surface-muted. */
+  --success: #2b774b;
+  /* Darkened from #B26B00 for 4.5:1 on paper and surface-muted. */
+  --warning: #9a5c00;
+  --shadow-float: 0 8px 24px -8px rgb(21 21 21 / 0.18);
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --ink: #f2f1ec;
+  --paper: #121212;
+  --surface: #1c1c1b;
+  --surface-muted: #232322;
+  --muted: #a3a39e;
+  --border: #2e2e2c;
+  --control-border: #72716b;
+  --saffron: #f0b43a;
+  --on-saffron: #151515;
+  --danger: #e2614a;
+  --success: #4fb57d;
+  --warning: #e0a23a;
+  --shadow-float: 0 8px 24px -8px rgb(0 0 0 / 0.6);
+}

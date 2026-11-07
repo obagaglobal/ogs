@@ -1,3 +1,4 @@
+import { t } from '@/i18n';
 import { PASSWORD_MIN_LENGTH, registerRequestSchema } from '@ogs/contracts';
 import { useMutation } from '@tanstack/react-query';
 import { useState, type SubmitEvent } from 'react';
@@ -51,7 +52,7 @@ export function SignUpPage() {
   }
 
   return (
-    <AuthLayout title="Create your account" intro="One account for every way you use OGS.">
+    <AuthLayout title={t('auth.signUpTitle')} intro="One account for every way you use OGS." motif>
       <form onSubmit={submit} className="space-y-4" noValidate>
         {register.isError ? <Notice tone="error">{describeError(register.error)}</Notice> : null}
         <Field

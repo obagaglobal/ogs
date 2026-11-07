@@ -125,7 +125,9 @@ function ProviderReview() {
         <p className="text-sm text-muted-foreground">
           {company ? 'Provider company' : 'Individual provider'}
         </p>
-        <h1 className="text-2xl font-semibold tracking-tight">{data.displayName}</h1>
+        <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
+          {data.displayName}
+        </h1>
         <p className="text-sm text-muted-foreground">
           application {data.application.status.toLowerCase().replace('_', ' ')} · provider{' '}
           {data.status.toLowerCase().replace('_', ' ')} · applicant {data.applicantEmail}
@@ -292,7 +294,9 @@ function ProviderReview() {
 export function EligibilityPage() {
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Find eligible providers</h1>
+      <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
+        Find eligible providers
+      </h1>
       <ElevationGate>
         <EligibilitySearch />
       </ElevationGate>
@@ -359,7 +363,7 @@ function EligibilitySearch() {
                 onChange={(event) => {
                   setRegion(event.target.value);
                 }}
-                className="h-10 rounded-md border bg-background px-2 text-sm"
+                className="min-h-11 md:min-h-10 rounded-md border border-control-border bg-surface px-3 text-base text-ink hover:border-ink md:text-sm"
               >
                 {(regions.data ?? []).map((item) => (
                   <option key={item.code} value={item.code}>
@@ -434,7 +438,7 @@ function EligibilitySearch() {
 export function SkillsCataloguePage() {
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Skills</h1>
+      <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Skills</h1>
       <ElevationGate>
         <SkillsCatalogue />
       </ElevationGate>

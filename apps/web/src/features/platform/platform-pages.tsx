@@ -19,7 +19,7 @@ const TYPE_LABELS: Record<string, string> = {
 export function ApplicationQueuePage() {
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Applications</h1>
+      <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Applications</h1>
       <ElevationGate>
         <Queue />
       </ElevationGate>
@@ -53,7 +53,7 @@ function Queue() {
         onChange={(event) => {
           setStatus(event.target.value);
         }}
-        className="mb-4 h-9 rounded-md border bg-background px-2 text-sm"
+        className="mb-4 min-h-11 md:min-h-9 rounded-md border border-control-border bg-surface px-3 text-base text-ink hover:border-ink md:text-sm"
       >
         {['SUBMITTED', 'CHANGES_REQUESTED', 'APPROVED', 'REJECTED', 'DRAFT'].map((value) => (
           <option key={value} value={value}>
@@ -70,7 +70,7 @@ function Queue() {
         onChange={(event) => {
           setType(event.target.value);
         }}
-        className="mb-4 h-9 rounded-md border bg-background px-2 text-sm"
+        className="mb-4 min-h-11 md:min-h-9 rounded-md border border-control-border bg-surface px-3 text-base text-ink hover:border-ink md:text-sm"
       >
         {Object.entries(TYPE_LABELS).map(([value, label]) => (
           <option key={value} value={value}>
@@ -156,7 +156,9 @@ function Review() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{p.legalName}</h1>
+        <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
+          {p.legalName}
+        </h1>
         <p className="text-sm text-muted-foreground">
           {data.status.toLowerCase().replace('_', ' ')} · applicant {data.applicantEmail}
         </p>

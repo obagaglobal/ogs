@@ -39,6 +39,8 @@ Thumbs.db
 # Playwright
 apps/web/test-results/
 apps/web/playwright-report/
+apps/web/lighthouse-report/
+apps/web/.lighthouseci/
 
 # AI-agent skills installed by tools (e.g. the Prisma CLI's "agent skills"
 # offer): third-party agent instructions must never enter the repository.
@@ -46,3 +48,7 @@ apps/api/.claude/
 apps/api/.windsurf/
 apps/api/.agents/
 apps/api/skills-lock.json
+
+# Phase 6b: only the Linux (CI) screenshot baselines are committed.
+apps/web/e2e/__screenshots__/**/*-win32.png
+apps/web/e2e/__screenshots__/**/*-darwin.png
