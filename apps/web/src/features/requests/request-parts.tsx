@@ -213,23 +213,23 @@ export function PaymentsTable({
         <thead className="border-b border-border text-left font-display text-xs uppercase tracking-wider text-muted-foreground">
           <tr>
             <th className="py-2 pr-3 font-medium">{t('orders.col.when')}</th>
+            <th className="py-2 pr-3 text-right font-medium">{t('orders.col.amount')}</th>
             <th className="py-2 pr-3 font-medium">{t('orders.col.method')}</th>
-            <th className="py-2 pr-3 font-medium">{t('orders.col.reference')}</th>
-            <th className="py-2 text-right font-medium">{t('orders.col.amount')}</th>
+            <th className="py-2 font-medium">{t('orders.col.reference')}</th>
           </tr>
         </thead>
         <tbody>
           {payments.map((payment) => (
             <tr key={payment.id} className="border-b border-border last:border-b-0">
               <td className="py-2 pr-3">{formatWhen(payment.recordedAt)}</td>
+              <td className="py-2 pr-3 text-right">
+                <Money minor={payment.amountMinor} />
+              </td>
               <td className="py-2 pr-3">
                 {payment.method === 'MPESA_PAYBILL' ? 'M-Pesa' : 'Bank transfer'}
               </td>
-              <td className="py-2 pr-3">
+              <td className="py-2">
                 <Code>{payment.reference}</Code>
-              </td>
-              <td className="py-2 text-right">
-                <Money minor={payment.amountMinor} />
               </td>
             </tr>
           ))}

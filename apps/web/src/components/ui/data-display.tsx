@@ -30,12 +30,20 @@ export function StatTile({
   const numeric = typeof value === 'number' || (typeof value === 'object' && value !== null);
   return (
     <div
-      className={cn('rounded-md border bg-surface p-4', emphasis ? 'border-ink' : 'border-border')}
+      className={cn(
+        'min-w-0 rounded-md border bg-surface p-4',
+        emphasis ? 'border-ink' : 'border-border',
+      )}
     >
       <p className="font-display text-xs font-medium uppercase tracking-wider text-muted-foreground">
         {label}
       </p>
-      <p className={cn('mt-1 text-2xl text-ink', numeric ? 'tabular' : 'font-display font-medium')}>
+      <p
+        className={cn(
+          'mt-1 text-2xl text-ink [overflow-wrap:anywhere]',
+          numeric ? 'tabular' : 'font-display font-medium',
+        )}
+      >
         {value}
       </p>
       {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}

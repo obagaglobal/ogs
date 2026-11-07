@@ -4,13 +4,14 @@ import {
   customerState,
   DESIGN_PAGES,
   mockCatalogue,
+  prepareFixture,
   ready,
   THEMES,
   rememberTheme,
 } from './design-support';
 
 /**
- * Phase 6b screenshots: 9 pages × light/dark × 1440/360 px (36 images).
+ * Phase 6b screenshots: 13 pages × light/dark × 1440/360 px (52 images).
  * Baselines are per platform (…-linux.png from CI is the reference; Windows
  * and macOS images are local only and git-ignored). Animations are frozen by
  * Playwright; dynamic bits (the request form's date) are stable by design.
@@ -41,6 +42,7 @@ for (const page of DESIGN_PAGES) {
         await rememberTheme(context, theme);
         const tab = await context.newPage();
         await mockCatalogue(tab);
+        await prepareFixture(context, tab, page.fixture);
         await tab.goto(page.path);
         await ready(tab, page.ready);
         await expect(tab.locator('html')).toHaveAttribute('data-theme', theme);

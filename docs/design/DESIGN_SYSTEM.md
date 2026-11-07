@@ -109,7 +109,7 @@ Touch targets: buttons, inputs and selects are `min-h-11` (44 px) below `md`. Ch
 - **Breakpoints tested:** 360, 768, 1024 and 1440 px, with no horizontal scrolling.
 - **Accessibility target:** WCAG 2.2 AA.
 - **Checks:**
-  - axe on 9 pages in both themes (serious or critical fails);
+  - axe on 13 pages in both themes (serious or critical fails);
   - keyboard: skip link, dialog trap and restore;
   - focus ring visible;
   - 44 px targets at 360 px.
@@ -122,9 +122,11 @@ Touch targets: buttons, inputs and selects are `min-h-11` (44 px) below `md`. Ch
 | Contrast                  | `src/test/contrast.test.ts`                                         |
 | Fonts                     | `src/test/fonts.test.ts`                                            |
 | Components                | `src/components/ui/components.test.tsx`                             |
-| Screenshots (36)          | `e2e/visual.spec.ts` (9 pages × light/dark × 1440/360)              |
+| Screenshots (52)          | `e2e/visual.spec.ts` (13 pages × light/dark × 1440/360)             |
 | axe, keyboard, responsive | `e2e/a11y.spec.ts`                                                  |
 | Theme and motif           | `e2e/theme-motif.spec.ts`                                           |
 | Performance               | `lighthouserc.cjs`: `/services` mobile, performance ≥ 85, a11y ≥ 95 |
+
+**Fixture pages:** the four Phase 7 pages (request detail, quotation editor, orders, finance order) are answered entirely by `e2e/phase7-fixtures.ts`, including the session, the workspace and the staff elevation, so they need no real staff login and never depend on the dev database.
 
 **Screenshot baselines:** Linux images (from CI) are the reference and are committed under `apps/web/e2e/__screenshots__/`. Windows and macOS images are written locally for viewing and are git-ignored. CI writes any missing Linux baseline and uploads it as the `screenshot-baselines-linux` artifact, so it can be committed.

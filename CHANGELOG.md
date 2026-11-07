@@ -15,10 +15,19 @@ All notable changes to OGS. Phases are delivered as pull requests into `main`.
 - Public catalogue: motif header strip, "Karibu" hero, category cards, instant search, mono prices, and "Sign in to request".
 - `/design-system` reference page (development, and platform staff in production).
 - An i18n layer (`t()`), with "Karibu" and "Habari {name}" greetings.
-- Playwright design suites: 36 screenshots, axe in both themes, keyboard, responsive and touch-target checks, theme persistence and no-flash, motif rules.
+- Playwright design suites: 52 screenshots (13 pages), axe in both themes, keyboard, responsive and touch-target checks, theme persistence and no-flash, motif rules.
 - Lighthouse CI on `/services` (mobile): performance ≥ 85, accessibility ≥ 95.
 
 ### Changed
+
+- The Phase 7 screens are redesigned (plan §9):
+  - request form with an estimate card;
+  - requests list and staff queue as tables (cards on phones, newest first);
+  - request detail with a progress stepper and two columns;
+  - quotation view and editor;
+  - orders list, and the finance order page with stat tiles, a payment form, a payments table, billing terms and cancellation.
+
+  Labels, button names and behaviour are unchanged.
 
 - Every existing screen restyled, with no change to behaviour. The sign-in title is now "Karibu. Sign in to OGS", and signed-out visitors see "Sign in to request" on a service page.
 - Routes are code-split: the first load of `/services` dropped from a 606 kB single bundle to a 301 kB entry plus small route chunks.

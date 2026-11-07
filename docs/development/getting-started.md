@@ -145,7 +145,7 @@ To check the production build instead (as Lighthouse sees it): `pnpm --filter @o
 ### Design tests
 
 ```powershell
-pnpm --filter @ogs/web exec playwright test e2e/visual.spec.ts        # 36 screenshots
+pnpm --filter @ogs/web exec playwright test e2e/visual.spec.ts        # 52 screenshots
 pnpm --filter @ogs/web exec playwright test e2e/a11y.spec.ts          # axe, keyboard, responsive, touch targets
 pnpm --filter @ogs/web exec playwright test e2e/theme-motif.spec.ts   # theme persistence, no flash, motif rules
 pnpm --filter @ogs/web exec playwright show-report                    # after a failure: diffs side by side

@@ -5,6 +5,8 @@ import {
   customerState,
   DESIGN_PAGES,
   mockCatalogue,
+  prepareFixture,
+  type DesignPage,
   ready,
   settle,
   rememberTheme,
@@ -13,7 +15,7 @@ import {
 
 /**
  * Phase 6b accessibility (WCAG 2.2 AA):
- * - axe on the nine design pages in both themes; serious or critical fails;
+ * - axe on the thirteen design pages in both themes; serious or critical fails;
  * - keyboard: skip link first, focus-trapping dialog that restores focus;
  * - no horizontal scrolling at 360/768/1024/1440 px;
  * - 44 px touch targets for controls on a 360 px phone.
@@ -30,7 +32,12 @@ async function open(
   browser: Browser,
   path: string,
   signedIn: boolean,
-  options: { theme?: 'light' | 'dark'; width?: number; readyText?: string | RegExp } = {},
+  options: {
+    theme?: 'light' | 'dark';
+    width?: number;
+    readyText?: string | RegExp;
+    fixture?: DesignPage['fixture'];
+  } = {},
 ): Promise<Page> {
   const context = await browser.newContext({
     viewport: { width: options.width ?? 1280, height: 800 },
@@ -39,15 +46,16 @@ async function open(
   if (options.theme) await rememberTheme(context, options.theme);
   const page = await context.newPage();
   await mockCatalogue(page);
+  await prepareFixture(context, page, options.fixture);
   await page.goto(path);
   await (options.readyText === undefined ? settle(page) : ready(page, options.readyText));
   return page;
 }
 
-for (const { name, path, signedIn, ready: readyText } of DESIGN_PAGES) {
+for (const { name, path, signedIn, ready: readyText, fixture } of DESIGN_PAGES) {
   for (const theme of THEMES) {
     test(`axe: ${name} · ${theme}`, async ({ browser }) => {
-      const page = await open(browser, path, signedIn, { theme, readyText });
+      const page = await open(browser, path, signedIn, { theme, readyText, fixture });
       const results = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
         .analyze();
@@ -111,8 +119,8 @@ test('the focus ring is visible: ink outline plus saffron ring', async ({ browse
 
 for (const width of [360, 768, 1024, 1440]) {
   test(`responsive: no horizontal scrolling at ${String(width)} px`, async ({ browser }) => {
-    for (const { name, path, signedIn, ready: readyText } of DESIGN_PAGES) {
-      const page = await open(browser, path, signedIn, { width, readyText });
+    for (const { name, path, signedIn, ready: readyText, fixture } of DESIGN_PAGES) {
+      const page = await open(browser, path, signedIn, { width, readyText, fixture });
       const overflow = await page.evaluate(
         () => document.documentElement.scrollWidth - window.innerWidth,
       );
@@ -123,8 +131,8 @@ for (const width of [360, 768, 1024, 1440]) {
 }
 
 test('touch targets: controls are at least 44 px tall on a 360 px phone', async ({ browser }) => {
-  for (const { name, path, signedIn, ready: readyText } of DESIGN_PAGES) {
-    const page = await open(browser, path, signedIn, { width: 360, readyText });
+  for (const { name, path, signedIn, ready: readyText, fixture } of DESIGN_PAGES) {
+    const page = await open(browser, path, signedIn, { width: 360, readyText, fixture });
     const small = await page.evaluate(() =>
       [
         ...document.querySelectorAll<HTMLElement>(

@@ -829,7 +829,7 @@ function FinanceOrder() {
           <p className="text-sm text-muted-foreground">Cancelled: {order.cancelReason}</p>
         )}
       </div>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatTile label={t('orders.total')} value={<Money minor={order.totalMinor} />} />
         <StatTile label={t('orders.paid')} value={<Money minor={order.paidMinor} />} />
         <StatTile label={t('orders.balance')} value={<Money minor={balance} />} emphasis />

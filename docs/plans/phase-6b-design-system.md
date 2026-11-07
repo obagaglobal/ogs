@@ -167,3 +167,16 @@ The owner asked for the Phase 7 screens to get a full redesign, beyond the share
 ### 9.5 Delivery
 
 One more step on this branch, after the current work: Phase 7 customer screens → staff and finance screens → tests → docs (DESIGN_SYSTEM.md, delivery notes). Each part is committed when green, and the work stays within the one Phase 6b PR.
+
+### 9.6 Delivery notes (2026-11-07)
+
+- **Delivered as planned.** Both Phase 7 journeys pass with no selector changes.
+- **Unit-test wording change:** (`phase7.test.tsx`) the customer request status is now read from the page heading, because the progress stepper repeats "Quotation ready".
+- **Lists sort newest first** (`DataTable` gained `initialSort`). With pagination at 20 rows, a long queue would otherwise push new requests onto a later page, as it did in the dev database.
+- **Quotation editor:**
+  - "Remove last line" became a remove button on every line;
+  - validity is a select of 7, 14, 21, 30, 45 or 60 days, keeping a draft's own value if it is something else (the API still accepts 1–60).
+- **Finance order page:** stat tiles show two per row until `lg`, and amounts may wrap, so nothing overflows at 768 px beside the sidebar. In the payments table the amount is the second column, so it is visible on a 360 px phone.
+- **Tests:**
+  - four fixture pages added to the visual and axe suites, which now cover 13 pages and 52 screenshots;
+  - the ready-checks now consider only visible text, because phone card layouts are hidden at desktop widths.

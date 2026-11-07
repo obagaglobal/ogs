@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { expect, type Browser, type BrowserContext, type Page } from '@playwright/test';
+import { mockPhase7, phase7Storage, PHASE7_PATHS, type Phase7Fixture } from './phase7-fixtures';
 import { createOrganisation } from './support';
 
 /**
@@ -228,9 +229,11 @@ export interface DesignPage {
   signedIn: boolean;
   /** Text that proves the page has fully rendered (data included). */
   ready: string | RegExp;
+  /** Phase 7 pages answered entirely by API fixtures (phase7-fixtures.ts). */
+  fixture?: Phase7Fixture;
 }
 
-/** The nine pages of the visual and accessibility suites. */
+/** The thirteen pages of the visual and accessibility suites (§9 added four). */
 export const DESIGN_PAGES: DesignPage[] = [
   { name: 'catalogue', path: '/services', signedIn: false, ready: 'Home Wi-Fi setup' },
   {
@@ -256,12 +259,53 @@ export const DESIGN_PAGES: DesignPage[] = [
     ready: /Estimated total/,
   },
   { name: 'design-system', path: '/design-system', signedIn: true, ready: 'Kitenge motif' },
+  {
+    name: 'request-detail',
+    path: PHASE7_PATHS['customer-request'],
+    signedIn: false,
+    ready: 'Accept quotation',
+    fixture: 'customer-request',
+  },
+  {
+    name: 'quotation-editor',
+    path: PHASE7_PATHS['staff-request'],
+    signedIn: false,
+    ready: 'Issue quotation',
+    fixture: 'staff-request',
+  },
+  {
+    name: 'orders',
+    path: PHASE7_PATHS.orders,
+    signedIn: false,
+    ready: 'Mombasa Port Clinic',
+    fixture: 'orders',
+  },
+  {
+    name: 'finance-order',
+    path: PHASE7_PATHS['finance-order'],
+    signedIn: false,
+    ready: 'Record a payment',
+    fixture: 'finance-order',
+  },
 ];
+
+/** API fixtures and storage for a fixture page (call before navigating). */
+export async function prepareFixture(
+  context: BrowserContext,
+  page: Page,
+  fixture: Phase7Fixture | undefined,
+): Promise<void> {
+  if (fixture === undefined) return;
+  await phase7Storage(context, fixture);
+  await mockPhase7(page, fixture);
+}
 
 /** Waits for the page's own content, then for fonts and lazy chunks. */
 export async function ready(page: Page, text: string | RegExp): Promise<void> {
   // Under load a retried request can leave a short idle gap before the data
   // arrives, so a quiet network alone is not proof the page has rendered.
-  await expect(page.getByText(text).first()).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(text).filter({ visible: true }).first()).toBeVisible({
+    timeout: 20_000,
+  });
   await settle(page);
 }

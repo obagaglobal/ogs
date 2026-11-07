@@ -116,7 +116,9 @@ test('motif: only where allowed, in the expected numbers', async ({ browser }) =
     await page.goto(path);
     // Wait for the page's own content, not just a quiet network: under load a
     // retried request can leave a short idle gap before the content arrives.
-    await expect(page.getByText(ready).first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(ready).filter({ visible: true }).first()).toBeVisible({
+      timeout: 20_000,
+    });
     await settle(page);
     const found = await motifs(page);
     expect(found.count, `${path} motif count: ${found.where}`).toBe(count);
