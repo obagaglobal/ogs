@@ -200,4 +200,7 @@ Delivered as planned, with these refinements:
 - **Found while testing.**
   - Two Phase 7 integration tests were flaky against a long-lived test database. F1 used random fixture numbers that collided across runs; it now uses a per-run year and a sequence. F4 waited 45 s for an email inside a 30 s test timeout; it now has 120 s.
   - The web test set-up gained a `ResizeObserver` stub, which jsdom lacks and Radix radio groups need.
-  - The catalogue E8 rate-limit test failed once and then passed: its fixed one-minute window can roll over mid-test. It was not changed.
+  - The catalogue E8 rate-limit test could fail when its fixed one-minute window rolled over mid-test. `RateLimiter.useClock()` now lets the test pin the limiter's clock inside one window, far from real time. The test sends exactly the limit, expects the next request to get 429, and checks the exact retry time.
+- **Owner's follow-ups before merging.**
+  - The Linux screenshot baselines from CI (72 images, reviewed) are committed, so the visual suite now compares against them.
+  - Playwright runs one worker locally (`workers: 1`) so the full suite fits in a developer PC's memory. CI keeps the default.
