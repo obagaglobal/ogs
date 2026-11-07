@@ -1,6 +1,6 @@
 # Phase 6b Plan — "Kitenge signal" design system
 
-**Status:** APPROVED by the owner on 2026-11-06 ("Design phase approved"). The owner merged Phase 7 (PR #8) first, so this branch (`phase-6b/design-system`, from `main` @ `bbbea88`) restyles the Phase 7 screens too. Ships as one PR into `main`; not merged by the agent.
+**Status:** APPROVED by the owner on 2026-11-06 ("Design phase approved"). **§9 (Phase 7 screens) was added and approved by the owner on 2026-11-07.** The owner merged Phase 7 (PR #8) first, so this branch (`phase-6b/design-system`, from `main` @ `bbbea88`) restyles the Phase 7 screens too. Ships as one PR into `main`; not merged by the agent.
 
 **Based on:** the owner's design brief (visual direction "Kitenge signal"), spec section 18 (premium, minimalist, consistent, responsive, accessible, fast; blue and purple never dominant), ADR-022 (one accent colour) and ADR-024 (English first, i18n-ready).
 
@@ -121,3 +121,49 @@ Small steps, each committed when green: tokens and fonts → theme → primitive
   - table sort buttons are 44 px on phones.
 - **Screenshots:** Linux baselines come from the first CI run (artifact `screenshot-baselines-linux`) and are committed afterwards. Until then CI writes rather than compares them.
 - **i18n:** the shell, the auth layout, the dashboard, the public catalogue and every new component use `t()`. Older feature screens (team, organisation, provider, platform staff, requests) still hold English literals; converting them is mechanical and left for a follow-up.
+
+## 9. Scope addition: the Phase 7 screens (approved 2026-11-07)
+
+The owner asked for the Phase 7 screens to get a full redesign, beyond the shared restyle they already have:
+
+- **Already done:** new buttons, fields and cards; mono KES amounts; status badges with dots; a timeline for history; an empty state for the requests list.
+- **Not done yet:** proper layouts, tables, progress and phone-sized screens.
+
+### 9.1 Customer screens
+
+| Screen                                  | Changes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Request form** (`/requests/new`)      | Breadcrumb (Services › service › Request). The fields are grouped into two cards, "Where and when" and "About the job"; the county select uses the `Select` component. On large screens a sticky estimate card shows Subtotal, VAT 16% and Estimated total, mono and right-aligned; on phones it sits above the button. A quote-only service shows an info `Alert`. "Send request" becomes the screen's one `highlight` button.                                                        |
+| **Requests list** (`/requests`)         | A `DataTable` (Number in mono as the link, Service, Submitted, Status), sortable and paginated, which becomes stacked cards below `sm`. The empty state is unchanged.                                                                                                                                                                                                                                                                                                                  |
+| **Request detail** (`/requests/:id`)    | A page header with the number in mono and a status pill. A progress `Stepper` uses the customer labels: Submitted → Being reviewed → Quotation ready → Awaiting payment → Confirmed (a cancelled request shows Cancelled instead). On large screens, two columns: details and quotation on the left; order, payment instructions and actions on the right. "Accept quotation" is the `highlight` button, "Reject" is secondary and "Cancel request" is `danger`. History is unchanged. |
+| **Quotation view** (customer and staff) | A lines table on the shared table styling. Totals sit in a right-aligned mono block, with a stronger rule above the total. Validity is shown as a badge, turning `warning` within 48 hours of expiry. A status pill shows the quotation status, with the existing lowercase word ("issued", "accepted"…) kept as its label.                                                                                                                                                            |
+
+### 9.2 Staff and finance screens
+
+| Screen                                                            | Changes                                                                                                                                                                                                                                                                                                                                                                |
+| ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Request queue** (`/platform/requests`)                          | A `DataTable` (Number, Customer, Service, Submitted, Status). The status filter stays a `Select` labelled "Status".                                                                                                                                                                                                                                                    |
+| **Staff request and quotation editor** (`/platform/requests/:id`) | The decision buttons sit in a card. Each line is a table row on desktop and a stacked card on phones. Add and remove use ghost icon buttons with accessible names. A live totals panel shows the same text as today ("Subtotal KES … + VAT KES … = KES …") in mono. Validity uses a `Select`. "Issue quotation" is `highlight`; "Save draft" is secondary.             |
+| **Orders list** (`/platform/orders`)                              | A `DataTable` (Order, Customer, Total, Paid, Balance, Status), with mono, right-aligned numbers.                                                                                                                                                                                                                                                                       |
+| **Finance order page** (`/platform/orders/:id`)                   | Stat tiles for Total, Paid and Balance, with Balance emphasised. A "Record a payment" card: amount with a KES prefix, method `Select`, mono reference field, and "Record payment" as `highlight`. A payments table. "Organisation billing terms" in its own card, with the current terms shown as a badge. "Cancel the order" in a separate card with a danger border. |
+
+### 9.3 Rules for this addition
+
+- **Behaviour unchanged:** same fields, validation, API calls, idempotency keys and permissions. Only layout and presentation change.
+- **The Phase 7 journeys stay unchanged.** These names stay exactly as they are:
+  - field labels: Address, Contact phone, What do you need?, Status, "Line 1 unit price (KES)", "Line 1 quantity", Amount (KES), Reference;
+  - buttons: Send request, Start review, Accept at KES …, Needs a quotation, Save draft, Issue quotation, Accept quotation, Record payment;
+  - request numbers as link names, the request number in the page heading, the totals text, and the word "issued".
+- No new motif: these are signed-in work screens, and only the existing empty state carries it.
+- Strings added or changed on these screens go through `t()`. That converts them, which narrows the i18n limitation in §8.
+
+### 9.4 Tests for this addition
+
+- **Visual suite:** four more pages, request detail with an issued quotation, staff request with the quotation editor, the orders list and the finance order page. They use API fixtures (like the catalogue), so the screenshots are stable: 13 pages × light/dark × 1440/360 = **52 screenshots**.
+- **axe** in both themes, plus the no-horizontal-scroll and 44 px checks, also cover those four pages.
+- **Unit tests:** the existing Phase 7 tests (`phase7.test.tsx`) must keep passing. Any change of wording is listed in the delivery notes.
+- **Gates:** the `requests-journey.spec.ts` journeys, `pnpm check`, `pnpm test:integration` and Lighthouse on `/services` (unaffected: these screens are behind sign-in).
+
+### 9.5 Delivery
+
+One more step on this branch, after the current work: Phase 7 customer screens → staff and finance screens → tests → docs (DESIGN_SYSTEM.md, delivery notes). Each part is committed when green, and the work stays within the one Phase 6b PR.
