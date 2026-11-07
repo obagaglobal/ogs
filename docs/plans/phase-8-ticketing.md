@@ -186,3 +186,18 @@ One approval, two halves with no gate between them, one PR into `main`, then gre
 1. `pnpm infra:up`; ask the owner to run `pnpm db:reset:test` if the test database needs resetting (never run `migrate reset` from the agent).
 2. `pnpm check`, `pnpm test:integration` (T1–T8, RLS catalogue, isolation), `pnpm --filter @ogs/api build` then `pnpm test:e2e` (T9, visual, axe, motif).
 3. Manual run: as an org employee open a ticket with a PDF; as helpdesk elevate, take, add an internal note, reply; confirm the employee's view and email show only the reply; resolve, reopen, accept.
+
+## 9. Delivery notes (2026-11-07)
+
+Delivered as planned, with these refinements:
+
+- **Internal content beyond notes.** Hold reasons, priority changes, take/assign and note events are INTERNAL activity rows. Customers' RLS hides them, and their audit rows carry no tenant, so an organisation's own audit log never shows them. Staff reopen needs no reason, so its public activity row has nothing internal in it.
+- **Ticket emails carry no message or resolution text.** They link to the ticket instead, so no email can contain internal content by mistake.
+- **Attachments on the ticket itself.** Files sent with a new ticket sit on the ticket (no comment). An attachment is on the ticket, a public comment, or an internal note, never two. Staff uploads use `POST /platform/tickets/:id/files`: reply files belong to the customer, note files to the PLATFORM tenant. The service and a trigger both refuse a file owned by the wrong party.
+- **Permissions** are synced from `catalogue.json` at start-up as before; no migration grants them. `org_admin` holds every organisation permission, including the new two.
+- **Request on behalf** confirms on the same page ("Request REQ-… is in the queue") instead of opening the staff request page, which needs `platform.quotation.issue` that helpdesk staff do not have.
+- **T2 on the web (owner's requirement).** `tickets-journey.spec.ts` reads every customer route from `src/App.tsx` and visits each one as the requester, an org admin and a person after a canary note, internal file name and hold reason exist. It checks the page and every API response, then searches Mailpit for the canary. The API half (`tickets.int.test.ts` T2) enumerates customer routes from the Nest router.
+- **Found while testing.**
+  - Two Phase 7 integration tests were flaky against a long-lived test database. F1 used random fixture numbers that collided across runs; it now uses a per-run year and a sequence. F4 waited 45 s for an email inside a 30 s test timeout; it now has 120 s.
+  - The web test set-up gained a `ResizeObserver` stub, which jsdom lacks and Radix radio groups need.
+  - The catalogue E8 rate-limit test failed once and then passed: its fixed one-minute window can roll over mid-test. It was not changed.

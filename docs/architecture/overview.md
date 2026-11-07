@@ -380,7 +380,48 @@ Order: AWAITING_PAYMENT → PAID → READY_FOR_ASSIGNMENT (postpaid: READY at on
 
 **Proof.** `orders.int.test.ts` (F1–F9), the contracts money property tests, web component tests and the Playwright `requests-journey.spec.ts` (F10).
 
-## 12. Architecture decisions
+## 12. Tickets and the helpdesk (Phase 8)
+
+Planned in the [Phase 8 plan](../plans/phase-8-ticketing.md); decisions ADR-056 … ADR-062.
+
+**Ownership.** A ticket belongs to an organisation or a person, never both (ADR-009), and the same `app.owns_customer_row()` rule as Phase 7 applies. Inside an organisation, members see their own tickets. `ticket.read_department` adds tickets from the member's department, which is snapshotted on the ticket when it is opened. `ticket.read_all` (org admins) shows all of the organisation's tickets. RLS keeps the tenant boundary, and the service layer applies the member split (ADR-060).
+
+**Internal notes never reach customers (ADR-059).** This is enforced at every layer:
+
+- **Database.** `ticket_internal_note` is its own table, and its only RLS policy is `app.is_platform()`. Activity rows carry a `visibility`, and customers' RLS returns only `PUBLIC` rows. Note attachments are owned by the PLATFORM tenant, so a customer's file policies cannot reach them either.
+- **Audit.** Audit rows of internal staff commands have no tenant, so they never appear in an organisation's own audit log.
+- **API.** Customer responses are built only from public rows and parsed through `customerTicketSchema`, which has no internal field.
+- **Email.** Ticket emails never contain reply or note text.
+- **Proof.** `tickets.int.test.ts` T2 calls every customer GET route (enumerated from the router) as the requester, an org admin and a person, after a canary note exists. The Playwright journey visits every customer page in the route table, checking the page and every API response it loads.
+
+**Lifecycle.** `src/tickets/transitions.ts` is the single table of commands, from-states, actor, permission and activity visibility. Every command checks it, guards the change with status and `version`, and writes one `ticket_event`, an audit row and (for public changes) an outbox event. `protect_ticket` and the comment, note and attachment triggers are the second guard.
+
+```text
+NEW → OPEN (triage: priority + category) → IN_PROGRESS ⇄ AWAITING_CUSTOMER (customer reply returns it) / ON_HOLD
+any active state → RESOLVED → CLOSED (customer accepts, or automatically after 7 days)
+RESOLVED → IN_PROGRESS (customer reopen within 7 days, with a reason; staff reopen any time before CLOSED)
+any active state → CLOSED (customer withdraws, with a reason) · CLOSED is final
+```
+
+**Auto-close.** Resolving publishes a delayed `tickets.auto_close` event at `resolved_at + 7 days`. The worker's hourly `TicketAutoCloseSweeper` is the safety net, and `TicketAutoCloseService.close` is idempotent.
+
+**API.**
+
+| Method and path                                                                                                                                                              | Access                                                | Purpose                              |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------ |
+| `GET /tickets/categories`, `GET /tickets/linkable-orders`                                                                                                                    | signed in (workspace)                                 | Form data                            |
+| `POST /tickets` (Idempotency-Key), `GET /tickets`, `GET /tickets/:id`, `POST …/comments`, `…/reopen`, `…/accept-resolution`, `…/withdraw`, `GET …/attachments/:aid/download` | personal workspace, or organisation with `ticket.*`   | Customer tickets                     |
+| `GET /platform/tickets`, `GET /platform/tickets/:id`, `GET …/linkable-orders`, `GET …/attachments/:aid/download`, `GET /platform/ticket-assignees`                           | elevation + `ticket.read`                             | Queue and ticket                     |
+| `POST /platform/tickets/:id/{triage,start,await-customer,hold,resume,resolve,reopen,priority,category,link-order,take,comments,files}`                                       | elevation + `ticket.comment`                          | Helpdesk work                        |
+| `POST /platform/tickets/:id/notes`; `POST /platform/tickets/:id/assign`                                                                                                      | elevation + `ticket.internal_note`; + `ticket.assign` | Internal notes; assignment           |
+| `POST /platform/tickets` (Idempotency-Key), `GET /platform/customers?q=`, `GET /platform/customers/:tenantId/members`                                                        | elevation + `ticket.create`                           | Tickets on behalf (ADR-061)          |
+| `POST /platform/requests` (Idempotency-Key)                                                                                                                                  | elevation + `platform.request.on_behalf`              | Service requests on behalf (ADR-062) |
+
+**Web.** Customers use "Support" (`/support`): a list, a new-ticket form with urgency and attachments, and a ticket page with the conversation, a reply box, and reopen, accept and withdraw. Staff use "Tickets" (`/platform/tickets`): a queue with filters and counts, and a ticket workspace. In the workspace, internal notes are dashed, carry a lock and an "Internal" badge, and the composer's tab decides between "Send reply" and "Add internal note". Staff also have forms for tickets and requests on a customer's behalf.
+
+**Proof.** `tickets.int.test.ts` (T1–T8), `phase8.test.tsx` (component tests) and the Playwright `tickets-journey.spec.ts` (T9 and the web half of T2). The design suites (visual, axe, motif, touch targets) include the five ticket screens.
+
+## 13. Architecture decisions
 
 | ID  | Decision                                                                  | Status                    |
 | --- | ------------------------------------------------------------------------- | ------------------------- |
