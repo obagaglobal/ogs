@@ -54,6 +54,8 @@ const REDIS_TIMEOUT_MS = 1_000;
 export class RateLimiter implements OnModuleInit {
   private redis: Redis | undefined;
   private readonly prefix: string;
+  /** Milliseconds since the epoch. Replaceable so tests can pin the fixed window. */
+  private clock: () => number = Date.now;
 
   constructor(
     private readonly redisService: RedisService,
@@ -66,10 +68,22 @@ export class RateLimiter implements OnModuleInit {
     this.redis = this.redisService.createAppConnection('rate-limit');
   }
 
+  /**
+   * Test seam: run the limiter on a controlled clock (e.g. a fixed instant, so a
+   * burst of requests cannot straddle a window boundary). Returns a restore function.
+   */
+  useClock(clock: () => number): () => void {
+    this.clock = clock;
+    return () => {
+      this.clock = Date.now;
+    };
+  }
+
   /** Counts one attempt; throws RateLimitExceeded when over the limit. */
   async consume(name: RateLimitName, subject: string): Promise<void> {
     const rule: RateLimitRule = RATE_LIMITS[name];
-    const window = Math.floor(Date.now() / 1000 / rule.windowSeconds);
+    const now = this.clock();
+    const window = Math.floor(now / 1000 / rule.windowSeconds);
     const key = `${this.prefix}:${name}:${sha256Hex(subject)}:${String(window)}`;
     const redis = this.connection();
 
@@ -90,7 +104,7 @@ export class RateLimiter implements OnModuleInit {
 
     if (count > rule.limit) {
       const windowEnds = (window + 1) * rule.windowSeconds;
-      throw new RateLimitExceeded(Math.max(1, windowEnds - Math.floor(Date.now() / 1000)));
+      throw new RateLimitExceeded(Math.max(1, windowEnds - Math.floor(now / 1000)));
     }
   }
 
