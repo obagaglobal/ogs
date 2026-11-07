@@ -30,6 +30,7 @@ export function DataTable<Row>({
   empty,
   pageSize = 10,
   card,
+  initialSort,
 }: {
   columns: Column<Row>[];
   rows: readonly Row[] | undefined;
@@ -43,8 +44,12 @@ export function DataTable<Row>({
    * a table row (the table is hidden there, and the cards from `sm` up).
    */
   card?: (row: Row) => ReactNode;
+  /** Sort applied before the user picks one, e.g. newest first. */
+  initialSort?: { key: string; dir: 'asc' | 'desc' };
 }) {
-  const [sort, setSort] = useState<{ key: string; dir: 'asc' | 'desc' } | null>(null);
+  const [sort, setSort] = useState<{ key: string; dir: 'asc' | 'desc' } | null>(
+    initialSort ?? null,
+  );
   const [page, setPage] = useState(1);
 
   const sorted = useMemo(() => {

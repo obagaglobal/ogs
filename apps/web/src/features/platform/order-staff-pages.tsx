@@ -8,14 +8,23 @@ import {
   type ServiceRequestListResponse,
 } from '@ogs/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, type SubmitEvent } from 'react';
+import { Plus, Trash2 } from 'lucide-react';
+import { useId, useState, type SubmitEvent } from 'react';
 import { Link, useParams } from 'react-router';
-import { Money } from '@/components/ui/data-display';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, Field, Notice } from '@/components/ui/form-controls';
+import { Card } from '@/components/ui/card';
+import { Code, Money, StatTile } from '@/components/ui/data-display';
+import { DataTable, type Column } from '@/components/ui/data-table';
+import { Skeleton } from '@/components/ui/feedback';
+import { Field, Notice } from '@/components/ui/form-controls';
+import { FormField } from '@/components/ui/form-field';
+import { Input, Select } from '@/components/ui/input';
+import { Breadcrumbs } from '@/components/ui/navigation';
 import { minorToInput, parseKesToMinor } from '@/features/catalogue/catalogue-data';
 import {
   OrderSummary,
+  PaymentsTable,
   QuotationView,
   RequestFacts,
   StatusBadge,
@@ -24,10 +33,14 @@ import {
 import {
   formatWhen,
   idempotent,
+  orderTone,
   requestLabel,
+  termsLabel,
   useIdempotencyKey,
 } from '@/features/requests/requests-data';
+import { t } from '@/i18n';
 import { api, ApiError, describeError } from '@/lib/api';
+import { cn } from '@/lib/utils';
 import { ElevationGate } from './elevation-gate';
 import { ELEVATION_KEY, useElevated } from './elevation-state';
 
@@ -41,6 +54,9 @@ const REQUEST_STATUSES: Record<string, string> = {
   CANCELLED: 'Cancelled',
 };
 
+/** Quotation validity choices, in days (the API accepts 1–60). */
+const VALIDITY_DAYS = [7, 14, 21, 30, 45, 60];
+
 function forgetExpiredElevation(error: unknown) {
   if (error instanceof ApiError && error.code === 'elevation_required') {
     sessionStorage.removeItem(ELEVATION_KEY);
@@ -48,35 +64,44 @@ function forgetExpiredElevation(error: unknown) {
 }
 
 function StatusFilter({
-  id,
   value,
   options,
   onChange,
 }: {
-  id: string;
   value: string;
   options: Record<string, string>;
   onChange: (value: string) => void;
 }) {
+  const id = useId();
   return (
-    <div className="mb-3 flex items-center gap-2">
-      <label htmlFor={id} className="text-sm font-medium">
+    <div className="mb-4 flex items-center gap-3">
+      <label htmlFor={id} className="font-display text-sm font-medium">
         Status
       </label>
-      <select
+      <Select
         id={id}
         value={value}
+        className="w-auto min-w-48"
         onChange={(event) => {
           onChange(event.target.value);
         }}
-        className="min-h-11 md:min-h-9 rounded-md border border-control-border bg-surface px-3 text-base text-ink hover:border-ink md:text-sm"
       >
         {Object.entries(options).map(([key, text]) => (
           <option key={key} value={key}>
             {text}
           </option>
         ))}
-      </select>
+      </Select>
+    </div>
+  );
+}
+
+function DetailSkeleton() {
+  return (
+    <div className="space-y-4" aria-busy="true">
+      <Skeleton className="h-4 w-48" />
+      <Skeleton className="h-9 w-80 max-w-full" />
+      <Skeleton className="h-48 w-full" />
     </div>
   );
 }
@@ -122,6 +147,48 @@ export function StaffRequestsPage() {
   );
 }
 
+type QueueRow = ServiceRequestListResponse['requests'][number];
+
+const QUEUE_COLUMNS: Column<QueueRow>[] = [
+  {
+    key: 'number',
+    header: t('requests.col.number'),
+    cell: (request) => (
+      <Link
+        to={`/platform/requests/${request.id}`}
+        className="font-medium underline-offset-4 hover:underline"
+      >
+        <Code>{request.number}</Code>
+      </Link>
+    ),
+    sortValue: (request) => request.number,
+  },
+  {
+    key: 'customer',
+    header: t('requests.col.customer'),
+    cell: (request) => request.customerName ?? '—',
+    sortValue: (request) => request.customerName ?? '',
+  },
+  {
+    key: 'service',
+    header: t('requests.col.service'),
+    cell: (request) => request.service.name,
+    sortValue: (request) => request.service.name,
+  },
+  {
+    key: 'submitted',
+    header: t('requests.col.submitted'),
+    cell: (request) => formatWhen(request.createdAt),
+    sortValue: (request) => request.createdAt,
+  },
+  {
+    key: 'status',
+    header: t('requests.col.status'),
+    cell: (request) => <StatusBadge>{requestLabel(request, true)}</StatusBadge>,
+    sortValue: (request) => requestLabel(request, true),
+  },
+];
+
 function RequestQueue() {
   const { options } = useElevated();
   const [status, setStatus] = useState('SUBMITTED');
@@ -140,51 +207,46 @@ function RequestQueue() {
     forgetExpiredElevation(queue.error);
   }
   return (
-    <Card>
-      <StatusFilter
-        id="request-status"
-        value={status}
-        options={REQUEST_STATUSES}
-        onChange={setStatus}
-      />
+    <div>
+      <StatusFilter value={status} options={REQUEST_STATUSES} onChange={setStatus} />
       {queue.isError ? <Notice tone="error">{describeError(queue.error)}</Notice> : null}
-      <ul className="divide-y text-sm" aria-label="Request queue">
-        {(queue.data ?? []).map((request) => (
-          <li key={request.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-            <span>
+      <DataTable
+        caption="Request queue"
+        columns={QUEUE_COLUMNS}
+        rows={queue.data}
+        rowKey={(request) => request.id}
+        initialSort={{ key: 'submitted', dir: 'desc' }}
+        loading={queue.isLoading}
+        empty="Nothing here."
+        pageSize={20}
+        card={(request) => (
+          <div className="space-y-1">
+            <div className="flex items-start justify-between gap-3">
               <Link
                 to={`/platform/requests/${request.id}`}
                 className="font-medium underline-offset-4 hover:underline"
               >
-                {request.number}
-              </Link>{' '}
-              · {request.service.name} · {request.customerName ?? '—'}
-            </span>
-            <span className="flex items-center gap-2 text-muted-foreground">
-              {formatWhen(request.createdAt)}
+                <Code>{request.number}</Code>
+              </Link>
               <StatusBadge>{requestLabel(request, true)}</StatusBadge>
-            </span>
-          </li>
-        ))}
-        {queue.data?.length === 0 ? (
-          <li className="py-2 text-muted-foreground">Nothing here.</li>
-        ) : null}
-      </ul>
-    </Card>
+            </div>
+            <p className="text-sm">
+              {request.service.name} · {request.customerName ?? '—'}
+            </p>
+            <p className="text-xs text-muted-foreground">{formatWhen(request.createdAt)}</p>
+          </div>
+        )}
+      />
+    </div>
   );
 }
 
 /** /platform/requests/:id — decide, and write quotations. */
 export function StaffRequestPage() {
   return (
-    <div className="space-y-6">
-      <Link to="/platform/requests" className="text-sm underline-offset-4 hover:underline">
-        ← Requests
-      </Link>
-      <ElevationGate>
-        <StaffRequest />
-      </ElevationGate>
-    </div>
+    <ElevationGate>
+      <StaffRequest />
+    </ElevationGate>
   );
 }
 
@@ -207,89 +269,111 @@ function StaffRequest() {
     return <Notice tone="error">{describeError(detail.error)}</Notice>;
   }
   if (data === undefined) {
-    return <p className="text-sm text-muted-foreground">Loading…</p>;
+    return <DetailSkeleton />;
   }
   const quoting = data.status === 'AWAITING_QUOTATION' || data.status === 'QUOTATION_ISSUED';
   const fixedPrice = data.price.model === 'FIXED' || data.price.model === 'PER_UNIT';
   const preOrder = ['SUBMITTED', 'UNDER_REVIEW', 'AWAITING_QUOTATION', 'QUOTATION_ISSUED'].includes(
     data.status,
   );
+  const decisions = data.status === 'SUBMITTED' || data.status === 'UNDER_REVIEW';
   return (
     <div className="space-y-6">
-      <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
-        {data.number} <StatusBadge>{requestLabel(data, true)}</StatusBadge>
-      </h1>
-      {decide.isError ? <Notice tone="error">{describeError(decide.error)}</Notice> : null}
-      <Card>
-        <h2 className="mb-3 font-medium">Decision</h2>
-        <div className="flex flex-wrap gap-2">
-          {data.status === 'SUBMITTED' ? (
-            <Button
-              disabled={decide.isPending}
-              onClick={() => {
-                decide.mutate('review');
-              }}
-            >
-              Start review
-            </Button>
-          ) : null}
-          {data.status === 'UNDER_REVIEW' && fixedPrice ? (
-            <Button
-              disabled={decide.isPending}
-              onClick={() => {
-                decide.mutate('accept');
-              }}
-            >
-              Accept at {data.price.label}
-            </Button>
-          ) : null}
-          {data.status === 'UNDER_REVIEW' ? (
-            <Button
-              variant="outline"
-              disabled={decide.isPending}
-              onClick={() => {
-                decide.mutate('needs-quotation');
-              }}
-            >
-              Needs a quotation
-            </Button>
-          ) : null}
-        </div>
-        {preOrder ? (
-          <div className="mt-4 flex flex-wrap items-end gap-2">
-            <Field
-              label="Cancellation reason"
-              value={reason}
-              onChange={(event) => {
-                setReason(event.target.value);
-              }}
-            />
-            <Button
-              variant="destructive"
-              disabled={decide.isPending || reason.trim().length < 5}
-              onClick={() => {
-                decide.mutate('cancel');
-              }}
-            >
-              Cancel request
-            </Button>
-          </div>
-        ) : null}
-      </Card>
-      {quoting ? (
-        <QuotationEditor
-          key={data.quotations.find((q) => q.status === 'DRAFT')?.id ?? 'new'}
-          request={data}
+      <div className="space-y-2">
+        <Breadcrumbs
+          items={[{ label: t('requests.title'), to: '/platform/requests' }, { label: data.number }]}
         />
-      ) : null}
-      {data.quotations
-        .filter((q) => q.status !== 'DRAFT')
-        .map((quotation) => (
-          <QuotationView key={quotation.id} quotation={quotation} />
-        ))}
-      {data.order === null ? null : <OrderSummary order={data.order} />}
-      <RequestFacts request={data} />
-      <Timeline request={data} />
+        <h1 className="flex flex-wrap items-center gap-3 font-display text-2xl font-bold tracking-tight sm:text-3xl">
+          <span className="tabular">{data.number}</span>{' '}
+          <StatusBadge>{requestLabel(data, true)}</StatusBadge>
+        </h1>
+        <p className="text-muted-foreground">
+          {data.service.name} · <span className="tabular">{data.price.label}</span>
+        </p>
+      </div>
+      {decide.isError ? <Notice tone="error">{describeError(decide.error)}</Notice> : null}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
+        <div className="min-w-0 space-y-6">
+          {quoting ? (
+            <QuotationEditor
+              key={data.quotations.find((q) => q.status === 'DRAFT')?.id ?? 'new'}
+              request={data}
+            />
+          ) : null}
+          {data.quotations
+            .filter((q) => q.status !== 'DRAFT')
+            .map((quotation) => (
+              <QuotationView key={quotation.id} quotation={quotation} />
+            ))}
+          <RequestFacts request={data} />
+          <Timeline request={data} />
+        </div>
+        <div className="min-w-0 space-y-6 lg:sticky lg:top-20">
+          {decisions || preOrder ? (
+            <Card>
+              <h2 className="mb-4 font-display text-lg font-medium">{t('requests.decision')}</h2>
+              {decisions ? (
+                <div className="flex flex-wrap gap-2">
+                  {data.status === 'SUBMITTED' ? (
+                    <Button
+                      disabled={decide.isPending}
+                      onClick={() => {
+                        decide.mutate('review');
+                      }}
+                    >
+                      Start review
+                    </Button>
+                  ) : null}
+                  {data.status === 'UNDER_REVIEW' && fixedPrice ? (
+                    <Button
+                      variant="highlight"
+                      disabled={decide.isPending}
+                      onClick={() => {
+                        decide.mutate('accept');
+                      }}
+                    >
+                      Accept at {data.price.label}
+                    </Button>
+                  ) : null}
+                  {data.status === 'UNDER_REVIEW' ? (
+                    <Button
+                      variant="secondary"
+                      disabled={decide.isPending}
+                      onClick={() => {
+                        decide.mutate('needs-quotation');
+                      }}
+                    >
+                      Needs a quotation
+                    </Button>
+                  ) : null}
+                </div>
+              ) : null}
+              {preOrder ? (
+                <div className={cn('space-y-3', decisions && 'mt-4 border-t border-border pt-4')}>
+                  <Field
+                    label="Cancellation reason"
+                    hint="At least 5 characters; the customer sees it"
+                    value={reason}
+                    onChange={(event) => {
+                      setReason(event.target.value);
+                    }}
+                  />
+                  <Button
+                    variant="danger"
+                    disabled={decide.isPending || reason.trim().length < 5}
+                    onClick={() => {
+                      decide.mutate('cancel');
+                    }}
+                  >
+                    Cancel request
+                  </Button>
+                </div>
+              ) : null}
+            </Card>
+          ) : null}
+          {data.order === null ? null : <OrderSummary order={data.order} />}
+        </div>
+      </div>
     </div>
   );
 }
@@ -348,110 +432,160 @@ function QuotationEditor({ request }: { request: ServiceRequest }) {
   const update = (index: number, key: keyof LineDraft, value: string) => {
     setLines(lines.map((line, i) => (i === index ? { ...line, [key]: value } : line)));
   };
+  // Keep the draft's own validity selectable even if it is not a preset.
+  const validityOptions = VALIDITY_DAYS.includes(Number.parseInt(validDays, 10))
+    ? VALIDITY_DAYS
+    : [...VALIDITY_DAYS, Number.parseInt(validDays, 10)].sort((a, b) => a - b);
   return (
-    <Card>
-      <h2 className="mb-1 font-medium">
-        {draft === undefined ? 'New quotation' : `Draft ${draft.number}`}
-      </h2>
-      <p className="mb-3 text-sm text-muted-foreground">
-        Amounts exclude VAT; 16% VAT is added per line.
-      </p>
+    <Card emphasis>
+      <div className="mb-4 space-y-1">
+        <h2 className="font-display text-lg font-medium">
+          {draft === undefined ? (
+            'New quotation'
+          ) : (
+            <>
+              Draft <Code>{draft.number}</Code>
+            </>
+          )}
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Amounts exclude VAT; 16% VAT is added per line.
+        </p>
+      </div>
       {save.isError ? <Notice tone="error">{describeError(save.error)}</Notice> : null}
       {issue.isError ? <Notice tone="error">{describeError(issue.error)}</Notice> : null}
       <form
-        className="space-y-3"
+        className="space-y-5"
         onSubmit={(event: SubmitEvent<HTMLFormElement>) => {
           event.preventDefault();
           save.mutate(undefined);
         }}
       >
-        {lines.map((line, index) => (
-          <fieldset key={index} className="grid grid-cols-1 gap-2 sm:grid-cols-6">
-            <legend className="sr-only">Line {index + 1}</legend>
-            <div className="sm:col-span-3">
-              <Field
-                label={`Line ${String(index + 1)} description`}
-                value={line.description}
-                onChange={(event) => {
-                  update(index, 'description', event.target.value);
-                }}
-              />
-            </div>
-            <Field
-              label={`Line ${String(index + 1)} quantity`}
-              inputMode="numeric"
-              value={line.quantity}
-              onChange={(event) => {
-                update(index, 'quantity', event.target.value);
-              }}
-            />
-            <div className="sm:col-span-2">
-              <Field
-                label={`Line ${String(index + 1)} unit price (KES)`}
-                inputMode="decimal"
-                value={line.amount}
-                onChange={(event) => {
-                  update(index, 'amount', event.target.value);
-                }}
-              />
-            </div>
-          </fieldset>
-        ))}
-        <div className="flex flex-wrap gap-2">
+        <div>
+          {/* Column headings from sm up; each line repeats its labels on phones. */}
+          <div
+            aria-hidden="true"
+            className="hidden gap-3 border-b border-border pb-2 font-display text-xs font-medium uppercase tracking-wider text-muted-foreground sm:grid sm:grid-cols-[minmax(0,1fr)_6rem_9rem_2.75rem]"
+          >
+            <span>Item</span>
+            <span>Qty</span>
+            <span>Unit price (KES)</span>
+            <span />
+          </div>
+          {lines.map((line, index) => {
+            const n = String(index + 1);
+            return (
+              <fieldset
+                key={index}
+                className="grid grid-cols-2 gap-3 border-b border-border py-3 sm:grid-cols-[minmax(0,1fr)_6rem_9rem_2.75rem] sm:items-start"
+              >
+                <legend className="sr-only">Line {n}</legend>
+                <LineInput
+                  className="col-span-2 sm:col-span-1"
+                  label={`Line ${n} description`}
+                  value={line.description}
+                  onChange={(value) => {
+                    update(index, 'description', value);
+                  }}
+                />
+                <LineInput
+                  label={`Line ${n} quantity`}
+                  inputMode="numeric"
+                  mono
+                  value={line.quantity}
+                  onChange={(value) => {
+                    update(index, 'quantity', value);
+                  }}
+                />
+                <LineInput
+                  label={`Line ${n} unit price (KES)`}
+                  inputMode="decimal"
+                  mono
+                  value={line.amount}
+                  onChange={(value) => {
+                    update(index, 'amount', value);
+                  }}
+                />
+                <div className="col-span-2 flex justify-end sm:col-span-1">
+                  {lines.length > 1 ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={t('quotation.removeLine', { n })}
+                      title={t('quotation.removeLine', { n })}
+                      onClick={() => {
+                        setLines(lines.filter((_, i) => i !== index));
+                      }}
+                    >
+                      <Trash2 aria-hidden="true" />
+                    </Button>
+                  ) : null}
+                </div>
+              </fieldset>
+            );
+          })}
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
             size="sm"
+            className="mt-2"
             onClick={() => {
               setLines([...lines, { description: '', quantity: '1', amount: '' }]);
             }}
           >
-            Add line
+            <Plus aria-hidden="true" />
+            {t('quotation.addLine')}
           </Button>
-          {lines.length > 1 ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setLines(lines.slice(0, -1));
-              }}
-            >
-              Remove last line
-            </Button>
-          ) : null}
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-[12rem_minmax(0,1fr)]">
+          <FormField label="Valid for">
+            {(ids) => (
+              <Select
+                {...ids}
+                value={validDays}
+                onChange={(event) => {
+                  setValidDays(event.target.value);
+                }}
+              >
+                {validityOptions.map((days) => (
+                  <option key={days} value={String(days)}>
+                    {days} days
+                  </option>
+                ))}
+              </Select>
+            )}
+          </FormField>
           <Field
-            label="Valid for (days)"
-            inputMode="numeric"
-            value={validDays}
+            label="Notes for the customer"
+            value={notes}
             onChange={(event) => {
-              setValidDays(event.target.value);
+              setNotes(event.target.value);
             }}
           />
-          <div className="sm:col-span-2">
-            <Field
-              label="Notes for the customer"
-              value={notes}
-              onChange={(event) => {
-                setNotes(event.target.value);
-              }}
-            />
-          </div>
         </div>
-        <p className={totals === null ? 'text-sm' : 'tabular text-sm'} aria-live="polite">
-          {totals === null
-            ? 'Complete every line to see the totals.'
-            : `Subtotal ${formatKes(totals.subtotalMinor)} + VAT ${formatKes(totals.vatMinor)} = ${formatKes(totals.totalMinor)}`}
-        </p>
+        <div
+          className="rounded-md border border-border bg-surface-muted px-4 py-3"
+          aria-label={t('quotation.totals')}
+          role="group"
+        >
+          <p
+            className={cn('text-sm', totals !== null && 'tabular text-base text-ink')}
+            aria-live="polite"
+          >
+            {totals === null
+              ? 'Complete every line to see the totals.'
+              : `Subtotal ${formatKes(totals.subtotalMinor)} + VAT ${formatKes(totals.vatMinor)} = ${formatKes(totals.totalMinor)}`}
+          </p>
+        </div>
         <div className="flex flex-wrap gap-2">
-          <Button type="submit" variant="outline" disabled={save.isPending || !valid}>
+          <Button type="submit" variant="secondary" disabled={save.isPending || !valid}>
             Save draft
           </Button>
           {draft === undefined ? null : (
             <Button
               type="button"
+              variant="highlight"
               disabled={issue.isPending || save.isPending}
               onClick={() => {
                 issue.mutate(undefined);
@@ -463,6 +597,41 @@ function QuotationEditor({ request }: { request: ServiceRequest }) {
         </div>
       </form>
     </Card>
+  );
+}
+
+/** A quotation-line input: labelled on phones, column headings label it from sm up. */
+function LineInput({
+  label,
+  value,
+  onChange,
+  inputMode,
+  mono = false,
+  className,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  inputMode?: 'numeric' | 'decimal';
+  mono?: boolean;
+  className?: string;
+}) {
+  const id = useId();
+  return (
+    <div className={cn('space-y-1.5', className)}>
+      <label htmlFor={id} className="block font-display text-sm font-medium sm:sr-only">
+        {label}
+      </label>
+      <Input
+        id={id}
+        value={value}
+        {...(inputMode ? { inputMode } : {})}
+        className={cn(mono && 'tabular')}
+        onChange={(event) => {
+          onChange(event.target.value);
+        }}
+      />
+    </div>
   );
 }
 
@@ -485,13 +654,71 @@ interface OrderRow {
 export function OrdersPage() {
   return (
     <div className="space-y-6">
-      <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Orders</h1>
+      <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
+        {t('orders.title')}
+      </h1>
       <ElevationGate>
         <OrderList />
       </ElevationGate>
     </div>
   );
 }
+
+const ORDER_COLUMNS: Column<OrderRow>[] = [
+  {
+    key: 'order',
+    header: t('orders.col.order'),
+    cell: (order) => (
+      <Link
+        to={`/platform/orders/${order.id}`}
+        className="font-medium underline-offset-4 hover:underline"
+      >
+        <Code>{order.number}</Code>
+      </Link>
+    ),
+    sortValue: (order) => order.number,
+  },
+  {
+    key: 'customer',
+    header: t('requests.col.customer'),
+    cell: (order) => (
+      <span>
+        {order.customerName ?? '—'}
+        <span className="block text-xs text-muted-foreground">{order.serviceName}</span>
+      </span>
+    ),
+    sortValue: (order) => order.customerName ?? '',
+  },
+  {
+    key: 'total',
+    header: t('orders.col.total'),
+    cell: (order) => <Money minor={order.totalMinor} />,
+    sortValue: (order) => order.totalMinor,
+    numeric: true,
+  },
+  {
+    key: 'paid',
+    header: t('orders.col.paid'),
+    cell: (order) => <Money minor={order.paidMinor} />,
+    sortValue: (order) => order.paidMinor,
+    numeric: true,
+  },
+  {
+    key: 'balance',
+    header: t('orders.col.balance'),
+    cell: (order) => <Money minor={order.totalMinor - order.paidMinor} />,
+    sortValue: (order) => order.totalMinor - order.paidMinor,
+    numeric: true,
+  },
+  {
+    key: 'status',
+    header: t('requests.col.status'),
+    cell: (order) => (
+      <StatusBadge tone={orderTone(order.status)}>{ORDER_STATUS_LABELS[order.status]}</StatusBadge>
+    ),
+    sortValue: (order) => ORDER_STATUS_LABELS[order.status],
+  },
+];
 
 function OrderList() {
   const { options } = useElevated();
@@ -511,51 +738,54 @@ function OrderList() {
     forgetExpiredElevation(orders.error);
   }
   return (
-    <Card>
+    <div>
       <StatusFilter
-        id="order-status"
         value={status}
         options={{ '': 'All', ...ORDER_STATUS_LABELS }}
         onChange={setStatus}
       />
       {orders.isError ? <Notice tone="error">{describeError(orders.error)}</Notice> : null}
-      <ul className="divide-y text-sm" aria-label="Orders">
-        {(orders.data ?? []).map((order) => (
-          <li key={order.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-            <span>
+      <DataTable
+        caption={t('orders.title')}
+        columns={ORDER_COLUMNS}
+        rows={orders.data}
+        rowKey={(order) => order.id}
+        initialSort={{ key: 'order', dir: 'desc' }}
+        loading={orders.isLoading}
+        empty="Nothing here."
+        pageSize={20}
+        card={(order) => (
+          <div className="space-y-1">
+            <div className="flex items-start justify-between gap-3">
               <Link
                 to={`/platform/orders/${order.id}`}
                 className="font-medium underline-offset-4 hover:underline"
               >
-                {order.number}
-              </Link>{' '}
-              · {order.serviceName} · {order.customerName ?? '—'}
-            </span>
-            <span className="flex items-center gap-2 text-muted-foreground">
+                <Code>{order.number}</Code>
+              </Link>
+              <StatusBadge tone={orderTone(order.status)}>
+                {ORDER_STATUS_LABELS[order.status]}
+              </StatusBadge>
+            </div>
+            <p className="text-sm">
+              {order.customerName ?? '—'} · {order.serviceName}
+            </p>
+            <p className="text-sm">
               <Money minor={order.paidMinor} /> of <Money minor={order.totalMinor} />
-              <StatusBadge>{ORDER_STATUS_LABELS[order.status]}</StatusBadge>
-            </span>
-          </li>
-        ))}
-        {orders.data?.length === 0 ? (
-          <li className="py-2 text-muted-foreground">Nothing here.</li>
-        ) : null}
-      </ul>
-    </Card>
+            </p>
+          </div>
+        )}
+      />
+    </div>
   );
 }
 
 /** /platform/orders/:id — record payments, cancel, billing terms. */
 export function OrderPage() {
   return (
-    <div className="space-y-6">
-      <Link to="/platform/orders" className="text-sm underline-offset-4 hover:underline">
-        ← Orders
-      </Link>
-      <ElevationGate>
-        <FinanceOrder />
-      </ElevationGate>
-    </div>
+    <ElevationGate>
+      <FinanceOrder />
+    </ElevationGate>
   );
 }
 
@@ -573,31 +803,60 @@ function FinanceOrder() {
   }
   const data = detail.data;
   if (data === undefined || data.order === null) {
-    return <p className="text-sm text-muted-foreground">Loading…</p>;
+    return <DetailSkeleton />;
   }
+  const order = data.order;
+  const balance = order.totalMinor - order.paidMinor;
   return (
     <div className="space-y-6">
-      <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
-        {data.order.number}{' '}
-        <span className="text-base font-normal text-muted-foreground">for {data.number}</span>
-      </h1>
-      <OrderSummary order={data.order} />
-      {data.order.status === 'AWAITING_PAYMENT' ? (
-        <PaymentForm
-          orderId={data.order.id}
-          balance={data.order.totalMinor - data.order.paidMinor}
+      <div className="space-y-2">
+        <Breadcrumbs
+          items={[{ label: t('orders.title'), to: '/platform/orders' }, { label: order.number }]}
         />
-      ) : null}
-      {data.order.status !== 'CANCELLED' ? (
-        <CancelOrder
-          orderId={data.order.id}
-          version={data.order.version}
-          paid={data.order.paidMinor > 0}
-        />
-      ) : null}
-      {data.customerTenantId === null ? null : <BillingTerms tenantId={data.customerTenantId} />}
-      <RequestFacts request={data} />
-      <Timeline request={data} />
+        <h1 className="flex flex-wrap items-center gap-3 font-display text-2xl font-bold tracking-tight sm:text-3xl">
+          <span className="tabular">{order.number}</span>{' '}
+          <StatusBadge tone={orderTone(order.status)}>
+            {ORDER_STATUS_LABELS[order.status]}
+          </StatusBadge>
+        </h1>
+        <p className="text-muted-foreground">
+          for <Code>{data.number}</Code> · {data.service.name} · {termsLabel(order)}
+        </p>
+        {order.refundDue ? (
+          <p className="text-sm text-danger">Refund due: OGS finance will contact the customer.</p>
+        ) : null}
+        {order.cancelReason === null ? null : (
+          <p className="text-sm text-muted-foreground">Cancelled: {order.cancelReason}</p>
+        )}
+      </div>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <StatTile label={t('orders.total')} value={<Money minor={order.totalMinor} />} />
+        <StatTile label={t('orders.paid')} value={<Money minor={order.paidMinor} />} />
+        <StatTile label={t('orders.balance')} value={<Money minor={balance} />} emphasis />
+      </div>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
+        <div className="min-w-0 space-y-6">
+          {order.status === 'AWAITING_PAYMENT' ? (
+            <PaymentForm orderId={order.id} balance={balance} />
+          ) : null}
+          {order.payments.length > 0 ? (
+            <Card>
+              <h2 className="mb-3 font-display text-lg font-medium">{t('orders.payments')}</h2>
+              <PaymentsTable payments={order.payments} />
+            </Card>
+          ) : null}
+          <RequestFacts request={data} />
+          <Timeline request={data} />
+        </div>
+        <div className="min-w-0 space-y-6">
+          {data.customerTenantId === null ? null : (
+            <BillingTerms tenantId={data.customerTenantId} />
+          )}
+          {order.status !== 'CANCELLED' ? (
+            <CancelOrder orderId={order.id} version={order.version} paid={order.paidMinor > 0} />
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }
@@ -614,11 +873,14 @@ function PaymentForm({ orderId, balance }: { orderId: string; balance: number })
     headers: idempotent(idempotency.key()),
   }));
   return (
-    <Card>
-      <h2 className="mb-3 font-medium">Record a payment</h2>
+    <Card emphasis>
+      <h2 className="mb-1 font-display text-lg font-medium">Record a payment</h2>
+      <p className="mb-4 text-sm text-muted-foreground">
+        Balance due: <Money minor={balance} />
+      </p>
       {record.isError ? <Notice tone="error">{describeError(record.error)}</Notice> : null}
       <form
-        className="grid grid-cols-1 gap-3 sm:grid-cols-4"
+        className="grid grid-cols-1 gap-4 sm:grid-cols-2"
         onSubmit={(event: SubmitEvent<HTMLFormElement>) => {
           event.preventDefault();
           record.mutate(undefined, {
@@ -629,44 +891,63 @@ function PaymentForm({ orderId, balance }: { orderId: string; balance: number })
           });
         }}
       >
-        <Field
+        <FormField
           label="Amount (KES)"
-          inputMode="decimal"
-          value={amount}
           error={
             amount !== '' && amountMinor === null ? 'Use a number like 4060 or 4060.50' : undefined
           }
-          onChange={(event) => {
-            setAmount(event.target.value);
-          }}
-        />
-        <div className="space-y-1.5">
-          <label htmlFor="payment-method" className="text-sm font-medium">
-            Method
-          </label>
-          <select
-            id="payment-method"
-            value={method}
-            onChange={(event) => {
-              setMethod(event.target.value);
-            }}
-            className="min-h-11 md:min-h-10 w-full rounded-md border border-control-border bg-surface px-3 text-base text-ink hover:border-ink md:text-sm"
-          >
-            <option value="MPESA_PAYBILL">M-Pesa paybill</option>
-            <option value="BANK_TRANSFER">Bank transfer</option>
-          </select>
-        </div>
-        <Field
-          label="Reference"
-          hint="M-Pesa code or bank reference"
-          value={reference}
-          onChange={(event) => {
-            setReference(event.target.value);
-          }}
-        />
-        <div className="flex items-end">
+        >
+          {(ids) => (
+            <div className="relative">
+              <span
+                aria-hidden="true"
+                className="tabular pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm text-muted-foreground"
+              >
+                KES
+              </span>
+              <Input
+                {...ids}
+                inputMode="decimal"
+                value={amount}
+                className="tabular pl-12"
+                onChange={(event) => {
+                  setAmount(event.target.value);
+                }}
+              />
+            </div>
+          )}
+        </FormField>
+        <FormField label="Method">
+          {(ids) => (
+            <Select
+              {...ids}
+              value={method}
+              onChange={(event) => {
+                setMethod(event.target.value);
+              }}
+            >
+              <option value="MPESA_PAYBILL">M-Pesa paybill</option>
+              <option value="BANK_TRANSFER">Bank transfer</option>
+            </Select>
+          )}
+        </FormField>
+        <FormField label="Reference" help="M-Pesa code or bank reference" className="sm:col-span-2">
+          {(ids) => (
+            <Input
+              {...ids}
+              value={reference}
+              className="tabular sm:max-w-xs"
+              autoComplete="off"
+              onChange={(event) => {
+                setReference(event.target.value);
+              }}
+            />
+          )}
+        </FormField>
+        <div className="sm:col-span-2">
           <Button
             type="submit"
+            variant="highlight"
             disabled={
               record.isPending ||
               amountMinor === null ||
@@ -697,24 +978,25 @@ function CancelOrder({
     body: { version, reason },
   }));
   return (
-    <Card>
-      <h2 className="mb-1 font-medium">Cancel the order</h2>
-      {paid ? (
-        <p className="mb-2 text-sm text-muted-foreground">
-          Payments were made: the order will be marked "refund due".
-        </p>
-      ) : null}
+    <Card className="border-danger">
+      <h2 className="mb-1 font-display text-lg font-medium">Cancel the order</h2>
+      <p className="mb-4 text-sm text-muted-foreground">
+        {paid
+          ? 'Payments were made: the order will be marked "refund due".'
+          : 'The customer is told by email.'}
+      </p>
       {cancel.isError ? <Notice tone="error">{describeError(cancel.error)}</Notice> : null}
-      <div className="flex flex-wrap items-end gap-2">
+      <div className="space-y-3">
         <Field
           label="Reason"
+          hint="At least 5 characters"
           value={reason}
           onChange={(event) => {
             setReason(event.target.value);
           }}
         />
         <Button
-          variant="destructive"
+          variant="danger"
           disabled={cancel.isPending || reason.trim().length < 5}
           onClick={() => {
             cancel.mutate(undefined);
@@ -755,29 +1037,30 @@ function BillingTerms({ tenantId }: { tenantId: string }) {
   });
   return (
     <Card>
-      <h2 className="mb-1 font-medium">Organisation billing terms</h2>
-      <p className="mb-3 text-sm text-muted-foreground">
+      <div className="mb-1 flex flex-wrap items-start justify-between gap-2">
+        <h2 className="font-display text-lg font-medium">Organisation billing terms</h2>
+        {current === undefined ? null : <Badge>{termsLabel(current)}</Badge>}
+      </div>
+      <p className="mb-4 text-sm text-muted-foreground">
         Applies to new orders only; existing orders keep their terms.
       </p>
       {save.isError ? <Notice tone="error">{describeError(save.error)}</Notice> : null}
       {save.isSuccess ? <Notice tone="success">Billing terms saved.</Notice> : null}
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="space-y-1.5">
-          <label htmlFor="billing-terms" className="text-sm font-medium">
-            Terms
-          </label>
-          <select
-            id="billing-terms"
-            value={chosen}
-            onChange={(event) => {
-              setTerms(event.target.value);
-            }}
-            className="min-h-11 md:min-h-10 rounded-md border border-control-border bg-surface px-3 text-base text-ink hover:border-ink md:text-sm"
-          >
-            <option value="PREPAY">Prepay</option>
-            <option value="POSTPAID">Postpaid (invoice)</option>
-          </select>
-        </div>
+      <div className="space-y-3">
+        <FormField label="Terms">
+          {(ids) => (
+            <Select
+              {...ids}
+              value={chosen}
+              onChange={(event) => {
+                setTerms(event.target.value);
+              }}
+            >
+              <option value="PREPAY">Prepay</option>
+              <option value="POSTPAID">Postpaid (invoice)</option>
+            </Select>
+          )}
+        </FormField>
         {chosen === 'POSTPAID' ? (
           <Field
             label="Net days"
@@ -789,7 +1072,7 @@ function BillingTerms({ tenantId }: { tenantId: string }) {
           />
         ) : null}
         <Button
-          variant="outline"
+          variant="secondary"
           disabled={save.isPending}
           onClick={() => {
             save.mutate();

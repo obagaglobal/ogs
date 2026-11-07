@@ -348,6 +348,7 @@ export function RequestsPage() {
           columns={REQUEST_COLUMNS}
           rows={requests.data}
           rowKey={(request) => request.id}
+          initialSort={{ key: 'submitted', dir: 'desc' }}
           loading={requests.isLoading}
           card={(request) => (
             <div className="space-y-1">
