@@ -226,17 +226,42 @@ export interface DesignPage {
   name: string;
   path: string;
   signedIn: boolean;
+  /** Text that proves the page has fully rendered (data included). */
+  ready: string | RegExp;
 }
 
 /** The nine pages of the visual and accessibility suites. */
 export const DESIGN_PAGES: DesignPage[] = [
-  { name: 'catalogue', path: '/services', signedIn: false },
-  { name: 'category', path: '/services/c/networks', signedIn: false },
-  { name: 'service', path: '/services/home-wifi-setup', signedIn: false },
-  { name: 'sign-in', path: '/sign-in', signedIn: false },
-  { name: 'sign-up', path: '/sign-up', signedIn: false },
-  { name: 'dashboard', path: '/', signedIn: true },
-  { name: 'requests-empty', path: '/requests', signedIn: true },
-  { name: 'request-form', path: '/requests/new?service=home-wifi-setup', signedIn: true },
-  { name: 'design-system', path: '/design-system', signedIn: true },
+  { name: 'catalogue', path: '/services', signedIn: false, ready: 'Home Wi-Fi setup' },
+  {
+    name: 'category',
+    path: '/services/c/networks',
+    signedIn: false,
+    ready: 'Office network installation',
+  },
+  {
+    name: 'service',
+    path: '/services/home-wifi-setup',
+    signedIn: false,
+    ready: 'Sign in to request',
+  },
+  { name: 'sign-in', path: '/sign-in', signedIn: false, ready: 'Forgot password?' },
+  { name: 'sign-up', path: '/sign-up', signedIn: false, ready: 'Create account' },
+  { name: 'dashboard', path: '/', signedIn: true, ready: 'Get things done' },
+  { name: 'requests-empty', path: '/requests', signedIn: true, ready: 'No requests yet' },
+  {
+    name: 'request-form',
+    path: '/requests/new?service=home-wifi-setup',
+    signedIn: true,
+    ready: /Estimated total/,
+  },
+  { name: 'design-system', path: '/design-system', signedIn: true, ready: 'Kitenge motif' },
 ];
+
+/** Waits for the page's own content, then for fonts and lazy chunks. */
+export async function ready(page: Page, text: string | RegExp): Promise<void> {
+  // Under load a retried request can leave a short idle gap before the data
+  // arrives, so a quiet network alone is not proof the page has rendered.
+  await expect(page.getByText(text).first()).toBeVisible({ timeout: 20_000 });
+  await settle(page);
+}

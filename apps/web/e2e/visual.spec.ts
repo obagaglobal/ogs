@@ -4,7 +4,7 @@ import {
   customerState,
   DESIGN_PAGES,
   mockCatalogue,
-  settle,
+  ready,
   THEMES,
   rememberTheme,
 } from './design-support';
@@ -42,7 +42,7 @@ for (const page of DESIGN_PAGES) {
         const tab = await context.newPage();
         await mockCatalogue(tab);
         await tab.goto(page.path);
-        await settle(tab);
+        await ready(tab, page.ready);
         await expect(tab.locator('html')).toHaveAttribute('data-theme', theme);
         await expect(tab).toHaveScreenshot(`${page.name}-${theme}-${size.label}.png`, {
           fullPage: true,

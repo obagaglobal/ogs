@@ -5,6 +5,7 @@ import {
   customerState,
   DESIGN_PAGES,
   mockCatalogue,
+  ready,
   settle,
   rememberTheme,
   THEMES,
@@ -29,7 +30,7 @@ async function open(
   browser: Browser,
   path: string,
   signedIn: boolean,
-  options: { theme?: 'light' | 'dark'; width?: number } = {},
+  options: { theme?: 'light' | 'dark'; width?: number; readyText?: string | RegExp } = {},
 ): Promise<Page> {
   const context = await browser.newContext({
     viewport: { width: options.width ?? 1280, height: 800 },
@@ -39,14 +40,14 @@ async function open(
   const page = await context.newPage();
   await mockCatalogue(page);
   await page.goto(path);
-  await settle(page);
+  await (options.readyText === undefined ? settle(page) : ready(page, options.readyText));
   return page;
 }
 
-for (const { name, path, signedIn } of DESIGN_PAGES) {
+for (const { name, path, signedIn, ready: readyText } of DESIGN_PAGES) {
   for (const theme of THEMES) {
     test(`axe: ${name} · ${theme}`, async ({ browser }) => {
-      const page = await open(browser, path, signedIn, { theme });
+      const page = await open(browser, path, signedIn, { theme, readyText });
       const results = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
         .analyze();
@@ -62,11 +63,11 @@ for (const { name, path, signedIn } of DESIGN_PAGES) {
 }
 
 test('keyboard: the skip link is first and moves focus to the content', async ({ browser }) => {
-  for (const [path, signedIn] of [
-    ['/services', false],
-    ['/', true],
+  for (const [path, signedIn, readyText] of [
+    ['/services', false, 'Home Wi-Fi setup'],
+    ['/', true, 'Get things done'],
   ] as const) {
-    const page = await open(browser, path, signedIn);
+    const page = await open(browser, path, signedIn, { readyText });
     await page.keyboard.press('Tab');
     const skip = page.getByRole('link', { name: 'Skip to content' });
     await expect(skip).toBeFocused();
@@ -78,7 +79,7 @@ test('keyboard: the skip link is first and moves focus to the content', async ({
 });
 
 test('keyboard: dialogs trap focus, close on Escape and restore focus', async ({ browser }) => {
-  const page = await open(browser, '/design-system', true);
+  const page = await open(browser, '/design-system', true, { readyText: 'Kitenge motif' });
   const trigger = page.getByRole('button', { name: 'Open dialog' });
   await trigger.focus();
   await page.keyboard.press('Enter');
@@ -95,7 +96,7 @@ test('keyboard: dialogs trap focus, close on Escape and restore focus', async ({
 });
 
 test('the focus ring is visible: ink outline plus saffron ring', async ({ browser }) => {
-  const page = await open(browser, '/sign-in', false);
+  const page = await open(browser, '/sign-in', false, { readyText: 'Forgot password?' });
   await page.getByLabel('Email').focus();
   await page.keyboard.press('Tab');
   const style = await page.evaluate(() => {
@@ -110,8 +111,8 @@ test('the focus ring is visible: ink outline plus saffron ring', async ({ browse
 
 for (const width of [360, 768, 1024, 1440]) {
   test(`responsive: no horizontal scrolling at ${String(width)} px`, async ({ browser }) => {
-    for (const { name, path, signedIn } of DESIGN_PAGES) {
-      const page = await open(browser, path, signedIn, { width });
+    for (const { name, path, signedIn, ready: readyText } of DESIGN_PAGES) {
+      const page = await open(browser, path, signedIn, { width, readyText });
       const overflow = await page.evaluate(
         () => document.documentElement.scrollWidth - window.innerWidth,
       );
@@ -122,8 +123,8 @@ for (const width of [360, 768, 1024, 1440]) {
 }
 
 test('touch targets: controls are at least 44 px tall on a 360 px phone', async ({ browser }) => {
-  for (const { name, path, signedIn } of DESIGN_PAGES) {
-    const page = await open(browser, path, signedIn, { width: 360 });
+  for (const { name, path, signedIn, ready: readyText } of DESIGN_PAGES) {
+    const page = await open(browser, path, signedIn, { width: 360, readyText });
     const small = await page.evaluate(() =>
       [
         ...document.querySelectorAll<HTMLElement>(

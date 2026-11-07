@@ -95,24 +95,28 @@ async function motifs(page: Page) {
 }
 
 test('motif: only where allowed, in the expected numbers', async ({ browser }) => {
-  const expected: [string, boolean, number][] = [
+  // [path, signed in, motifs, text that proves the page has fully rendered]
+  const expected: [string, boolean, number, string | RegExp][] = [
     // Header strip, hero corner, hero band, section divider.
-    ['/services', false, 4],
-    ['/services/c/networks', false, 1],
-    ['/services/home-wifi-setup', false, 1],
-    ['/sign-in', false, 1],
-    ['/sign-up', false, 1],
-    ['/forgot-password', false, 0],
-    ['/', true, 0],
-    ['/requests', true, 1], // the empty state
-    ['/requests/new?service=home-wifi-setup', true, 0],
-    ['/security', true, 0],
+    ['/services', false, 4, 'Home Wi-Fi setup'],
+    ['/services/c/networks', false, 1, 'Office network installation'],
+    ['/services/home-wifi-setup', false, 1, 'Sign in to request'],
+    ['/sign-in', false, 1, 'Forgot password?'],
+    ['/sign-up', false, 1, 'Create account'],
+    ['/forgot-password', false, 0, 'Reset your password'],
+    ['/', true, 0, 'Get things done'],
+    ['/requests', true, 1, 'No requests yet'], // the empty state
+    ['/requests/new?service=home-wifi-setup', true, 0, /Estimated total/],
+    ['/security', true, 0, 'Two-step verification'],
   ];
-  for (const [path, signedIn, count] of expected) {
+  for (const [path, signedIn, count, ready] of expected) {
     const context = await browser.newContext(signedIn ? { storageState: state } : {});
     const page = await context.newPage();
     await mockCatalogue(page);
     await page.goto(path);
+    // Wait for the page's own content, not just a quiet network: under load a
+    // retried request can leave a short idle gap before the content arrives.
+    await expect(page.getByText(ready).first()).toBeVisible({ timeout: 20_000 });
     await settle(page);
     const found = await motifs(page);
     expect(found.count, `${path} motif count: ${found.where}`).toBe(count);
