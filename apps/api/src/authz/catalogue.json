@@ -83,6 +83,16 @@
       "description": "Read tickets in scope (own, department, assigned or all, by endpoint rules)."
     },
     {
+      "code": "ticket.read_department",
+      "kinds": ["ORGANISATION"],
+      "description": "Also see tickets raised in the member's own department."
+    },
+    {
+      "code": "ticket.read_all",
+      "kinds": ["ORGANISATION"],
+      "description": "See every ticket of the organisation (otherwise own, or own department)."
+    },
+    {
       "code": "ticket.comment",
       "kinds": ["ORGANISATION", "PROVIDER_COMPANY", "PLATFORM"],
       "description": "Add public comments to tickets in scope."
@@ -183,6 +193,11 @@
       "code": "platform.quotation.issue",
       "kinds": ["PLATFORM"],
       "description": "Draft and issue quotations to customers."
+    },
+    {
+      "code": "platform.request.on_behalf",
+      "kinds": ["PLATFORM"],
+      "description": "Submit service requests on behalf of a customer (helpdesk, audited)."
     },
     {
       "code": "platform.sla.manage",
@@ -288,6 +303,7 @@
         "workspace.read",
         "report.read",
         "ticket.create",
+        "platform.request.on_behalf",
         "ticket.read",
         "ticket.comment",
         "ticket.internal_note",
@@ -328,6 +344,7 @@
       "permissions": [
         "workspace.read",
         "ticket.create",
+        "platform.request.on_behalf",
         "ticket.read",
         "ticket.comment",
         "ticket.internal_note",
@@ -342,6 +359,7 @@
       "permissions": [
         "workspace.read",
         "ticket.create",
+        "platform.request.on_behalf",
         "ticket.read",
         "ticket.comment",
         "platform.cross_tenant_access",

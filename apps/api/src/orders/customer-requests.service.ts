@@ -8,13 +8,21 @@ import type {
 import type { z } from 'zod';
 import { AuditService, type AuditRequestMeta } from '../audit/audit.service.js';
 import { conflict, forbiddenRule, notFound } from '../common/domain-error.js';
-import { TenantDb, type Db } from '../database/index.js';
+import { TenantDb, type Db, type DbContext } from '../database/index.js';
 import { OutboxService } from '../events/outbox.service.js';
 import { loadRequestView, requestScope, type Customer } from './order-views.js';
 import { idempotent, moveOrder, moveRequest, nextNumber } from './order-support.js';
 import { requireOrderTransition, requireRequestTransition } from './transitions.js';
 
 type Submitted = z.output<typeof submitServiceRequestSchema>;
+
+/** Whose request it is: an organisation and its member, or a person (ADR-009). */
+export interface OnBehalfOwner {
+  readonly customerTenantId: string | null;
+  readonly customerUserId: string | null;
+  /** The person who sees the request as theirs (the member, or the person). */
+  readonly createdBy: string;
+}
 
 /** The customer side of requests, quotations and orders (Phase 7 plan §2.3). */
 @Injectable()
@@ -45,82 +53,138 @@ export class CustomerRequestsService {
           route: 'POST /requests',
           body: input,
         },
-        async () => {
-          const service = await tx.service.findFirst({
-            where: { slug: input.serviceSlug, status: 'PUBLISHED', category: { status: 'ACTIVE' } },
-            select: {
-              id: true,
-              name: true,
-              audience: true,
-              prices: {
-                select: { id: true, model: true, amountMinor: true, unit: true, minQuantity: true },
-                orderBy: [{ effectiveFrom: 'desc' }, { id: 'desc' }],
-                take: 1,
-              },
-            },
-          });
-          const price = service?.prices[0];
-          if (service === null || price === undefined) {
-            throw conflict('service_unavailable');
-          }
-          if (
-            (service.audience === 'ORGANISATIONS' && customer.tenantId === undefined) ||
-            (service.audience === 'INDIVIDUALS' && customer.tenantId !== undefined)
-          ) {
-            throw conflict('audience_mismatch');
-          }
-          const perUnit = price.model === 'PER_UNIT';
-          if (perUnit && input.quantity < price.minQuantity) {
-            throw conflict('below_minimum_quantity');
-          }
-          if ((await tx.region.count({ where: { code: input.county, active: true } })) !== 1) {
-            throw conflict('region_unknown');
-          }
-          const created = await tx.serviceRequest.create({
-            data: {
-              number: await nextNumber(tx, 'REQ'),
+        async () =>
+          this.createRequest(
+            tx,
+            {
               customerTenantId: customer.tenantId ?? null,
               customerUserId: customer.tenantId === undefined ? customer.userId : null,
               createdBy: customer.userId,
-              serviceId: service.id,
-              servicePriceId: price.id,
-              serviceName: service.name,
-              priceModel: price.model,
-              unitAmountMinor: price.amountMinor,
-              priceUnit: price.unit,
-              quantity: perUnit ? input.quantity : 1,
-              county: input.county,
-              address: input.address,
-              preferredFrom:
-                input.preferredFrom === undefined ? null : new Date(input.preferredFrom),
-              preferredTo: input.preferredTo === undefined ? null : new Date(input.preferredTo),
-              description: input.description,
-              contactPhone: input.contactPhone,
+              enteredBy: null,
             },
-            select: { id: true, number: true },
-          });
-          await tx.serviceRequestEvent.createMany({
-            data: [
-              { requestId: created.id, fromStatus: null, toStatus: 'SUBMITTED', command: 'submit' },
-            ],
-          });
-          await this.audit.record(tx, {
-            action: 'request.submitted',
-            tenantId: customer.tenantId ?? null,
-            entityType: 'service_request',
-            entityId: created.id,
-            request: meta,
-            metadata: { number: created.number, serviceId: service.id },
-          });
-          await this.outbox.publish(tx, {
-            type: 'orders.request_submitted',
-            tenantId: customer.tenantId ?? null,
-            payload: { requestId: created.id },
-          });
-          return loadRequestView(tx, created.id);
-        },
+            input,
+            meta,
+          ),
       ),
     );
+  }
+
+  /**
+   * Staff enter a request for a customer (Phase 8, P8-7, ADR-047): the same
+   * price snapshot, audience and quantity rules as a customer's own request.
+   * `createdBy` is the customer's requester, so the customer sees it as theirs;
+   * `enteredBy` records the staff member. Idempotent per staff member.
+   */
+  async submitOnBehalf(
+    ctx: DbContext,
+    target: OnBehalfOwner,
+    input: Submitted,
+    key: string,
+    meta: AuditRequestMeta,
+  ): Promise<ServiceRequest> {
+    if (ctx.kind !== 'platform') {
+      throw forbiddenRule('permission_denied');
+    }
+    return this.db.run(ctx, async (tx) =>
+      idempotent(
+        tx,
+        {
+          key,
+          userId: ctx.userId,
+          scope: `platform:${target.customerTenantId ?? target.customerUserId ?? ''}`,
+          route: 'POST /platform/requests',
+          body: { target, input },
+        },
+        async () => this.createRequest(tx, { ...target, enteredBy: ctx.userId }, input, meta),
+      ),
+    );
+  }
+
+  private async createRequest(
+    tx: Db,
+    owner: OnBehalfOwner & { enteredBy: string | null },
+    input: Submitted,
+    meta: AuditRequestMeta,
+  ): Promise<ServiceRequest> {
+    const tenantId = owner.customerTenantId;
+    const service = await tx.service.findFirst({
+      where: { slug: input.serviceSlug, status: 'PUBLISHED', category: { status: 'ACTIVE' } },
+      select: {
+        id: true,
+        name: true,
+        audience: true,
+        prices: {
+          select: { id: true, model: true, amountMinor: true, unit: true, minQuantity: true },
+          orderBy: [{ effectiveFrom: 'desc' }, { id: 'desc' }],
+          take: 1,
+        },
+      },
+    });
+    const price = service?.prices[0];
+    if (service === null || price === undefined) {
+      throw conflict('service_unavailable');
+    }
+    if (
+      (service.audience === 'ORGANISATIONS' && tenantId === null) ||
+      (service.audience === 'INDIVIDUALS' && tenantId !== null)
+    ) {
+      throw conflict('audience_mismatch');
+    }
+    const perUnit = price.model === 'PER_UNIT';
+    if (perUnit && input.quantity < price.minQuantity) {
+      throw conflict('below_minimum_quantity');
+    }
+    if ((await tx.region.count({ where: { code: input.county, active: true } })) !== 1) {
+      throw conflict('region_unknown');
+    }
+    const created = await tx.serviceRequest.create({
+      data: {
+        number: await nextNumber(tx, 'REQ'),
+        customerTenantId: tenantId,
+        customerUserId: owner.customerUserId,
+        createdBy: owner.createdBy,
+        onBehalf: owner.enteredBy !== null,
+        enteredBy: owner.enteredBy,
+        serviceId: service.id,
+        servicePriceId: price.id,
+        serviceName: service.name,
+        priceModel: price.model,
+        unitAmountMinor: price.amountMinor,
+        priceUnit: price.unit,
+        quantity: perUnit ? input.quantity : 1,
+        county: input.county,
+        address: input.address,
+        preferredFrom: input.preferredFrom === undefined ? null : new Date(input.preferredFrom),
+        preferredTo: input.preferredTo === undefined ? null : new Date(input.preferredTo),
+        description: input.description,
+        contactPhone: input.contactPhone,
+      },
+      select: { id: true, number: true },
+    });
+    await tx.serviceRequestEvent.createMany({
+      data: [
+        {
+          requestId: created.id,
+          fromStatus: null,
+          toStatus: 'SUBMITTED',
+          command: owner.enteredBy === null ? 'submit' : 'submitOnBehalf',
+        },
+      ],
+    });
+    await this.audit.record(tx, {
+      action: owner.enteredBy === null ? 'request.submitted' : 'request.submitted_on_behalf',
+      tenantId,
+      entityType: 'service_request',
+      entityId: created.id,
+      request: meta,
+      metadata: { number: created.number, serviceId: service.id },
+    });
+    await this.outbox.publish(tx, {
+      type: 'orders.request_submitted',
+      tenantId,
+      payload: { requestId: created.id },
+    });
+    return loadRequestView(tx, created.id);
   }
 
   async list(

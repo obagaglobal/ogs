@@ -15,3 +15,4 @@ export * from './organisations.js';
 export * from './providers.js';
 export * from './catalogue.js';
 export * from './orders.js';
+export * from './tickets.js';

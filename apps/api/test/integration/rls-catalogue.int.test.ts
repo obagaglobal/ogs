@@ -61,6 +61,13 @@ const KNOWN_TABLES = [
   'service_order_event',
   'service_request',
   'service_request_event',
+  // Phase 8
+  'ticket',
+  'ticket_attachment',
+  'ticket_category',
+  'ticket_comment',
+  'ticket_event',
+  'ticket_internal_note',
 ];
 
 interface TableRow {

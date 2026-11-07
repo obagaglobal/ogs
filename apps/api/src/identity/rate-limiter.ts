@@ -24,6 +24,10 @@ export const RATE_LIMITS = {
   mfaPerAccount: { limit: 10, windowSeconds: 15 * 60 },
   /** Public catalogue reads (Phase 6, E8): generous for people, a ceiling for scrapers. */
   cataloguePerIp: { limit: 240, windowSeconds: 60 },
+  /** New support tickets per person (Phase 8 plan §2.3, review §11 ticket spam). */
+  ticketsPerUser: { limit: 10, windowSeconds: 60 * 60 },
+  /** Ticket replies per person. */
+  ticketCommentsPerUser: { limit: 60, windowSeconds: 60 * 60 },
 } as const satisfies Record<string, RateLimitRule>;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

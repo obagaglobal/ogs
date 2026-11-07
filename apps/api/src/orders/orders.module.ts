@@ -8,5 +8,6 @@ import { FinanceService, StaffRequestsService } from './staff-orders.service.js'
 @Module({
   controllers: [RequestsController, PlatformOrdersController],
   providers: [CustomerRequestsService, StaffRequestsService, FinanceService],
+  exports: [CustomerRequestsService],
 })
 export class OrdersModule {}

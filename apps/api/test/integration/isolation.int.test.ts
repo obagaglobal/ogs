@@ -54,6 +54,13 @@ const PHASE_3_TABLES = [
   'organisation_billing',
   'idempotency_key',
   'document_counter',
+  // Phase 8 (categories are reference data, but still need a context)
+  'ticket',
+  'ticket_comment',
+  'ticket_internal_note',
+  'ticket_attachment',
+  'ticket_event',
+  'ticket_category',
 ] as const;
 
 describe('fail closed without a context (T2)', () => {
