@@ -104,9 +104,18 @@ export function Pagination({
 }
 
 /** Horizontal steps (wizards). `current` is zero-based. */
-export function Stepper({ steps, current }: { steps: string[]; current: number }) {
+export function Stepper({
+  steps,
+  current,
+  label,
+}: {
+  steps: string[];
+  /** Zero-based; `steps.length` marks every step done. */
+  current: number;
+  label?: string;
+}) {
   return (
-    <ol className="mb-6 flex flex-wrap gap-x-6 gap-y-2">
+    <ol aria-label={label} className="mb-6 flex flex-wrap gap-x-6 gap-y-2">
       {steps.map((label, index) => {
         const done = index < current;
         const active = index === current;

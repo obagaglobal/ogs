@@ -8,6 +8,7 @@ import { IDEMPOTENCY_HEADER } from '@ogs/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef } from 'react';
 import { useWorkspace } from '@/features/workspace/workspace-state';
+import { t } from '@/i18n';
 import { api, type RequestOptions } from '@/lib/api';
 
 /**
@@ -92,4 +93,23 @@ export function requestLabel(
   return staff
     ? request.status.toLowerCase().replace(/_/g, ' ')
     : CUSTOMER_STATUS_LABELS[request.status];
+}
+
+/** Badge tone for an order status (Phase 6b). */
+export function orderTone(
+  status: NonNullable<ServiceRequest['order']>['status'],
+): 'neutral' | 'good' | 'bad' | 'pending' {
+  return status === 'CANCELLED'
+    ? 'bad'
+    : status === 'READY_FOR_ASSIGNMENT' || status === 'PAID'
+      ? 'good'
+      : 'pending';
+}
+
+export function termsLabel(
+  order: Pick<NonNullable<ServiceRequest['order']>, 'paymentTerms' | 'netDays'>,
+): string {
+  return order.paymentTerms === 'POSTPAID'
+    ? t('orders.terms.postpaid', { days: String(order.netDays) })
+    : t('orders.terms.prepay');
 }

@@ -29,6 +29,7 @@ export function DataTable<Row>({
   loading = false,
   empty,
   pageSize = 10,
+  card,
 }: {
   columns: Column<Row>[];
   rows: readonly Row[] | undefined;
@@ -37,6 +38,11 @@ export function DataTable<Row>({
   loading?: boolean;
   empty?: ReactNode;
   pageSize?: number;
+  /**
+   * Optional phone layout: below `sm` each row renders as this card instead of
+   * a table row (the table is hidden there, and the cards from `sm` up).
+   */
+  card?: (row: Row) => ReactNode;
 }) {
   const [sort, setSort] = useState<{ key: string; dir: 'asc' | 'desc' } | null>(null);
   const [page, setPage] = useState(1);
@@ -74,7 +80,21 @@ export function DataTable<Row>({
 
   return (
     <div className="min-w-0">
-      <div className="overflow-x-auto rounded-md border border-border">
+      {card && !loading && visible.length > 0 ? (
+        <ul aria-label={caption} className="space-y-3 sm:hidden">
+          {visible.map((row) => (
+            <li key={rowKey(row)} className="rounded-md border border-border bg-surface p-4">
+              {card(row)}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <div
+        className={cn(
+          'overflow-x-auto rounded-md border border-border',
+          card && !loading && visible.length > 0 && 'hidden sm:block',
+        )}
+      >
         <table className="w-full border-collapse text-sm">
           <caption className="sr-only">{caption}</caption>
           <thead className="bg-surface-muted">
