@@ -9,6 +9,7 @@ import {
 import type pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AccessRouteCheck } from '../../src/access/access-route-check.js';
+import { RATE_LIMITS, RateLimiter } from '../../src/identity/rate-limiter.js';
 import {
   Client,
   createLoginUser,
@@ -931,35 +932,48 @@ describe('E7 — eligibility by service', () => {
 
 describe('E8 — abuse resistance', () => {
   it('public reads are cacheable, and rate-limited per IP with a retry time', async () => {
-    const client = visitor();
-    const first = await client.get('/catalogue/categories');
-    expect(first.status).toBe(200);
-    expect(first.headers['cache-control']).toBe('public, no-cache');
-    // Revalidation is cheap: an unchanged answer is a 304 with no body.
-    const etag = first.headers['etag'];
-    expect(etag).toEqual(expect.any(String));
-    const revalidated = await client.agent
-      .get('/api/v1/catalogue/categories')
-      .set('X-Forwarded-For', client.ip)
-      .set('If-None-Match', String(etag));
-    expect(revalidated.status).toBe(304);
-    let last = first;
-    for (let batch = 0; batch < 24 && last.status !== 429; batch += 1) {
-      const responses = await Promise.all(
-        Array.from({ length: 10 }, async () => client.get('/catalogue/categories')),
-      );
-      last =
-        responses.find((response) => response.status === 429) ??
-        responses[responses.length - 1] ??
-        last;
+    // The limiter counts in fixed one-minute windows. Pin its clock 10 s into a
+    // window far from the real one, so the burst below can never straddle a
+    // boundary (and no earlier run's counters can share the window).
+    const { limit, windowSeconds } = RATE_LIMITS.cataloguePerIp;
+    const windowMs = windowSeconds * 1000;
+    const pinned = (Math.floor(Date.now() / windowMs) + 1_000) * windowMs + 10_000;
+    const restore = stack.app.get(RateLimiter).useClock(() => pinned);
+    try {
+      const client = visitor();
+      const first = await client.get('/catalogue/categories');
+      expect(first.status).toBe(200);
+      expect(first.headers['cache-control']).toBe('public, no-cache');
+      // Revalidation is cheap: an unchanged answer is a 304 with no body.
+      const etag = first.headers['etag'];
+      expect(etag).toEqual(expect.any(String));
+      const revalidated = await client.agent
+        .get('/api/v1/catalogue/categories')
+        .set('X-Forwarded-For', client.ip)
+        .set('If-None-Match', String(etag));
+      expect(revalidated.status).toBe(304);
+      // Both reads above counted; the rest of the window's allowance succeeds…
+      let remaining = limit - 2;
+      while (remaining > 0) {
+        const batch = Math.min(10, remaining);
+        const responses = await Promise.all(
+          Array.from({ length: batch }, async () => client.get('/catalogue/categories')),
+        );
+        expect(responses.map((response) => response.status)).toEqual(Array(batch).fill(200));
+        remaining -= batch;
+      }
+      // …and the next one is refused, with the exact time left in the window.
+      const refused = await client.get('/catalogue/categories');
+      expect(refused.status).toBe(429);
+      expect(refused.body).toEqual({
+        error: 'rate_limited',
+        retryAfterSeconds: windowSeconds - 10,
+      });
+      // Another visitor (another IP) is unaffected.
+      expect((await visitor().get('/catalogue/categories')).status).toBe(200);
+    } finally {
+      restore();
     }
-    expect(last.status).toBe(429);
-    expect(last.body).toMatchObject({
-      error: 'rate_limited',
-      retryAfterSeconds: expect.any(Number) as unknown,
-    });
-    // Another visitor (another IP) is unaffected.
-    expect((await visitor().get('/catalogue/categories')).status).toBe(200);
   });
 
   it('malformed slugs never reach the database', async () => {

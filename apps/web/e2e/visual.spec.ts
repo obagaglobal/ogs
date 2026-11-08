@@ -11,7 +11,7 @@ import {
 } from './design-support';
 
 /**
- * Phase 6b screenshots: 13 pages × light/dark × 1440/360 px (52 images).
+ * Phase 6b screenshots: 18 pages × light/dark × 1440/360 px (72 images).
  * Baselines are per platform (…-linux.png from CI is the reference; Windows
  * and macOS images are local only and git-ignored). Animations are frozen by
  * Playwright; dynamic bits (the request form's date) are stable by design.

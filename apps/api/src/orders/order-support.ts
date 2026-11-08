@@ -4,23 +4,7 @@ import { conflict, unprocessable } from '../common/domain-error.js';
 import { Prisma, type Db } from '../database/index.js';
 import type { OrderCommand, RequestCommand } from './transitions.js';
 
-/**
- * Next document number, e.g. REQ-2026-000123 (P7-8). The counter row is
- * upserted and incremented in the caller's transaction, so concurrent callers
- * serialise on it and a rolled-back transaction gives its number back.
- */
-export async function nextNumber(tx: Db, kind: 'REQ' | 'QUO' | 'ORD'): Promise<string> {
-  const rows = await tx.$queryRaw<{ year: number; last: number }[]>`
-    INSERT INTO document_counter (kind, year, last)
-    VALUES (${kind}, EXTRACT(YEAR FROM now() AT TIME ZONE 'Africa/Nairobi')::int, 1)
-    ON CONFLICT (kind, year) DO UPDATE SET last = document_counter.last + 1
-    RETURNING year, last`;
-  const row = rows[0];
-  if (row === undefined) {
-    throw new Error('document counter returned no row');
-  }
-  return `${kind}-${String(row.year)}-${String(row.last).padStart(6, '0')}`;
-}
+export { nextNumber } from '../common/document-numbers.js';
 
 /** Changes a request's status iff it is still at (status, version); writes the history row. */
 export async function moveRequest(

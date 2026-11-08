@@ -14,6 +14,9 @@ export default defineConfig({
   testDir: './e2e',
   globalSetup: './e2e/global-setup.ts',
   fullyParallel: false,
+  // One browser worker locally, so the full suite fits in a developer PC's
+  // memory next to the API, worker and Vite. CI keeps Playwright's default.
+  ...(ci ? {} : { workers: 1 }),
   forbidOnly: ci,
   retries: ci ? 1 : 0,
   timeout: 60_000,

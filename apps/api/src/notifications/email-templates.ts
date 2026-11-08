@@ -38,6 +38,10 @@ export const templates = {
   orderNotice: (to: string, subject: string, paragraphs: string[], url: string) =>
     layout(to, subject, paragraphs, { url, label: 'View the request' }),
 
+  /** Phase 8. Ticket emails never carry reply or note text: the link shows the conversation. */
+  ticketNotice: (to: string, subject: string, paragraphs: string[], url: string) =>
+    layout(to, subject, paragraphs, { url, label: 'View the ticket' }),
+
   emailVerification: (to: string, url: string) =>
     layout(
       to,

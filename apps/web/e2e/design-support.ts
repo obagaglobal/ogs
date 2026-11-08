@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { expect, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { mockPhase7, phase7Storage, PHASE7_PATHS, type Phase7Fixture } from './phase7-fixtures';
+import { mockPhase8, phase8Storage, PHASE8_PATHS, type Phase8Fixture } from './phase8-fixtures';
 import { createOrganisation } from './support';
 
 /**
@@ -230,10 +231,10 @@ export interface DesignPage {
   /** Text that proves the page has fully rendered (data included). */
   ready: string | RegExp;
   /** Phase 7 pages answered entirely by API fixtures (phase7-fixtures.ts). */
-  fixture?: Phase7Fixture;
+  fixture?: Phase7Fixture | Phase8Fixture;
 }
 
-/** The thirteen pages of the visual and accessibility suites (§9 added four). */
+/** The eighteen pages of the visual and accessibility suites (§9 added four, Phase 8 five). */
 export const DESIGN_PAGES: DesignPage[] = [
   { name: 'catalogue', path: '/services', signedIn: false, ready: 'Home Wi-Fi setup' },
   {
@@ -287,17 +288,48 @@ export const DESIGN_PAGES: DesignPage[] = [
     ready: 'Record a payment',
     fixture: 'finance-order',
   },
+  // Phase 8: tickets.
+  { name: 'support-empty', path: '/support', signedIn: true, ready: 'No tickets here' },
+  { name: 'ticket-form', path: '/support/new', signedIn: true, ready: 'How urgent is it?' },
+  {
+    name: 'ticket-detail',
+    path: PHASE8_PATHS['customer-ticket'],
+    signedIn: false,
+    ready: 'Can someone be in the boardroom',
+    fixture: 'customer-ticket',
+  },
+  {
+    name: 'ticket-queue',
+    path: PHASE8_PATHS['ticket-queue'],
+    signedIn: false,
+    ready: 'Server room alarm keeps sounding',
+    fixture: 'ticket-queue',
+  },
+  {
+    name: 'staff-ticket',
+    path: PHASE8_PATHS['staff-ticket'],
+    signedIn: false,
+    ready: 'Bring a spare',
+    fixture: 'staff-ticket',
+  },
 ];
+
+const PHASE8_FIXTURES: ReadonlySet<string> = new Set(Object.keys(PHASE8_PATHS));
 
 /** API fixtures and storage for a fixture page (call before navigating). */
 export async function prepareFixture(
   context: BrowserContext,
   page: Page,
-  fixture: Phase7Fixture | undefined,
+  fixture: Phase7Fixture | Phase8Fixture | undefined,
 ): Promise<void> {
   if (fixture === undefined) return;
-  await phase7Storage(context, fixture);
-  await mockPhase7(page, fixture);
+  if (PHASE8_FIXTURES.has(fixture)) {
+    await phase8Storage(context, fixture as Phase8Fixture);
+    await mockPhase8(page, fixture as Phase8Fixture);
+    return;
+  }
+  await phase7Storage(context, fixture as Phase7Fixture);
+  await mockPhase7(page, fixture as Phase7Fixture);
 }
 
 /** Waits for the page's own content, then for fonts and lazy chunks. */

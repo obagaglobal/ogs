@@ -63,6 +63,30 @@ export class FileService {
   ) {}
 
   async upload(ctx: DbContext, input: UploadInput): Promise<StoredFile> {
+    return this.store(ctx, ownerOf(ctx), input);
+  }
+
+  /**
+   * Elevated staff upload a file that belongs to someone else (Phase 8): a
+   * public ticket reply's file belongs to the ticket's customer, an internal
+   * note's file to the PLATFORM tenant. Only from a `platform` context.
+   */
+  async uploadAs(
+    ctx: DbContext,
+    owner: { readonly kind: 'tenant' | 'user'; readonly id: string },
+    input: UploadInput,
+  ): Promise<StoredFile> {
+    if (ctx.kind !== 'platform') {
+      throw new FileRejectedError('owner_not_allowed');
+    }
+    return this.store(ctx, { ...owner, uploader: ctx.userId }, input);
+  }
+
+  private async store(
+    ctx: DbContext,
+    owner: { kind: 'tenant' | 'user'; id: string; uploader: string } | undefined,
+    input: UploadInput,
+  ): Promise<StoredFile> {
     if (!isFilePurpose(input.purpose)) {
       throw new FileRejectedError('unknown_purpose');
     }
@@ -71,7 +95,6 @@ export class FileService {
       maxBytes: number;
       allowedTypes: readonly string[];
     } = FILE_PURPOSES[input.purpose];
-    const owner = ownerOf(ctx);
     if (owner === undefined || !purpose.owners.includes(owner.kind)) {
       throw new FileRejectedError('owner_not_allowed');
     }

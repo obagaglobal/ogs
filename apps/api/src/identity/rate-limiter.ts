@@ -24,6 +24,10 @@ export const RATE_LIMITS = {
   mfaPerAccount: { limit: 10, windowSeconds: 15 * 60 },
   /** Public catalogue reads (Phase 6, E8): generous for people, a ceiling for scrapers. */
   cataloguePerIp: { limit: 240, windowSeconds: 60 },
+  /** New support tickets per person (Phase 8 plan §2.3, review §11 ticket spam). */
+  ticketsPerUser: { limit: 10, windowSeconds: 60 * 60 },
+  /** Ticket replies per person. */
+  ticketCommentsPerUser: { limit: 60, windowSeconds: 60 * 60 },
 } as const satisfies Record<string, RateLimitRule>;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;
@@ -50,6 +54,8 @@ const REDIS_TIMEOUT_MS = 1_000;
 export class RateLimiter implements OnModuleInit {
   private redis: Redis | undefined;
   private readonly prefix: string;
+  /** Milliseconds since the epoch. Replaceable so tests can pin the fixed window. */
+  private clock: () => number = Date.now;
 
   constructor(
     private readonly redisService: RedisService,
@@ -62,10 +68,22 @@ export class RateLimiter implements OnModuleInit {
     this.redis = this.redisService.createAppConnection('rate-limit');
   }
 
+  /**
+   * Test seam: run the limiter on a controlled clock (e.g. a fixed instant, so a
+   * burst of requests cannot straddle a window boundary). Returns a restore function.
+   */
+  useClock(clock: () => number): () => void {
+    this.clock = clock;
+    return () => {
+      this.clock = Date.now;
+    };
+  }
+
   /** Counts one attempt; throws RateLimitExceeded when over the limit. */
   async consume(name: RateLimitName, subject: string): Promise<void> {
     const rule: RateLimitRule = RATE_LIMITS[name];
-    const window = Math.floor(Date.now() / 1000 / rule.windowSeconds);
+    const now = this.clock();
+    const window = Math.floor(now / 1000 / rule.windowSeconds);
     const key = `${this.prefix}:${name}:${sha256Hex(subject)}:${String(window)}`;
     const redis = this.connection();
 
@@ -86,7 +104,7 @@ export class RateLimiter implements OnModuleInit {
 
     if (count > rule.limit) {
       const windowEnds = (window + 1) * rule.windowSeconds;
-      throw new RateLimitExceeded(Math.max(1, windowEnds - Math.floor(Date.now() / 1000)));
+      throw new RateLimitExceeded(Math.max(1, windowEnds - Math.floor(now / 1000)));
     }
   }
 

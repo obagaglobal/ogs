@@ -36,6 +36,11 @@ import {
   QuotationExpirySweeper,
 } from '../orders/quotation-expiry.service.js';
 import { OutboxDispatcher } from './outbox-dispatcher.service.js';
+import { PHASE_8_HANDLERS } from '../notifications/ticket-email.handlers.js';
+import {
+  TicketAutoCloseService,
+  TicketAutoCloseSweeper,
+} from '../tickets/ticket-auto-close.service.js';
 
 const EVENT_CONSUMER_CONCURRENCY = 5;
 
@@ -66,7 +71,13 @@ const EVENT_CONSUMER_CONCURRENCY = 5;
         ProviderDecisionHandler,
         ProviderStatusChangedHandler,
         ...PHASE_7_HANDLERS,
+        ...PHASE_8_HANDLERS,
       ],
+    },
+    {
+      provide: TicketAutoCloseSweeper,
+      useFactory: (service: TicketAutoCloseService) => new TicketAutoCloseSweeper(service),
+      inject: [TicketAutoCloseService],
     },
     {
       provide: BullEventQueue,
@@ -113,18 +124,21 @@ export class EventsWorkerModule implements OnApplicationBootstrap, BeforeApplica
     @Inject(EventConsumer) private readonly consumer: EventConsumer,
     @Inject(BullEventQueue) private readonly queue: BullEventQueue,
     @Inject(QuotationExpirySweeper) private readonly sweeper: QuotationExpirySweeper,
+    @Inject(TicketAutoCloseSweeper) private readonly ticketSweeper: TicketAutoCloseSweeper,
   ) {}
 
   onApplicationBootstrap(): void {
     this.consumer.start();
     this.dispatcher.start();
     this.sweeper.start();
+    this.ticketSweeper.start();
   }
 
   // Runs before RedisService/PrismaService close their connections (onApplicationShutdown).
   async beforeApplicationShutdown(): Promise<void> {
     // Stop taking new work first, then let in-flight jobs finish, then close.
     await this.sweeper.stop();
+    await this.ticketSweeper.stop();
     await this.dispatcher.stop();
     await this.consumer.stop();
     await this.queue.close();

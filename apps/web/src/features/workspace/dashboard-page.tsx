@@ -1,6 +1,6 @@
-import type { CurrentWorkspaceResponse } from '@ogs/contracts';
+import type { CurrentWorkspaceResponse, CustomerTicketList } from '@ogs/contracts';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, Building2, LayoutGrid, Wrench } from 'lucide-react';
+import { ArrowRight, Building2, LayoutGrid, LifeBuoy, Wrench } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { Card } from '@/components/ui/card';
@@ -107,6 +107,24 @@ function ProviderInvitation() {
   );
 }
 
+/** Customers: their open tickets, one click from help (Phase 8). */
+function HelpCard() {
+  const { selected } = useWorkspace();
+  const open = useQuery({
+    queryKey: ['tickets', selected, 'open'],
+    queryFn: async () => api<CustomerTicketList>('/tickets?show=open', { workspace: selected }),
+    retry: false,
+  });
+  return (
+    <ActionCard
+      to="/support"
+      icon={<LifeBuoy />}
+      title={t('tickets.dashTitle')}
+      body={t('tickets.dashBody', { count: open.data?.total ?? 0 })}
+    />
+  );
+}
+
 /** Home for each workspace kind: greeting, context, and where to go next. */
 export function DashboardPage() {
   const { selected } = useWorkspace();
@@ -180,6 +198,9 @@ export function DashboardPage() {
               title="Find a service"
               body="Wi-Fi, networks, CCTV, repairs and more, with clear prices in KES."
             />
+            {data.kind === 'personal' || data.permissions.includes('ticket.read') ? (
+              <HelpCard />
+            ) : null}
             {data.kind === 'personal' ? (
               <ActionCard
                 to="/organisations/new"

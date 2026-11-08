@@ -1,8 +1,10 @@
 # Architecture Decision Records
 
-ADR-001 … ADR-008 were made during Phase 1 and are listed in [`architecture/overview.md` §12](architecture/overview.md#12-architecture-decisions).
+ADR-001 … ADR-008 were made during Phase 1 and are listed in [`architecture/overview.md` §13](architecture/overview.md#13-architecture-decisions).
 
 ADR-027 … ADR-031 record the Phase 2 implementation decisions P2-1 … P2-5, approved with the [Phase 2 plan](plans/phase-2-tenancy.md) on 2026-11-05.
+
+ADR-056 … ADR-062 record the Phase 8 decisions P8-1 … P8-7, approved with the [Phase 8 plan](plans/phase-8-ticketing.md) on 2026-11-07. The owner added that internal notes must never reach customers, tested on every customer page and API (ADR-059).
 
 ADR-055 records the Phase 6b visual direction, approved with the [Phase 6b plan](plans/phase-6b-design-system.md) on 2026-11-06.
 
@@ -64,6 +66,13 @@ ADR-009 … ADR-026 record the owner's answers to decisions D-1 … D-18 of the 
 | 053 | P7-8      | Document numbers                                                 | Accepted                                            |
 | 054 | P7-9      | Who in an organisation sees which requests                       | Accepted                                            |
 | 055 | 6b        | Visual direction: Kitenge signal                                 | Accepted                                            |
+| 056 | P8-1      | One OGS staff owner per ticket                                   | Accepted                                            |
+| 057 | P8-2      | Reopen within 7 days, then auto-close                            | Accepted                                            |
+| 058 | P8-3      | Customers choose urgency, staff set priority                     | Accepted                                            |
+| 059 | P8-5      | Internal notes in their own table, staff-only by RLS             | Accepted                                            |
+| 060 | P8-4      | Who in an organisation sees which tickets                        | Accepted                                            |
+| 061 | P8-6      | Tickets on behalf of a customer                                  | Accepted                                            |
+| 062 | P8-7      | Service requests on behalf of a customer                         | Accepted                                            |
 
 ---
 
@@ -328,6 +337,41 @@ A restricted (pending) workspace may upload application evidence only.
 - It gives OGS a recognisably East African identity without decoration getting in the way of work screens.
 - It meets WCAG 2.2 AA by construction (tokens, contrast tests, axe in CI).
 - It stays fast on mid-range phones over mobile data: the Lighthouse CI target on `/services` is performance ≥ 85 and accessibility ≥ 95.
+
+## ADR-056 — One OGS staff owner per ticket (P8-1)
+
+**Decision:** A ticket has at most one assignee, an OGS staff member. Any agent who can work tickets (`ticket.comment`) may "Take" one; assigning someone else or unassigning needs `ticket.assign`, and only active PLATFORM members holding `ticket.comment` can be assignees. Dispatching work to technicians or providers stays a separate `ServiceAssignment` (Phase 9).
+**Why:** Helpdesk agents lack `ticket.assign` but must pick up work, and keeping the helpdesk owner apart from field dispatch avoids a redesign in Phase 9.
+
+## ADR-057 — Reopen within 7 days, then auto-close (P8-2)
+
+**Decision:** The customer may reopen a resolved ticket for 7 days, with a reason; staff may reopen it until it is closed. After 7 days it closes automatically (a delayed event plus an hourly sweep, both idempotent). Accepting the resolution closes it at once. CLOSED is final; a follow-up is a new ticket that can point to the old one (`related_ticket_id`).
+**Why:** A clear window meets review §13 ("reopen policy enforced"), keeps reopen counts meaningful for Phase 10 and 13, and stops old tickets reviving.
+
+## ADR-058 — Customers choose urgency, staff set priority (P8-3)
+
+**Decision:** Customers pick an urgency (low, normal, high, critical) with a plain description of each. Staff set the priority (P1–P4) at triage, starting from a suggestion based on urgency, and may change it later with a reason (an internal activity row). Both values are stored.
+**Why:** Customers tend to over-rate urgency, and Phase 10 SLA targets key on the priority staff confirmed.
+
+## ADR-059 — Internal notes in their own table, staff-only by RLS (P8-5)
+
+**Decision:** Internal notes live in `ticket_internal_note`, whose only RLS policy is `app.is_platform()`. They are not a visibility flag on comments. Activity rows carry `PUBLIC` or `INTERNAL`, and customers' RLS returns `PUBLIC` rows only. Note files belong to the PLATFORM tenant. Audit rows of internal commands carry no tenant. Customer responses are parsed through schemas with no internal field, and ticket emails carry no message text. On the owner's instruction, tests cover every customer API route and every customer page, using a canary note.
+**Why:** A visibility flag depends on every query filtering correctly. A separate table makes the leak impossible at the database layer (review §11, "internal notes leak").
+
+## ADR-060 — Who in an organisation sees which tickets (P8-4)
+
+**Decision:** Members see their own tickets. `ticket.read_department` (not granted by default; admins add it to custom roles) adds tickets from the member's department, snapshotted on the ticket when it is opened. `ticket.read_all` (org admins) shows all of them. Reopening, accepting and withdrawing are for the requester and `ticket.read_all` holders. A person's own tickets are visible only from their personal workspace.
+**Why:** It delivers the review matrix's "own/dept" with the ADR-054 pattern. RLS keeps the tenant boundary and the service layer applies the member split.
+
+## ADR-061 — Tickets on behalf of a customer (P8-6)
+
+**Decision:** Elevated staff with `ticket.create` open tickets for an active organisation member or an active person, found by organisation name or exact email (`GET /platform/customers`). The ticket records `on_behalf`, `created_by` (the staff member) and the channel (phone, email, walk-in, WhatsApp). The customer is emailed and sees "OGS opened this ticket for you".
+**Why:** Phone and walk-in support is common in Kenya. The flag, channel and audit row answer "who raised this?".
+
+## ADR-062 — Service requests on behalf of a customer (P8-7)
+
+**Decision:** Elevated staff with the new `platform.request.on_behalf` (helpdesk, customer support, service manager, super admin) submit a service request for a customer. The same Phase 7 rules apply: price snapshot, audience, minimum quantity and region. `created_by` is the customer's requester, so they see it as theirs, and `entered_by` records the staff member. A trigger lets only elevated staff, acting as themselves, insert an on-behalf request. Quotations are still accepted by the customer.
+**Why:** ADR-047 deferred this until the helpdesk and a customer lookup existed. The customer keeps the commercial decision.
 
 ---
 

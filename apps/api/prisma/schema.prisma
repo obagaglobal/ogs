@@ -375,21 +375,22 @@ enum FileStatus {
 
 /// Metadata of an object in the private bucket. Owned by a tenant OR a user.
 model FileMetadata {
-  id           String     @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId     String?    @map("tenant_id") @db.Uuid
-  ownerUserId  String?    @map("owner_user_id") @db.Uuid
-  purpose      String     @db.VarChar(50)
-  originalName String     @map("original_name") @db.VarChar(255)
-  mimeType     String     @map("mime_type") @db.VarChar(100)
-  sizeBytes    Int        @map("size_bytes")
-  sha256       String     @db.Char(64)
-  storageKey   String     @unique @map("storage_key") @db.VarChar(200)
-  status       FileStatus @default(QUARANTINED)
+  id               String            @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId         String?           @map("tenant_id") @db.Uuid
+  ownerUserId      String?           @map("owner_user_id") @db.Uuid
+  purpose          String            @db.VarChar(50)
+  originalName     String            @map("original_name") @db.VarChar(255)
+  mimeType         String            @map("mime_type") @db.VarChar(100)
+  sizeBytes        Int               @map("size_bytes")
+  sha256           String            @db.Char(64)
+  storageKey       String            @unique @map("storage_key") @db.VarChar(200)
+  status           FileStatus        @default(QUARANTINED)
   /// Why a file was rejected (scanner verdict code, never file content).
-  statusReason String?    @map("status_reason") @db.VarChar(100)
-  uploadedBy   String     @map("uploaded_by") @db.Uuid
-  scannedAt    DateTime?  @map("scanned_at") @db.Timestamptz(6)
-  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  statusReason     String?           @map("status_reason") @db.VarChar(100)
+  uploadedBy       String            @map("uploaded_by") @db.Uuid
+  scannedAt        DateTime?         @map("scanned_at") @db.Timestamptz(6)
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  ticketAttachment TicketAttachment?
 
   @@index([tenantId, createdAt(sort: Desc)])
   @@index([ownerUserId, createdAt(sort: Desc)])
@@ -885,6 +886,9 @@ model ServiceRequest {
   preferredTo      DateTime?             @map("preferred_to") @db.Date
   description      String                @default("") @db.VarChar(2000)
   contactPhone     String                @map("contact_phone") @db.VarChar(20)
+  /// Entered by OGS staff for the customer (Phase 8, P8-7); `enteredBy` is the staff member.
+  onBehalf         Boolean               @default(false) @map("on_behalf")
+  enteredBy        String?               @map("entered_by") @db.Uuid
   status           RequestStatus         @default(SUBMITTED)
   cancelReason     String?               @map("cancel_reason") @db.VarChar(500)
   version          Int                   @default(0)
@@ -984,6 +988,7 @@ model ServiceOrder {
   quotation        Quotation?          @relation(fields: [quotationId], references: [id], onDelete: Restrict)
   events           ServiceOrderEvent[]
   payments         Payment[]
+  tickets          Ticket[]
 
   @@index([customerTenantId, createdAt])
   @@index([customerUserId, createdAt])
@@ -1053,7 +1058,7 @@ model IdempotencyKey {
   @@map("idempotency_key")
 }
 
-/// Yearly document counters (P7-8): REQ / QUO / ORD.
+/// Yearly document counters (P7-8): REQ / QUO / ORD, and TCK (Phase 8).
 model DocumentCounter {
   kind String @db.VarChar(3)
   year Int
@@ -1061,4 +1066,193 @@ model DocumentCounter {
 
   @@id([kind, year])
   @@map("document_counter")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 8: tickets (ITSM). A ticket belongs to an organisation OR a person
+// (ADR-009). Public conversation and staff-only internal notes live in separate
+// tables (P8-5): internal notes have no customer RLS branch at all.
+// Hand-written SQL adds CHECKs, transition guards, append-only triggers and RLS.
+// ---------------------------------------------------------------------------
+
+enum TicketStatus {
+  NEW
+  OPEN
+  IN_PROGRESS
+  AWAITING_CUSTOMER
+  ON_HOLD
+  RESOLVED
+  CLOSED
+}
+
+enum TicketType {
+  INCIDENT
+  QUESTION
+}
+
+/// What the customer says (P8-3).
+enum TicketUrgency {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+/// What staff decide at triage (P8-3); Phase 10 SLA targets key on it.
+enum TicketPriority {
+  P1
+  P2
+  P3
+  P4
+}
+
+enum TicketChannel {
+  WEB
+  PHONE
+  EMAIL
+  WALK_IN
+  WHATSAPP
+}
+
+enum TicketClosure {
+  ACCEPTED
+  AUTO_CLOSED
+  WITHDRAWN
+}
+
+enum TicketAuthorSide {
+  CUSTOMER
+  STAFF
+}
+
+enum TicketEventVisibility {
+  PUBLIC
+  INTERNAL
+}
+
+/// Platform-owned list (seeded); edited in Phase 14 admin.
+model TicketCategory {
+  id       String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  code     String   @unique @db.VarChar(40)
+  name     String   @db.VarChar(80)
+  position Int
+  active   Boolean  @default(true)
+  tickets  Ticket[]
+
+  @@map("ticket_category")
+}
+
+model Ticket {
+  id               String               @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  number           String               @unique @db.VarChar(20)
+  customerTenantId String?              @map("customer_tenant_id") @db.Uuid
+  customerUserId   String?              @map("customer_user_id") @db.Uuid
+  /// The person the ticket is for (the customer, or the organisation member).
+  requesterUserId  String               @map("requester_user_id") @db.Uuid
+  /// Snapshot of the requester's department at creation (P8-4).
+  departmentId     String?              @map("department_id") @db.Uuid
+  createdBy        String               @map("created_by") @db.Uuid
+  onBehalf         Boolean              @default(false) @map("on_behalf")
+  channel          TicketChannel        @default(WEB)
+  type             TicketType           @default(INCIDENT)
+  categoryId       String               @map("category_id") @db.Uuid
+  subject          String               @db.VarChar(150)
+  description      String               @db.VarChar(5000)
+  urgency          TicketUrgency        @default(NORMAL)
+  priority         TicketPriority?
+  serviceOrderId   String?              @map("service_order_id") @db.Uuid
+  relatedTicketId  String?              @map("related_ticket_id") @db.Uuid
+  /// The OGS staff member who owns the ticket (P8-1). Never shown to customers.
+  assigneeUserId   String?              @map("assignee_user_id") @db.Uuid
+  status           TicketStatus         @default(NEW)
+  /// Shown to the customer: what was done.
+  resolution       String?              @db.VarChar(2000)
+  closure          TicketClosure?
+  closureReason    String?              @map("closure_reason") @db.VarChar(500)
+  reopenCount      Int                  @default(0) @map("reopen_count")
+  firstResponseAt  DateTime?            @map("first_response_at") @db.Timestamptz(6)
+  resolvedAt       DateTime?            @map("resolved_at") @db.Timestamptz(6)
+  closedAt         DateTime?            @map("closed_at") @db.Timestamptz(6)
+  version          Int                  @default(0)
+  createdAt        DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  category         TicketCategory       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  serviceOrder     ServiceOrder?        @relation(fields: [serviceOrderId], references: [id], onDelete: Restrict)
+  relatedTicket    Ticket?              @relation("TicketFollowUp", fields: [relatedTicketId], references: [id], onDelete: Restrict)
+  followUps        Ticket[]             @relation("TicketFollowUp")
+  comments         TicketComment[]
+  internalNotes    TicketInternalNote[]
+  attachments      TicketAttachment[]
+  events           TicketEvent[]
+
+  @@index([customerTenantId, createdAt])
+  @@index([customerUserId, createdAt])
+  @@index([status, priority, createdAt])
+  @@index([assigneeUserId, status])
+  @@index([status, resolvedAt])
+  @@map("ticket")
+}
+
+/// The public conversation. Append-only.
+model TicketComment {
+  id           String             @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  ticketId     String             @map("ticket_id") @db.Uuid
+  authorUserId String             @default(dbgenerated("app.current_user_id()")) @map("author_user_id") @db.Uuid
+  side         TicketAuthorSide
+  body         String             @db.VarChar(5000)
+  createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  ticket       Ticket             @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  attachments  TicketAttachment[]
+
+  @@index([ticketId, createdAt])
+  @@map("ticket_comment")
+}
+
+/// Staff-only notes (P8-5). RLS: platform staff only. Append-only.
+model TicketInternalNote {
+  id           String             @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  ticketId     String             @map("ticket_id") @db.Uuid
+  authorUserId String             @default(dbgenerated("app.current_user_id()")) @map("author_user_id") @db.Uuid
+  body         String             @db.VarChar(5000)
+  createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  ticket       Ticket             @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  attachments  TicketAttachment[]
+
+  @@index([ticketId, createdAt])
+  @@map("ticket_internal_note")
+}
+
+/// A file on the ticket itself (both NULL), a public comment, or an internal note (CHECK: not both).
+model TicketAttachment {
+  id        String              @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  ticketId  String              @map("ticket_id") @db.Uuid
+  fileId    String              @unique @map("file_id") @db.Uuid
+  commentId String?             @map("comment_id") @db.Uuid
+  noteId    String?             @map("note_id") @db.Uuid
+  createdAt DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  ticket    Ticket              @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  comment   TicketComment?      @relation(fields: [commentId], references: [id], onDelete: Restrict)
+  note      TicketInternalNote? @relation(fields: [noteId], references: [id], onDelete: Restrict)
+  file      FileMetadata        @relation(fields: [fileId], references: [id], onDelete: Restrict)
+
+  @@index([ticketId])
+  @@map("ticket_attachment")
+}
+
+/// Append-only activity log: one row per command (review §13 "activity log complete").
+model TicketEvent {
+  id          String                @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  ticketId    String                @map("ticket_id") @db.Uuid
+  kind        String                @db.VarChar(30)
+  /// INTERNAL rows (notes, priority, assignee, holds) are invisible to customers in RLS.
+  visibility  TicketEventVisibility
+  fromValue   String?               @map("from_value") @db.VarChar(40)
+  toValue     String?               @map("to_value") @db.VarChar(40)
+  actorUserId String?               @default(dbgenerated("app.current_user_id()")) @map("actor_user_id") @db.Uuid
+  reason      String?               @db.VarChar(2000)
+  occurredAt  DateTime              @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  ticket      Ticket                @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+
+  @@index([ticketId, occurredAt])
+  @@map("ticket_event")
 }

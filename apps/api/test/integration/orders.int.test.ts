@@ -238,10 +238,20 @@ async function issuedQuotation(
 }
 
 let counter = 0;
+/**
+ * Fixture document numbers: a random year per run (2100–2999) and a sequence,
+ * so runs against the same test database never collide (random numbers in a
+ * fixed year did, once enough runs had accumulated).
+ */
+const fixtureYear = 2100 + Math.floor(Math.random() * 900);
+const fixtureNumber = (kind: 'REQ' | 'QUO' | 'ORD') => {
+  counter += 1;
+  return `${kind}-${String(fixtureYear)}-${String(counter).padStart(6, '0')}`;
+};
+
 /** Writes a request straight into any state (as ogs_maint) for the transition table. */
 async function requestInState(owner: string, status: string): Promise<string> {
-  counter += 1;
-  const number = `REQ-2099-${String(900_000 + counter + Math.floor(Math.random() * 90_000)).slice(-6)}`;
+  const number = fixtureNumber('REQ');
   const row = await maint.query<{ id: string }>(
     `INSERT INTO service_request (number, customer_user_id, created_by, service_id, service_price_id, service_name,
        price_model, unit_amount_minor, county, address, contact_phone, status, cancel_reason)
@@ -258,8 +268,7 @@ async function quotationFor(
   status: string,
   expiresInMs = 86_400_000,
 ): Promise<string> {
-  counter += 1;
-  const number = `QUO-2099-${String(900_000 + counter + Math.floor(Math.random() * 90_000)).slice(-6)}`;
+  const number = fixtureNumber('QUO');
   const row = await maint.query<{ id: string }>(
     `INSERT INTO quotation (number, request_id, revision, status, subtotal_minor, vat_minor, total_minor,
        issued_at, expires_at, created_by)
@@ -413,7 +422,6 @@ describe('F1 — every transition, allowed and refused, writes exactly one histo
     for (const state of ['AWAITING_PAYMENT', 'PAID', 'READY_FOR_ASSIGNMENT', 'CANCELLED']) {
       for (const command of ['cancel', 'staffCancel', 'completePayment'] as const) {
         const requestId = await requestInState(user.id, 'ORDERED');
-        counter += 1;
         const paid = state === 'PAID' || state === 'READY_FOR_ASSIGNMENT' ? 406_000 : 0;
         const order = (await maintAsPlatform(
           maint,
@@ -421,13 +429,7 @@ describe('F1 — every transition, allowed and refused, writes exactly one histo
              total_minor, paid_minor, status, cancel_reason)
            VALUES ($1, $2, $3, 'PREPAY', 350000, 56000, 406000, $4, $5::"OrderStatus",
              CASE WHEN $5 = 'CANCELLED' THEN 'Fixture' END) RETURNING id`,
-          [
-            `ORD-2099-${String(100_000 + counter + Math.floor(Math.random() * 800_000)).slice(-6)}`,
-            requestId,
-            user.id,
-            paid,
-            state,
-          ],
+          [fixtureNumber('ORD'), requestId, user.id, paid, state],
         )) as { rows: { id: string }[] };
         const orderId = order.rows[0]?.id ?? '';
         const events = async () =>
@@ -729,7 +731,8 @@ describe('F4 — quotations', () => {
     );
     expect(events.rows.map((row) => row.command)).toEqual(['expireQuotation']);
     await waitForMail(user.email, /has expired/, 1, 45_000);
-  });
+    // The email wait alone may take 45 s: the test needs more than the 30 s default.
+  }, 120_000);
 
   it('issued quotations and their lines are immutable in the database', async () => {
     const { client } = await person();

@@ -145,7 +145,7 @@ To check the production build instead (as Lighthouse sees it): `pnpm --filter @o
 ### Design tests
 
 ```powershell
-pnpm --filter @ogs/web exec playwright test e2e/visual.spec.ts        # 52 screenshots
+pnpm --filter @ogs/web exec playwright test e2e/visual.spec.ts        # 72 screenshots
 pnpm --filter @ogs/web exec playwright test e2e/a11y.spec.ts          # axe, keyboard, responsive, touch targets
 pnpm --filter @ogs/web exec playwright test e2e/theme-motif.spec.ts   # theme persistence, no flash, motif rules
 pnpm --filter @ogs/web exec playwright show-report                    # after a failure: diffs side by side
@@ -154,9 +154,11 @@ pnpm --filter @ogs/web lighthouse                                     # needs th
 
 The design tests need the same set-up as the other browser tests (infrastructure up, dev database seeded). They also run as part of `pnpm test:e2e`.
 
+Locally, Playwright runs one browser worker (`workers: 1` in `playwright.config.ts`), so the whole suite fits in memory next to the API, worker and Vite. CI keeps Playwright's default.
+
 **Screenshots:**
 
-- Each platform keeps its own baselines. Only the **Linux** images, produced by CI, are committed (`apps/web/e2e/__screenshots__/`). Windows and macOS images are written locally on the first run, for viewing, and are git-ignored.
+- Each platform keeps its own baselines. Only the **Linux** images, produced by CI, are committed (`apps/web/e2e/__screenshots__/`), and CI compares against them. Windows and macOS images are written locally on the first run, for viewing, and are git-ignored.
 - After an intended visual change, delete the affected `*-linux.png` files and push. CI then writes new baselines and uploads them as the `screenshot-baselines-linux` artifact; download it (`gh run download <run-id> -n screenshot-baselines-linux`) and commit the images.
 - To refresh your local images: add `--update-snapshots` to the first command above.
 
