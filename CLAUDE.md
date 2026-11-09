@@ -41,6 +41,7 @@ These rules live here so they never depend on local memory.
 - Commit messages end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. PR descriptions end with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
 - **Don't run dev servers or tests while the owner is running `pnpm dev`.** When you finish, stop every server and background process you started, and say so.
 - **Never commit `.env` files or real secrets.**
+- **This repository is public.** Never commit secrets, real personal data, real customer or provider details, contracts or confidential business figures. Use obviously fake demo data only (`*.test` emails, `0700 000 000` phone numbers).
 - **Never run destructive database commands** (reset, drop, `down -v`). Give the owner the command to run instead. Prisma also refuses `migrate reset` from an AI agent: the owner runs `pnpm db:reset` / `pnpm db:reset:test`.
 - Never bypass safety checks:
   - Never add `minimumReleaseAgeExclude` to work around pnpm's minimum release age; pin an older version instead.
@@ -54,7 +55,7 @@ These rules live here so they never depend on local memory.
 - `ogs_app`, the app's database role, doesn't own the tables and has no `BYPASSRLS`.
 - Money is stored as integer minor units with a currency code. Never use floats.
 - Payments are confirmed only by verified gateway callbacks or reconciliation, never by a browser redirect.
-- Internal notes never reach customers (ADR-059).
+- Internal notes never reach customers or providers (ADR-059).
 - Audit records are append-only.
 
 ## Working conventions
