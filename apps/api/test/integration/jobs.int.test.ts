@@ -892,9 +892,18 @@ describe('T2 only approved, eligible, active providers can receive work (databas
     await workedByIndividual(held.jobId, victim);
     const pending = await readyOrder();
     await offered(pending.jobId, IND(victim));
-    await maintAsPlatform(maint, `UPDATE provider SET status = 'SUSPENDED' WHERE id = $1`, [
-      victim.providerId,
-    ]);
+    // Suspend the way staff do (Phase 5 route), so the release trigger runs as ogs_app.
+    const prm = await elevated(await createStaff('provider_relationship_manager'));
+    const reason = { reason: 'Customer complaint under investigation (CMP-88).' };
+    expect(
+      (
+        await prm.client.post(
+          `/platform/providers/${victim.providerId}/suspend`,
+          reason,
+          prm.options,
+        )
+      ).status,
+    ).toBe(204);
     expect((await staffJob(held.jobId)).status).toBe('QUEUED');
     expect((await staffJob(held.jobId)).assignments[0]?.endReason).toBe('PROVIDER_SUSPENDED');
     expect((await staffJob(pending.jobId)).status).toBe('QUEUED');
@@ -1069,17 +1078,21 @@ describe('T4 access ends when the assignment does', () => {
     expect(counts['job']).toBe(0);
     expect(counts['job_event']).toBe(0);
     expect(counts['job_evidence']).toBe(0);
+    // This job's photo files (read with BYPASSRLS): the old holder must see none of
+    // them. The same fixture still holds other jobs' photos, so scope to this job.
+    const files = (
+      await maint.query<{ file_id: string }>(`SELECT file_id FROM job_evidence WHERE job_id = $1`, [
+        job.jobId,
+      ])
+    ).rows.map((row) => row.file_id);
+    expect(files.length).toBeGreaterThan(0);
     await withContext(
       app,
       { userId: individual.user.id, providerId: individual.providerId },
       async () => {
-        expect(
-          await rows(
-            `SELECT 1 FROM file_metadata WHERE purpose = 'job.evidence' AND id IN
-                      (SELECT file_id FROM job_evidence)`,
-            [],
-          ),
-        ).toBe(0);
+        expect(await rows(`SELECT 1 FROM file_metadata WHERE id = ANY($1::uuid[])`, [files])).toBe(
+          0,
+        );
       },
     );
     // The next assignee does not inherit the previous one's notes or photos (P9-9).
@@ -1207,7 +1220,8 @@ describe('T5 providers never see internal notes, billing details or other custom
     expect(text, label).not.toContain(CANARY);
     expect(text, label).not.toContain(canaryCustomer.user.email);
     expect(text, label).not.toMatch(/777777|902221|124444/);
-    expect(text, label).not.toMatch(/"(subtotal|vat|total|paid|amount)(Minor)?"|"price|"email"/i);
+    // Money is always a `…Minor` key (with a currency); a list's `total` is only a count.
+    expect(text, label).not.toMatch(/"\w*Minor"\s*:|"(amount|currency)"|"price|"email"/i);
     expect(text, label).not.toMatch(/internalNotes":\[\{/);
   };
 
@@ -1282,12 +1296,12 @@ describe('T5 providers never see internal notes, billing details or other custom
   });
 
   it('provider-bound emails carry no canary, address, phone or money', async () => {
-    const mail = await waitForMail(individual.user.email, /New job offer/, 45_000);
+    const mail = await waitForMail(individual.user.email, /New job offer/, 1, 45_000);
     const text = JSON.stringify(mail);
     expect(text).not.toContain(CANARY);
     expect(text).not.toContain('+2547');
     expect(text).not.toMatch(/KES|777,777|7,777/);
-  });
+  }, 120_000);
 });
 
 // ---------------------------------------------------------------- T6 offers
@@ -1655,9 +1669,9 @@ describe('T10 job emails', () => {
     const job = await readyOrder({ userId: user.id });
     const offerId = await offered(job.jobId, CO());
     ok(await accept(company.adminClient, company.tenantId, offerId, company.tech.id));
-    const mail = await waitForMail(user.email, /technician is assigned/, 45_000);
+    const mail = await waitForMail(user.email, /technician is assigned/, 1, 45_000);
     expect(JSON.stringify(mail)).not.toContain('Rift Valley Networks');
-    const techMail = await waitForMail(company.tech.email, /is assigned to you/, 45_000);
+    const techMail = await waitForMail(company.tech.email, /is assigned to you/, 1, 45_000);
     expect(JSON.stringify(techMail)).not.toContain('+2547');
-  });
+  }, 120_000);
 });
