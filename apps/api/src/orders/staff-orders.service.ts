@@ -496,6 +496,14 @@ export class FinanceService {
             tenantId: order.customerTenantId,
             payload: { requestId: order.requestId, orderId },
           });
+          if (complete) {
+            // Phase 9: the jobs worker opens the order's job (and its sweep catches misses).
+            await this.outbox.publish(tx, {
+              type: 'jobs.order_ready',
+              tenantId: order.customerTenantId,
+              payload: { orderId },
+            });
+          }
           return loadRequestView(tx, order.requestId);
         },
       ),
@@ -663,6 +671,14 @@ async function createOrder(
     tenantId: request.customerTenantId,
     payload: { requestId: request.id, orderId: order.id },
   });
+  if (postpaid) {
+    // Phase 9: the jobs worker opens the order's job (and its sweep catches misses).
+    await outbox.publish(tx, {
+      type: 'jobs.order_ready',
+      tenantId: request.customerTenantId,
+      payload: { orderId: order.id },
+    });
+  }
 }
 
 /** Organisation names and personal emails, for staff lists. */

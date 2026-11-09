@@ -15,8 +15,8 @@ export type ProviderStatusValue = 'PENDING_APPROVAL' | 'ACTIVE' | 'REJECTED' | '
 export type ResolvedWorkspace =
   | { readonly kind: 'personal' }
   /**
-   * The individual-provider capacity (Phase 5, P5-2). Runs in the person's own
-   * `user` context: their provider rows are user-owned. Restricted until approved.
+   * The individual-provider capacity (Phase 5, P5-2). Runs in a `provider`
+   * context (Phase 9): their provider rows are user-owned. Restricted until approved.
    */
   | {
       readonly kind: 'provider';
@@ -82,7 +82,9 @@ export class WorkspaceContextService {
       }
       return {
         ok: true,
-        context: { kind: 'user', userId },
+        // Phase 9 (P9-3): its own DbContext kind, so assigned jobs match and the
+        // person's personal customer rows do not.
+        context: { kind: 'provider', userId, providerId: provider.id },
         workspace: {
           kind: 'provider',
           providerId: provider.id,

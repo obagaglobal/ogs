@@ -68,6 +68,15 @@ const KNOWN_TABLES = [
   'ticket_comment',
   'ticket_event',
   'ticket_internal_note',
+  // Phase 9
+  'job',
+  'job_assignment',
+  'job_completion',
+  'job_event',
+  'job_evidence',
+  'job_offer',
+  'job_skill',
+  'job_work_note',
 ];
 
 interface TableRow {

@@ -42,9 +42,12 @@ export const REQUEST_TRANSITIONS = {
 export const ORDER_TRANSITIONS = {
   completePayment: { from: ['AWAITING_PAYMENT'], to: 'PAID', actor: 'finance' },
   release: { from: ['PAID'], to: 'READY_FOR_ASSIGNMENT', actor: 'system' },
+  // Phase 9 (P9-10): the jobs worker moves the order with its job.
+  startDelivery: { from: ['READY_FOR_ASSIGNMENT'], to: 'IN_DELIVERY', actor: 'system' },
+  completeDelivery: { from: ['IN_DELIVERY'], to: 'COMPLETED', actor: 'system' },
   cancel: { from: ['AWAITING_PAYMENT'], to: 'CANCELLED', actor: 'customer' },
   staffCancel: {
-    from: ['AWAITING_PAYMENT', 'PAID', 'READY_FOR_ASSIGNMENT'],
+    from: ['AWAITING_PAYMENT', 'PAID', 'READY_FOR_ASSIGNMENT', 'IN_DELIVERY'],
     to: 'CANCELLED',
     actor: 'finance',
   },

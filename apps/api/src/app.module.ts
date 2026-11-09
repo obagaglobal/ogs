@@ -14,6 +14,7 @@ import { PlatformModule } from './platform/platform.module.js';
 import { SessionsModule } from './sessions/sessions.module.js';
 import { TenancyModule } from './tenancy/tenancy.module.js';
 import { TicketsModule } from './tickets/tickets.module.js';
+import { JobsModule } from './jobs/jobs.module.js';
 import { WorkspaceAdminModule } from './workspace-admin/workspace-admin.module.js';
 
 /** The HTTP API. */
@@ -33,6 +34,7 @@ import { WorkspaceAdminModule } from './workspace-admin/workspace-admin.module.j
     CatalogueModule,
     OrdersModule,
     TicketsModule,
+    JobsModule,
     InvitationsModule,
     WorkspaceAdminModule,
   ],

@@ -1,7 +1,7 @@
 import type { Db } from '../database/index.js';
 
-/** Document kinds with yearly counters (P7-8): requests, quotations, orders, tickets. */
-export type DocumentKind = 'REQ' | 'QUO' | 'ORD' | 'TCK';
+/** Document kinds with yearly counters (P7-8): requests, quotations, orders, tickets, jobs. */
+export type DocumentKind = 'REQ' | 'QUO' | 'ORD' | 'TCK' | 'JOB';
 
 /**
  * Next document number, e.g. REQ-2026-000123 (P7-8). The counter row is

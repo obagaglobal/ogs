@@ -61,6 +61,15 @@ const PHASE_3_TABLES = [
   'ticket_attachment',
   'ticket_event',
   'ticket_category',
+  // Phase 9: jobs and field work (provider grants come only with assignments).
+  'job',
+  'job_skill',
+  'job_offer',
+  'job_assignment',
+  'job_event',
+  'job_work_note',
+  'job_evidence',
+  'job_completion',
 ] as const;
 
 describe('fail closed without a context (T2)', () => {
