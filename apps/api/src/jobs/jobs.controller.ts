@@ -194,19 +194,21 @@ export class JobsController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @UploadedFile() file: UploadedBuffer | undefined,
     @Body() body: unknown,
+    @Headers('idempotency-key') key: unknown,
     @Auth() auth: AccessState,
   ): Promise<AssigneeJob> {
+    const idempotencyKey = idempotencyKeyFrom(key);
     const { caption } = parseBody(evidenceFieldsSchema, body);
     if (file === undefined) {
       throw badRequest('file_missing');
     }
-    const result = await this.jobs.photo(
+    return this.jobs.photo(
       assigneeOf(auth),
       id,
       { originalName: file.originalname, bytes: file.buffer },
       caption,
+      idempotencyKey,
     );
-    return result.job;
   }
 
   @Post(':id/completion')

@@ -689,8 +689,15 @@ function NotesCard({ job }: { job: AssigneeJob }) {
   );
 }
 
+/**
+ * A photo on its way. The caption and the Idempotency-Key are fixed when the
+ * photo is picked, so "Try again" resends exactly the same request and the
+ * server never stores the photo twice.
+ */
 interface Sending {
   readonly file: File;
+  readonly caption: string;
+  readonly key: string;
   readonly state: 'sending' | 'failed';
 }
 
@@ -701,17 +708,22 @@ function PhotosCard({ job }: { job: AssigneeJob }) {
   const [sending, setSending] = useState<Sending[]>([]);
 
   /** One at a time, each with its own state and a retry (plan §2.9). */
-  const send = async (files: File[]) => {
-    for (const file of files) {
-      setSending((list) => [...list.filter((s) => s.file !== file), { file, state: 'sending' }]);
+  const send = async (items: Omit<Sending, 'state'>[]) => {
+    for (const item of items) {
+      const others = (list: Sending[]) => list.filter((s) => s.key !== item.key);
+      setSending((list) => [...others(list), { ...item, state: 'sending' }]);
       try {
-        await upload(file, caption.trim());
-        setSending((list) => list.filter((s) => s.file !== file));
+        await upload(item.file, item.caption, item.key);
+        setSending(others);
       } catch {
-        setSending((list) => list.map((s) => (s.file === file ? { file, state: 'failed' } : s)));
+        setSending((list) => [...others(list), { ...item, state: 'failed' }]);
       }
     }
+  };
+  const pick = (files: File[]) => {
+    const text = caption.trim();
     setCaption('');
+    void send(files.map((file) => ({ file, caption: text, key: crypto.randomUUID() })));
   };
 
   return (
@@ -725,10 +737,7 @@ function PhotosCard({ job }: { job: AssigneeJob }) {
       {sending.length === 0 ? null : (
         <ul className="space-y-1 text-sm" aria-live="polite">
           {sending.map((item) => (
-            <li
-              key={item.file.name + String(item.file.lastModified)}
-              className="flex items-center gap-2"
-            >
+            <li key={item.key} className="flex items-center gap-2">
               <span className="truncate">
                 {item.state === 'sending'
                   ? t('jobs.uploading', { name: item.file.name })
@@ -739,7 +748,8 @@ function PhotosCard({ job }: { job: AssigneeJob }) {
                   variant="secondary"
                   size="sm"
                   onClick={() => {
-                    void send([item.file]);
+                    // Same file, caption and key: a lost-but-stored upload is not stored twice.
+                    void send([item]);
                   }}
                 >
                   {t('jobs.tryAgain')}
@@ -779,7 +789,7 @@ function PhotosCard({ job }: { job: AssigneeJob }) {
               onChange={(event) => {
                 const files = [...(event.target.files ?? [])];
                 event.target.value = '';
-                void send(files);
+                pick(files);
               }}
             />
           </label>

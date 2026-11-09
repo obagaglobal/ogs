@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import {
   CONFIRM_WINDOW_MS,
@@ -18,9 +19,9 @@ import { AuditService, type AuditRequestMeta } from '../audit/audit.service.js';
 import { conflict, forbiddenRule, notFound, unprocessable } from '../common/domain-error.js';
 import { TenantDb, type Db } from '../database/index.js';
 import { OutboxService } from '../events/outbox.service.js';
-import { FileService, type Download, type StoredFile } from '../files/file.service.js';
+import { FileService, type Download } from '../files/file.service.js';
 import { RateLimiter } from '../identity/rate-limiter.js';
-import { idempotent } from '../orders/order-support.js';
+import { idempotent, storedIdempotentResponse } from '../orders/order-support.js';
 import { requirePermission, type JobAssignee } from './job-actors.js';
 import { JobLifecycleService } from './job-lifecycle.service.js';
 import { isEligibilityViolation, moveJob, notEligible, writeJobEvent } from './job-support.js';
@@ -478,13 +479,36 @@ export class AssigneeJobsService {
   }
 
   /** A photo from the phone (plan §2.6): owned by the customer, linked in one transaction. */
+  /**
+   * A photo upload is idempotent like every other command: the same
+   * Idempotency-Key (and the same file and caption) never stores a second photo.
+   *  1. A key that already has an answer is a replay: nothing is uploaded.
+   *  2. Otherwise the key is claimed in the SAME transaction as the photo row,
+   *     so two concurrent retries serialise on it: the second one rolls back its
+   *     own row and answers like a replay. (Its object in storage is an orphan
+   *     with no metadata, never shown anywhere.)
+   */
   async photo(
     assignee: JobAssignee,
     jobId: string,
     file: { originalName: string; bytes: Buffer },
     caption: string,
-  ): Promise<{ photo: StoredFile; job: AssigneeJob }> {
+    key: string,
+  ): Promise<AssigneeJob> {
     requirePermission(assignee, 'ticket.update_progress');
+    const idempotency = {
+      key,
+      userId: assignee.userId,
+      scope: assignee.scope,
+      route: `jobs/${jobId}/photos`,
+      body: { caption, sha256: createHash('sha256').update(file.bytes).digest('hex') },
+    };
+    const earlier = await this.db.run(assignee.ctx, async (tx) =>
+      storedIdempotentResponse(tx, idempotency),
+    );
+    if (earlier.found) {
+      return this.detail(assignee, jobId);
+    }
     await this.limiter.consume('jobPhotosPerJob', jobId);
     const { customer, assignmentId } = await this.db.run(assignee.ctx, async (tx) => {
       const { job, assignmentId: active } = await this.working(tx, assignee, jobId);
@@ -498,17 +522,24 @@ export class AssigneeJobsService {
         assignmentId: active,
       };
     });
-    const stored = await this.files.uploadJobEvidence(
-      assignee.ctx,
-      customer,
-      file,
-      async (tx, fileId) => {
-        await tx.jobEvidence.createMany({ data: [{ jobId, assignmentId, fileId, caption }] });
-        await writeJobEvent(tx, jobId, 'photo', { assignmentId });
-      },
-    );
-    const job = await this.detail(assignee, jobId);
-    return { photo: stored, job };
+    try {
+      await this.files.uploadJobEvidence(assignee.ctx, customer, file, async (tx, fileId) => {
+        const stored = await idempotent(tx, idempotency, async () => {
+          await tx.jobEvidence.createMany({ data: [{ jobId, assignmentId, fileId, caption }] });
+          await writeJobEvent(tx, jobId, 'photo', { assignmentId });
+          return { fileId };
+        });
+        if (stored.fileId !== fileId) {
+          // A concurrent call with this key finished first: undo this upload's rows.
+          throw new PhotoReplayed();
+        }
+      });
+    } catch (error) {
+      if (!(error instanceof PhotoReplayed)) {
+        throw error;
+      }
+    }
+    return this.detail(assignee, jobId);
   }
 
   /** The completion report (plan §2.4): the job then waits for the customer. */
@@ -827,6 +858,11 @@ export class AssigneeJobsService {
     }
     return { job, assignmentId: assignment.id };
   }
+}
+
+/** Rolls back an upload that lost the race to an identical, earlier call. */
+class PhotoReplayed extends Error {
+  override readonly name = 'PhotoReplayed';
 }
 
 const CARD_SELECT = {

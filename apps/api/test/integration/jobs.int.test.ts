@@ -444,14 +444,23 @@ async function move(
   return client.post(`/jobs/${jobId}/${path}`, { version, ...body }, { workspace, headers: key() });
 }
 
-async function uploadPhoto(client: Client, workspace: string, jobId: string) {
-  return client.agent
+async function uploadPhoto(
+  client: Client,
+  workspace: string,
+  jobId: string,
+  options: { key?: string | null; caption?: string; bytes?: Buffer } = {},
+) {
+  let call = client.agent
     .post(`/api/v1/jobs/${jobId}/photos`)
     .set('X-Forwarded-For', client.ip)
     .set('X-CSRF-Token', client.csrf ?? '')
-    .set('X-OGS-Workspace', workspace)
-    .field('caption', 'Switch replaced')
-    .attach('file', JPEG, 'switch.jpg');
+    .set('X-OGS-Workspace', workspace);
+  if (options.key !== null) {
+    call = call.set('Idempotency-Key', options.key ?? randomUUID());
+  }
+  return call
+    .field('caption', options.caption ?? 'Switch replaced')
+    .attach('file', options.bytes ?? JPEG, 'switch.jpg');
 }
 
 /** Puts an INDIVIDUAL-held job in IN_PROGRESS with one photo; returns the photo id. */
@@ -1517,15 +1526,77 @@ describe('T7 work, reports and confirmation', () => {
     expect((await staffJob(job.jobId)).status).toBe('COMPLETED');
   });
 
+  it('a photo retried with the same Idempotency-Key is stored once', async () => {
+    const job = await readyOrder();
+    await workedByIndividual(job.jobId); // one photo already
+    const photos = async () =>
+      (await maint.query('SELECT 1 FROM job_evidence WHERE job_id = $1', [job.jobId])).rowCount ??
+      0;
+    const files = async () =>
+      (
+        await maint.query(
+          `SELECT 1 FROM file_metadata f JOIN job_evidence e ON e.file_id = f.id WHERE e.job_id = $1`,
+          [job.jobId],
+        )
+      ).rowCount ?? 0;
+    const events = async () =>
+      (
+        await maint.query(`SELECT 1 FROM job_event WHERE job_id = $1 AND kind = 'photo'`, [
+          job.jobId,
+        ])
+      ).rowCount ?? 0;
+    expect(await photos()).toBe(1);
+
+    // The connection drops after the server stored the photo; the phone retries.
+    const key = randomUUID();
+    const first = await uploadPhoto(individual.client, 'provider', job.jobId, { key });
+    ok(first, 'first upload');
+    const retry = await uploadPhoto(individual.client, 'provider', job.jobId, { key });
+    ok(retry, 'retry');
+    expect(await photos()).toBe(2);
+    expect(await files()).toBe(2);
+    expect(await events()).toBe(2);
+    expect((retry.body as AssigneeJob).photos).toHaveLength(2);
+
+    // Two retries racing each other still store one photo.
+    const raceKey = randomUUID();
+    const raced = await Promise.all([
+      uploadPhoto(individual.client, 'provider', job.jobId, { key: raceKey }),
+      uploadPhoto(individual.client, 'provider', job.jobId, { key: raceKey }),
+    ]);
+    for (const response of raced) {
+      // The loser of the race answers like a replay (or 409 while the winner is mid-flight).
+      expect([200, 201, 409]).toContain(response.status);
+    }
+    expect(raced.some((response) => [200, 201].includes(response.status))).toBe(true);
+    expect(await photos()).toBe(3);
+    expect(await events()).toBe(3);
+
+    // The same key with a different photo or caption is refused, and so is no key at all.
+    const otherPhoto = Buffer.concat([
+      JPEG.subarray(0, JPEG.length - 2),
+      Buffer.from([0x01, 0xff, 0xd9]),
+    ]);
+    expect(
+      (await uploadPhoto(individual.client, 'provider', job.jobId, { key, bytes: otherPhoto }))
+        .status,
+    ).toBe(422);
+    expect(
+      (await uploadPhoto(individual.client, 'provider', job.jobId, { key, caption: 'Other' }))
+        .status,
+    ).toBe(422);
+    expect(
+      (await uploadPhoto(individual.client, 'provider', job.jobId, { key: null })).status,
+    ).toBe(422);
+    expect(await photos()).toBe(3);
+  });
+
   it('photos: images only; the customer sees them only once cited in a report', async () => {
     const job = await readyOrder();
     const photoId = await workedByIndividual(job.jobId);
-    const pdf = await individual.client.agent
-      .post(`/api/v1/jobs/${job.jobId}/photos`)
-      .set('X-Forwarded-For', individual.client.ip)
-      .set('X-CSRF-Token', individual.client.csrf ?? '')
-      .set('X-OGS-Workspace', 'provider')
-      .attach('file', Buffer.from('%PDF-1.4\n%%EOF\n'), 'doc.pdf');
+    const pdf = await uploadPhoto(individual.client, 'provider', job.jobId, {
+      bytes: Buffer.from('%PDF-1.4\n%%EOF\n'),
+    });
     expect(pdf.status).toBe(400);
     expect(
       (

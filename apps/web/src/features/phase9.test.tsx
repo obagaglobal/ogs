@@ -249,6 +249,44 @@ describe('Phase 9 technician screens (T11)', () => {
     expect(keys[1]).toBe(keys[0]);
   });
 
+  it('a photo retried after a lost connection resends the SAME Idempotency-Key and caption', async () => {
+    const user = userEvent.setup();
+    const sent: { key: string; caption: unknown }[] = [];
+    providerRoutes({ [`GET /jobs/${JOB_ID}`]: { status: 200, body: job() } });
+    const fetchMock = vi.mocked(globalThis.fetch);
+    const original = fetchMock.getMockImplementation();
+    fetchMock.mockImplementation(async (input, init = {}) => {
+      const url = typeof input === 'string' ? input : (input as Request).url;
+      if (url.endsWith(`/jobs/${JOB_ID}/photos`)) {
+        sent.push({
+          key: (init.headers as Record<string, string>)['Idempotency-Key'] ?? '',
+          caption: (init.body as FormData).get('caption'),
+        });
+        if (sent.length === 1) {
+          throw new TypeError('Failed to fetch');
+        }
+        return new Response(JSON.stringify(job()), { status: 201 });
+      }
+      return original === undefined ? new Response('{}') : original(input, init);
+    });
+    renderApp(`/jobs/${JOB_ID}`);
+    await user.type(await screen.findByLabelText(/Caption/), 'Router after');
+    await user.upload(
+      screen.getByLabelText(/Take or choose a photo/),
+      new File([new Uint8Array([0xff, 0xd8, 0xff, 0xd9])], 'router.jpg', { type: 'image/jpeg' }),
+    );
+    await user.click(await screen.findByRole('button', { name: 'Try again' }));
+    await waitFor(() => {
+      expect(sent).toHaveLength(2);
+    });
+    expect(sent[0]?.key).toMatch(/^[0-9a-f-]{36}$/);
+    expect(sent[1]).toEqual(sent[0]);
+    expect(sent[1]?.caption).toBe('Router after');
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
+    });
+  });
+
   it('a job that is no longer assigned says so', async () => {
     providerRoutes({ [`GET /jobs/${JOB_ID}`]: { status: 404, body: { error: 'not_found' } } });
     renderApp(`/jobs/${JOB_ID}`);

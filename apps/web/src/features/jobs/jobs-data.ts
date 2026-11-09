@@ -15,6 +15,7 @@ import type { Status } from '@/components/ui/badge';
 import { useElevated } from '@/features/platform/elevation-state';
 import { useWorkspace } from '@/features/workspace/workspace-state';
 import { t, type MessageKey } from '@/i18n';
+import { idempotent } from '@/features/requests/requests-data';
 import { ApiError, api, uploadFile, type RequestOptions } from '@/lib/api';
 
 export { idempotent, useIdempotencyKey } from '@/features/requests/requests-data';
@@ -230,12 +231,16 @@ export function useJobWrite<V, R = AssigneeJob>(
 export function usePhotoUpload(jobId: string) {
   const { selected } = useWorkspace();
   const queryClient = useQueryClient();
-  return async (file: File, caption: string): Promise<AssigneeJob> => {
+  /** `key`: the photo's Idempotency-Key, the SAME on every retry of that photo. */
+  return async (file: File, caption: string, key: string): Promise<AssigneeJob> => {
     const photo = await shrinkPhoto(file);
     const form = new FormData();
     form.set('caption', caption);
     form.set('file', photo);
-    const job = await uploadFile<AssigneeJob>(form, selected, { path: `/jobs/${jobId}/photos` });
+    const job = await uploadFile<AssigneeJob>(form, selected, {
+      path: `/jobs/${jobId}/photos`,
+      headers: idempotent(key),
+    });
     await refresh(queryClient);
     return job;
   };
