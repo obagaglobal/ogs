@@ -14,18 +14,18 @@ The master specification is at `C:\OGS-private\OGS_MASTER_SPEC.md`, outside the 
 
 <!-- Keep this block current: update it whenever a phase PR is opened, merged or approved. -->
 
-| Phase                                                        | State                                                                                  |
-| ------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
-| 0 Architecture review                                        | Accepted (D-1 … D-18 → ADR-009 … ADR-026)                                              |
-| 2 Tenancy, RLS, data foundations                             | Merged to `main` (#1)                                                                  |
-| 3 Identity, access, first shell                              | Merged to `main` (#2)                                                                  |
-| 4 Organisations, approvals, invitations, members             | Merged to `main` (#3)                                                                  |
-| 5 Providers, KYC review, coverage, availability, eligibility | Merged to `main` (#4); §8 refinements approved (ADR-033 … ADR-037)                     |
-| 6 Service catalogue                                          | Merged to `main` (#7)                                                                  |
-| 7 Requests, quotations, orders                               | Merged to `main` (#8); §8 delivery notes approved                                      |
-| 6b Design system (Kitenge signal)                            | Merged to `main` (#10)                                                                 |
-| 8 Ticketing and ITSM                                         | Merged to `main` (#11)                                                                 |
-| 9 Assignment and dispatch                                    | Approved (P9-1 … P9-12 → ADR-063 … ADR-074); built on `phase-9/assignment`, PR pending |
+| Phase                                                        | State                                                                                                                                    |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| 0 Architecture review                                        | Accepted (D-1 … D-18 → ADR-009 … ADR-026)                                                                                                |
+| 2 Tenancy, RLS, data foundations                             | Merged to `main` (#1)                                                                                                                    |
+| 3 Identity, access, first shell                              | Merged to `main` (#2)                                                                                                                    |
+| 4 Organisations, approvals, invitations, members             | Merged to `main` (#3)                                                                                                                    |
+| 5 Providers, KYC review, coverage, availability, eligibility | Merged to `main` (#4); §8 refinements approved (ADR-033 … ADR-037)                                                                       |
+| 6 Service catalogue                                          | Merged to `main` (#7)                                                                                                                    |
+| 7 Requests, quotations, orders                               | Merged to `main` (#8); §8 delivery notes approved                                                                                        |
+| 6b Design system (Kitenge signal)                            | Merged to `main` (#10)                                                                                                                   |
+| 8 Ticketing and ITSM                                         | Merged to `main` (#11)                                                                                                                   |
+| 9 Assignment and dispatch                                    | Approved (P9-1 … P9-12 → ADR-063 … ADR-074); built on `phase-9/assignment`, PR open into `main`, awaiting green CI and the owner's merge |
 
 Last updated: 2026-11-10.
 
