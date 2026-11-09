@@ -12,32 +12,50 @@ Start with [README.md](README.md), [docs/architecture/overview.md](docs/architec
 
 <!-- Keep this block current: update it whenever a phase PR is opened, merged or approved. -->
 
-| Phase                                                        | State                                                                        |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------------- |
-| 0 Architecture review                                        | Accepted (D-1 … D-18 → ADR-009 … ADR-026)                                    |
-| 2 Tenancy, RLS, data foundations                             | Merged to `main` (#1)                                                        |
-| 3 Identity, access, first shell                              | Merged to `main` (#2)                                                        |
-| 4 Organisations, approvals, invitations, members             | Merged to `main` (#3)                                                        |
-| 5 Providers, KYC review, coverage, availability, eligibility | Merged to `main` (#4); §8 refinements approved (ADR-033 … ADR-037)           |
-| 6 Service catalogue                                          | Merged to `main` (#7)                                                        |
-| 7 Requests, quotations, orders                               | Merged to `main` (#8); §8 delivery notes approved                            |
-| 6b Design system (Kitenge signal)                            | Merged to `main` (#10)                                                       |
-| 8 Ticketing and ITSM                                         | PR open (`phase-8/ticketing` → `main`), awaiting green CI and owner approval |
+| Phase                                                        | State                                                              |
+| ------------------------------------------------------------ | ------------------------------------------------------------------ |
+| 0 Architecture review                                        | Accepted (D-1 … D-18 → ADR-009 … ADR-026)                          |
+| 2 Tenancy, RLS, data foundations                             | Merged to `main` (#1)                                              |
+| 3 Identity, access, first shell                              | Merged to `main` (#2)                                              |
+| 4 Organisations, approvals, invitations, members             | Merged to `main` (#3)                                              |
+| 5 Providers, KYC review, coverage, availability, eligibility | Merged to `main` (#4); §8 refinements approved (ADR-033 … ADR-037) |
+| 6 Service catalogue                                          | Merged to `main` (#7)                                              |
+| 7 Requests, quotations, orders                               | Merged to `main` (#8); §8 delivery notes approved                  |
+| 6b Design system (Kitenge signal)                            | Merged to `main` (#10)                                             |
+| 8 Ticketing and ITSM                                         | Merged to `main` (#11)                                             |
+| 9 Assignment and dispatch                                    | Not started: plan needed                                           |
 
-Last updated: 2026-11-07.
+Last updated: 2026-11-09.
 
 ## Workflow rules (from the owner)
 
-- **One phase at a time.** For each phase:
-  1. Write a plan in `docs/plans/` and wait for "Phase N approved".
-  2. Build and test the phase on a `phase-N/<name>` branch, then open a PR **into `main`**.
-  3. Wait for green CI **and** the owner's approval before starting the next phase.
+These rules live here so they never depend on local memory.
+
+- **The owner merges every PR.** "Phase N approved" means you may build Phase N. It never means you may merge any PR.
+- **One phase at a time:**
+  1. Write the plan in `docs/plans/` and wait for "Phase N approved".
+  2. Build and test on a `phase-N/<name>` branch. The whole phase goes into **one PR into `main`**.
+  3. Wait for green CI and report it with the PR link.
+  4. Don't start the next phase until the owner has merged this phase's PR.
 - Commit or push only when asked. Within an approved phase, committing and pushing the phase branch is part of the job.
 - Commit messages end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. PR descriptions end with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
+- **Don't run dev servers or tests while the owner is running `pnpm dev`.** When you finish, stop every server and background process you started, and say so.
+- **Never commit `.env` files or real secrets.**
+- **Never run destructive database commands** (reset, drop, `down -v`). Give the owner the command to run instead. Prisma also refuses `migrate reset` from an AI agent: the owner runs `pnpm db:reset` / `pnpm db:reset:test`.
 - Never bypass safety checks:
-  - Prisma refuses `migrate reset` from an AI agent; ask the owner to run `pnpm db:reset` / `pnpm db:reset:test`.
   - Never add `minimumReleaseAgeExclude` to work around pnpm's minimum release age; pin an older version instead.
   - Never skip hooks or work around a blocked command.
+- The development machine is Windows. Give the owner **PowerShell** commands.
+
+## Security rules
+
+- Tenant isolation is enforced in the backend **and** by PostgreSQL RLS. Never trust a tenant or workspace ID sent by the browser.
+- Set RLS context only with transaction-local `set_config(…, true)` (in `TenantDb`). Never use session-level `SET`.
+- `ogs_app`, the app's database role, doesn't own the tables and has no `BYPASSRLS`.
+- Money is stored as integer minor units with a currency code. Never use floats.
+- Payments are confirmed only by verified gateway callbacks or reconciliation, never by a browser redirect.
+- Internal notes never reach customers (ADR-059).
+- Audit records are append-only.
 
 ## Working conventions
 
@@ -49,6 +67,8 @@ Last updated: 2026-11-07.
 - Edit files with the editor tools, not shell heredocs or `node -e` (quotes and backticks get mangled). Windows host: keep LF line endings.
 
 ## Design (Phase 6b, ADR-055)
+
+All new screens use the Kitenge signal design system: its tokens and its components.
 
 - **Colours:** use the tokens only (`bg-paper`, `text-ink`, `bg-saffron`, `border-control-border`, `text-success`…). Raw colours (hex, `rgb()`, palette classes like `bg-red-500`) fail lint and tests outside `apps/web/src/styles/tokens.css`. A new colour pair must pass `src/test/contrast.test.ts`.
 - **Components:** build screens from `apps/web/src/components/ui` (`Button`, `FormField` + `Input`/`Select`, `Card`, `StatusPill`, `DataTable`, `EmptyState`…). Money uses `<Money minor={…} />`; references and IDs use `<Code>`.
