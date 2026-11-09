@@ -35,7 +35,7 @@ These rules live here so they never depend on local memory.
 
 - **The owner merges every PR.** "Phase N approved" means you may build Phase N. It never means you may merge any PR.
 - **One phase at a time:**
-  1. Write the plan in `docs/plans/` and wait for "Phase N approved".
+  1. Write the plan in `docs/plans/` (include that phase's items from [`docs/plans/backlog.md`](docs/plans/backlog.md)) and wait for "Phase N approved".
   2. Build and test on a `phase-N/<name>` branch. The whole phase goes into **one PR into `main`**.
   3. Wait for green CI and report it with the PR link.
   4. Don't start the next phase until the owner has merged this phase's PR.
