@@ -1,3 +1,5 @@
+Copyright © 2026 ObagaGlobal Ltd. All rights reserved. This code is publicly visible but not licensed for reuse.
+
 # OGS – ObagaGlobal Services
 
 OGS is a multi-tenant business services platform owned by **ObagaGlobal**. It will serve individual customers, organisations with their own company portals, external individual and company service providers, and internal OGS employees. Planned features include a public service catalogue, hybrid service delivery and organisation approval workflows.
