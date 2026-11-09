@@ -8,6 +8,8 @@ OGS (ObagaGlobal Services) is an ICT services marketplace for Kenya. It is a pnp
 
 Start with [README.md](README.md), [docs/architecture/overview.md](docs/architecture/overview.md), [docs/DECISIONS.md](docs/DECISIONS.md) and [docs/design/DESIGN_SYSTEM.md](docs/design/DESIGN_SYSTEM.md).
 
+The master specification is at `C:\OGS-private\OGS_MASTER_SPEC.md`, outside the repo on purpose because the repo is public. Read it there; **never copy it, or quote it at length, into the repo**.
+
 ## Status
 
 <!-- Keep this block current: update it whenever a phase PR is opened, merged or approved. -->

@@ -86,7 +86,7 @@ ADR-009 … ADR-026 record the owner's answers to decisions D-1 … D-18 of the 
 | 071 | P9-9      | Notes and photos belong to an assignment                         | Accepted                                            |
 | 072 | P9-10     | Orders gain IN_DELIVERY and COMPLETED                            | Accepted                                            |
 | 073 | P9-11     | Eligibility enforced in the database; availability scored        | Accepted                                            |
-| 074 | P9-12     | Offline mode in Phase 12, live map in Phase 15                   | Accepted, **owner to confirm against spec §22**     |
+| 074 | P9-12     | Offline mode in Phase 12, live map in Phase 15                   | Accepted, confirmed by the owner 2026-11-10         |
 
 ---
 
@@ -445,7 +445,8 @@ A restricted (pending) workspace may upload application evidence only.
 ## ADR-074 — Offline mode in Phase 12, live map in Phase 15 (P9-12)
 
 **Decision:** Phase 9 delivers the first live tracker (polling) and retry-safe commands with kept drafts. Offline mode (queued actions and photos) follows in Phase 12 with the service worker for web push; the live map follows in Phase 15 with the hosting, map vendor and location-consent decisions (ADR-018, ADR-023).
-**Why:** Both need infrastructure that does not exist yet. The master specification is not in the repository; the owner confirms these phase numbers against spec §22.
+**Why:** Both need infrastructure that does not exist yet.
+**Confirmed:** by the owner on 2026-11-10. The spec's roadmap (§22) names neither feature, so the owner placed them: offline mode in Phase 12 (Notifications, which includes push readiness) and the live map in Phase 15 (integrations, where a map vendor belongs).
 
 ---
 
