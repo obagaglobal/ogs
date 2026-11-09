@@ -33,7 +33,9 @@ import {
 } from '@/components/ui/navigation';
 import { DialogClose, DialogContent, DialogRoot, DialogTrigger } from '@/components/ui/overlays';
 import { Combobox } from '@/components/ui/pickers';
+import { SendTechnicianDialog, StaffJobCard } from '@/features/jobs/dispatch-pages';
 import { ElevationGate } from '@/features/platform/elevation-gate';
+import { useCan } from '@/features/workspace/workspace-state';
 import { ELEVATION_KEY, useElevated } from '@/features/platform/elevation-state';
 import { useRegions } from '@/features/provider/provider-data';
 import { t, type MessageKey } from '@/i18n';
@@ -346,6 +348,7 @@ function StaffTicketLoader({ id }: { id: string }) {
 
 function StaffTicketView({ ticket }: { ticket: StaffTicket }) {
   const { options } = useElevated();
+  const canDispatch = useCan('ticket.assign');
   const download = downloader(`/platform/tickets/${ticket.id}`, options);
   const closed = ticket.status === 'CLOSED';
   return (
@@ -390,6 +393,15 @@ function StaffTicketView({ ticket }: { ticket: StaffTicket }) {
         <div className="min-w-0 space-y-4">
           {closed ? null : <StatusActions ticket={ticket} />}
           <Properties ticket={ticket} />
+          <StaffJobCard kind="tickets" id={ticket.id}>
+            {canDispatch && !closed && ticket.status !== 'RESOLVED' ? (
+              <SendTechnicianDialog
+                ticketId={ticket.id}
+                subject={ticket.subject}
+                description={ticket.description}
+              />
+            ) : null}
+          </StaffJobCard>
           <Card>
             <CardHeader title={t('tickets.customer')} />
             <dl className="space-y-2 text-sm">

@@ -1,6 +1,8 @@
 # Architecture Decision Records
 
-ADR-001 … ADR-008 were made during Phase 1 and are listed in [`architecture/overview.md` §13](architecture/overview.md#13-architecture-decisions).
+ADR-001 … ADR-008 were made during Phase 1 and are listed in [`architecture/overview.md` §14](architecture/overview.md#14-architecture-decisions).
+
+ADR-063 … ADR-074 record the Phase 9 decisions P9-1 … P9-12, approved with the [Phase 9 plan](plans/phase-9-assignment.md) on 2026-11-09. The owner required that providers never see internal notes, customer billing details or other customers' data (ADR-063, ADR-064).
 
 ADR-027 … ADR-031 record the Phase 2 implementation decisions P2-1 … P2-5, approved with the [Phase 2 plan](plans/phase-2-tenancy.md) on 2026-11-05.
 
@@ -73,6 +75,18 @@ ADR-009 … ADR-026 record the owner's answers to decisions D-1 … D-18 of the 
 | 060 | P8-4      | Who in an organisation sees which tickets                        | Accepted                                            |
 | 061 | P8-6      | Tickets on behalf of a customer                                  | Accepted                                            |
 | 062 | P8-7      | Service requests on behalf of a customer                         | Accepted                                            |
+| 063 | P9-1      | Provider grants live on the job tables only                      | Accepted                                            |
+| 064 | P9-2      | Internal notes: OGS staff only, never providers                  | Accepted                                            |
+| 065 | P9-3      | A `provider` DB context; company and internal technician access  | Accepted                                            |
+| 066 | P9-4      | One offer at a time, 2-hour default window, reasons for declines | Accepted                                            |
+| 067 | P9-5      | A company accepts and names its technician in one step           | Accepted                                            |
+| 068 | P9-6      | Internal technicians use the same offer flow                     | Accepted                                            |
+| 069 | P9-7      | Who confirms completion; 7-day auto-confirm                      | Accepted                                            |
+| 070 | P9-8      | The customer sees a first name and a label                       | Accepted                                            |
+| 071 | P9-9      | Notes and photos belong to an assignment                         | Accepted                                            |
+| 072 | P9-10     | Orders gain IN_DELIVERY and COMPLETED                            | Accepted                                            |
+| 073 | P9-11     | Eligibility enforced in the database; availability scored        | Accepted                                            |
+| 074 | P9-12     | Offline mode in Phase 12, live map in Phase 15                   | Accepted, **owner to confirm against spec §22**     |
 
 ---
 
@@ -372,6 +386,66 @@ A restricted (pending) workspace may upload application evidence only.
 
 **Decision:** Elevated staff with the new `platform.request.on_behalf` (helpdesk, customer support, service manager, super admin) submit a service request for a customer. The same Phase 7 rules apply: price snapshot, audience, minimum quantity and region. `created_by` is the customer's requester, so they see it as theirs, and `entered_by` records the staff member. A trigger lets only elevated staff, acting as themselves, insert an on-behalf request. Quotations are still accepted by the customer.
 **Why:** ADR-047 deferred this until the helpdesk and a customer lookup existed. The customer keeps the commercial decision.
+
+## ADR-063 — Provider grants live on the job tables only (P9-1)
+
+**Decision:** Providers get no RLS policy on orders, requests, quotations, payments, tickets, comments, attachments or any other customer table. What they may know is copied onto the job when it is dispatched: the brief OGS writes, the site address and contact, the county and the requirements. Job tables grant access through an ACTIVE assignment (or a PENDING offer, which shows the area only). This narrows ADR-010.
+**Why:** Row-level security cannot hide columns; a branch on `service_order` would expose totals to any query that forgot a DTO. A copied brief makes "what a provider sees" one explicit list (plan §2.5).
+
+## ADR-064 — Internal notes: OGS staff only, never providers (P9-2)
+
+**Decision:** `ticket.internal_note` and `ticket.comment` are removed from provider-company roles and from the PROVIDER_COMPANY kind. Internal OGS technicians may read the internal notes of the ticket behind their own ACTIVE job (a narrow RLS branch); no provider branch exists. This overrides the review §8 matrix.
+**Why:** The owner's rule; internal technicians are OGS employees and often need the helpdesk's notes.
+
+## ADR-065 — A `provider` DB context; company and internal technician access (P9-3)
+
+**Decision:** The Provider workspace runs in `DbContext { kind: 'provider' }`, which sets `app.provider_id` (transaction-local); `app.owns_customer_row` matches personal rows only when it is unset. Company members use their workspace; `app.holds_permission(code)` lets a company dispatcher see all its jobs and a technician only those naming them. Internal technicians use the non-elevated PLATFORM workspace and see only their own jobs.
+**Why:** The provider and personal capacities used to share one `user` context; separating them stops jobs and personal orders mixing. Field work needs no cross-tenant elevation.
+
+## ADR-066 — One offer at a time, 2-hour default window, reasons for declines (P9-4)
+
+**Decision:** A dispatcher offers a job to one eligible assignee at a time (partial unique index). Windows are 30 min, 1 h, 2 h (default), 4 h or 24 h. Declines need a reason code, plus text for "other". Decline, expiry (delayed event plus sweep) and withdrawal return the job to the queue.
+**Why:** Review §10 and ADR-013 (manual dispatch). Notifications are email-only until Phase 12, so short windows would expire unseen.
+
+## ADR-067 — A company accepts and names its technician in one step (P9-5)
+
+**Decision:** A company member with `assignment.respond` accepts and picks an active member with `ticket.update_progress`; there is no second acceptance by the technician. A company dispatcher (`ticket.assign`) may change the technician with a reason (audited); the old technician's assignment ends and so does their access.
+**Why:** Simpler, and the company already controls its staff.
+
+## ADR-068 — Internal technicians use the same offer flow (P9-6)
+
+**Decision:** OGS technicians accept or decline offers like providers. They are eligible as active PLATFORM members holding `assignment.respond` and `ticket.update_progress`; skills and coverage for staff come with Phase 14 admin.
+**Why:** One flow, one set of tests, one audit trail.
+
+## ADR-069 — Who confirms completion; 7-day auto-confirm (P9-7)
+
+**Decision:** Order jobs: the customer (the requester, admins with `request.read_all`, holders of `ticket.confirm_completion`, individuals for their own) confirms or reports a problem (back to work with the same assignee). Reports confirm themselves after 7 days. A service manager may confirm on the customer's behalf with a reason. Ticket jobs: the customer's "Accept resolution" (ADR-057) also confirms the job.
+**Why:** Review §9 and §8; 7 days mirrors ADR-057; ticket customers are never asked twice.
+
+## ADR-070 — The customer sees a first name and a label (P9-8)
+
+**Decision:** The tracker shows the technician's first name (copied onto the assignment when assigned: an individual provider's first word, otherwise the email-derived first name, as for "Habari") and "OGS technician" or "OGS partner technician". No phone or company name. It polls every 30 s while the job is active.
+**Why:** OGS owns the customer relationship (review §1); there is no name field yet.
+
+## ADR-071 — Notes and photos belong to an assignment (P9-9)
+
+**Decision:** Work notes, photos and reports are tied to the assignment that made them. A new assignee does not see the previous one's; staff copy anything useful into the brief. After an assignment ends, the assignee keeps only a "Done" record (number, title, dates, outcome) copied onto the assignment row.
+**Why:** The strictest reading of "providers see only what is assigned to them", and easy to test.
+
+## ADR-072 — Orders gain IN_DELIVERY and COMPLETED (P9-10)
+
+**Decision:** The jobs worker moves an order READY_FOR_ASSIGNMENT → IN_DELIVERY when its job is accepted and → COMPLETED when the job is confirmed (immediately after the command, with a `jobs.order_sync` event as the guarantee). Staff may still cancel an order in delivery; its job is cancelled with it. One job per order in v1.
+**Why:** Customers, finance (Phase 11) and reports need the order's own state.
+
+## ADR-073 — Eligibility enforced in the database; availability scored (P9-11)
+
+**Decision:** `app.can_take_job` is the one definition (approved, ACTIVE, accepting work, active company tenant, allowed channel, every required skill at the minimum experience, county or remote). Triggers check it on offer, on assignment and on accept; suggestions are filtered through it. Availability is shown and scored, not enforced.
+**Why:** "Approved, eligible, non-suspended" becomes a database rule; jobs are often scheduled for later.
+
+## ADR-074 — Offline mode in Phase 12, live map in Phase 15 (P9-12)
+
+**Decision:** Phase 9 delivers the first live tracker (polling) and retry-safe commands with kept drafts. Offline mode (queued actions and photos) follows in Phase 12 with the service worker for web push; the live map follows in Phase 15 with the hosting, map vendor and location-consent decisions (ADR-018, ADR-023).
+**Why:** Both need infrastructure that does not exist yet. The master specification is not in the repository; the owner confirms these phase numbers against spec §22.
 
 ---
 

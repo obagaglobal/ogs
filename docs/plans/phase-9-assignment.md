@@ -382,3 +382,17 @@ The same pattern as earlier phases: one approval, two halves with no gate betwee
 1. `pnpm infra:up`; ask the owner to run `pnpm db:reset:test` if the test database needs resetting (never `migrate reset` from the agent).
 2. `pnpm check`, `pnpm test:integration` (T1–T10, RLS catalogue, isolation), `pnpm --filter @ogs/api build`, then `pnpm test:e2e` (T11, visual, axe, motif, slow network).
 3. Manual run on a phone-sized window: order a service as an individual, record payment as finance, offer it to a demo provider company, accept as its admin with a technician, work the job as the technician (photo from the camera), confirm as the customer. Then reassign a second job and check that the first technician's page says "no longer assigned".
+
+## 9. Delivery notes (2026-11-10)
+
+Delivered as planned, with these refinements:
+
+- **Two migrations.** `20261109190000_order_delivery_statuses` adds the two order statuses on its own, because PostgreSQL cannot use a new enum value in the transaction that adds it; `20261109190100_jobs` holds everything else.
+- **Jobs for existing orders.** Instead of a backfill in the migration, the worker's 5-minute sweep opens a job for every READY_FOR_ASSIGNMENT order without one (it also catches any missed `jobs.order_ready` event).
+- **Accepting is ordered for RLS.** The job moves to ASSIGNED and the assignment is inserted while the offer is still PENDING (the provider sees the job through it); then the offer becomes ACCEPTED, which its trigger allows only once the assignment exists. A company's technician change ends the old assignment first and copies the new one from it.
+- **Customer name for providers.** There is no personal name field yet, so providers see an organisation's name or "Private customer", plus the site contact name OGS enters on the brief.
+- **Photos while uploading.** A `job.evidence` file is visible to its uploader only inside the uploading transaction (so the evidence trigger can check it), and afterwards only through a visible `job_evidence` row. The generic `/files` download refuses job photos.
+- **Photo retries.** Each photo has its own "Try again"; photo uploads do not take an Idempotency-Key, so a retry after a lost response can add a duplicate photo (harmless; the report cites the photos chosen).
+- **Releases outside RLS reach.** When a provider, company or company membership stops being active, its jobs are released in the same transaction. When a PLATFORM membership is ended from the non-elevated platform workspace, that context cannot see the technician's assignments; the technician loses the workspace anyway, and the dispatcher reassigns.
+- **Dashboard tile.** The customer dashboard's "In progress" tile is postponed: it needs a count endpoint, and the tracker on the request and ticket pages covers the need.
+- **Design baselines.** The staff ticket queue and staff ticket pages now show the "Dispatch" nav item and the job card, so their 8 Linux baselines were removed; CI writes new ones (plus 20 for the five Phase 9 pages) for review and commit.

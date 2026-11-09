@@ -31,6 +31,8 @@ const orderStaff = () => import('@/features/platform/order-staff-pages');
 const requests = () => import('@/features/requests/customer-request-pages');
 const tickets = () => import('@/features/tickets/customer-ticket-pages');
 const ticketStaff = () => import('@/features/tickets/staff-ticket-pages');
+const jobs = () => import('@/features/jobs/assignee-pages');
+const dispatch = () => import('@/features/jobs/dispatch-pages');
 
 const SignInPage = page(auth.signIn, 'SignInPage');
 const SignUpPage = page(auth.signUp, 'SignUpPage');
@@ -80,6 +82,12 @@ const StaffTicketsPage = page(ticketStaff, 'StaffTicketsPage');
 const StaffTicketPage = page(ticketStaff, 'StaffTicketPage');
 const StaffNewTicketPage = page(ticketStaff, 'StaffNewTicketPage');
 const StaffNewRequestPage = page(ticketStaff, 'StaffNewRequestPage');
+const JobsPage = page(jobs, 'JobsPage');
+const OfferPage = page(jobs, 'OfferPage');
+const JobPage = page(jobs, 'JobPage');
+const CompletionPage = page(jobs, 'CompletionPage');
+const DispatchPage = page(dispatch, 'DispatchPage');
+const DispatchJobPage = page(dispatch, 'DispatchJobPage');
 const DesignSystemPage = page(
   () => import('@/features/design-system/design-system-page'),
   'DesignSystemPage',
@@ -131,6 +139,12 @@ export function AppRoutes() {
           <Route path="/support" element={<SupportPage />} />
           <Route path="/support/new" element={<NewTicketPage />} />
           <Route path="/support/:id" element={<TicketDetailPage />} />
+          <Route path="/jobs" element={<JobsPage />} />
+          <Route path="/jobs/offers/:offerId" element={<OfferPage />} />
+          <Route path="/jobs/:id" element={<JobPage />} />
+          <Route path="/jobs/:id/complete" element={<CompletionPage />} />
+          <Route path="/platform/dispatch" element={<DispatchPage />} />
+          <Route path="/platform/dispatch/:id" element={<DispatchJobPage />} />
           <Route path="/platform/orders" element={<OrdersPage />} />
           <Route path="/platform/orders/:id" element={<OrderPage />} />
           <Route path="/requests" element={<RequestsPage />} />

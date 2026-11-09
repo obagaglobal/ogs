@@ -19,6 +19,7 @@ import { FormField } from '@/components/ui/form-field';
 import { Input, Select, Textarea } from '@/components/ui/input';
 import { Breadcrumbs, Timeline } from '@/components/ui/navigation';
 import { DialogClose, DialogContent, DialogRoot, DialogTrigger } from '@/components/ui/overlays';
+import { JobProgressCard } from '@/features/jobs/progress-card';
 import { useCurrentWorkspace, useWorkspace } from '@/features/workspace/workspace-state';
 import { t, type MessageKey } from '@/i18n';
 import { api, describeError, uploadFile } from '@/lib/api';
@@ -502,6 +503,7 @@ function TicketDetail({ ticket }: { ticket: CustomerTicket }) {
         </div>
         <div className="min-w-0 space-y-4">
           <CustomerActions ticket={ticket} />
+          <JobProgressCard source="tickets" id={ticket.id} />
           <Card>
             <CardHeader title={t('tickets.details')} />
             <dl className="space-y-2 text-sm">

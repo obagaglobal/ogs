@@ -41,7 +41,8 @@ import {
 import { t } from '@/i18n';
 import { api, ApiError, describeError } from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { useCurrentWorkspace } from '@/features/workspace/workspace-state';
+import { useCan, useCurrentWorkspace } from '@/features/workspace/workspace-state';
+import { StaffJobCard } from '@/features/jobs/dispatch-pages';
 import { ElevationGate } from './elevation-gate';
 import { ELEVATION_KEY, useElevated } from './elevation-state';
 
@@ -808,6 +809,7 @@ export function OrderPage() {
 function FinanceOrder() {
   const { id = '' } = useParams();
   const { options } = useElevated();
+  const canSeeJobs = useCan('ticket.read');
   const detail = useQuery({
     queryKey: ['platform', 'order', id],
     queryFn: async () => api<ServiceRequest>(`/platform/orders/${id}`, options),
@@ -865,6 +867,7 @@ function FinanceOrder() {
           <Timeline request={data} />
         </div>
         <div className="min-w-0 space-y-6">
+          {canSeeJobs ? <StaffJobCard kind="orders" id={order.id} /> : null}
           {data.customerTenantId === null ? null : (
             <BillingTerms tenantId={data.customerTenantId} />
           )}

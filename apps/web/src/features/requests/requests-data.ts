@@ -101,7 +101,7 @@ export function orderTone(
 ): 'neutral' | 'good' | 'bad' | 'pending' {
   return status === 'CANCELLED'
     ? 'bad'
-    : status === 'READY_FOR_ASSIGNMENT' || status === 'PAID'
+    : status === 'READY_FOR_ASSIGNMENT' || status === 'PAID' || status === 'COMPLETED'
       ? 'good'
       : 'pending';
 }
