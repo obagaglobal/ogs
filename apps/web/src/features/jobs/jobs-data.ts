@@ -174,14 +174,24 @@ export async function shrinkPhoto(file: File): Promise<File> {
 
 // ---------------------------------------------------------------- assignees
 
+/**
+ * A job command also moves its source: confirming completes the order (and the
+ * request page's status), a ticket job moves its ticket, and dispatch moves the
+ * staff order pages. Refresh those too, not only the job queries.
+ */
 function refresh(queryClient: ReturnType<typeof useQueryClient>) {
-  return Promise.all([
-    queryClient.invalidateQueries({ queryKey: ['jobs'] }),
-    queryClient.invalidateQueries({ queryKey: ['job'] }),
-    queryClient.invalidateQueries({ queryKey: ['platform', 'jobs'] }),
-    queryClient.invalidateQueries({ queryKey: ['platform', 'job'] }),
-    queryClient.invalidateQueries({ queryKey: ['job-progress'] }),
-  ]);
+  return Promise.all(
+    [
+      ['jobs'],
+      ['job'],
+      ['job-progress'],
+      ['request'],
+      ['requests'],
+      ['ticket'],
+      ['tickets'],
+      ['platform'],
+    ].map((queryKey) => queryClient.invalidateQueries({ queryKey })),
+  );
 }
 
 export function useAssigneeJobs(view: 'offers' | 'active' | 'done') {
