@@ -42,6 +42,10 @@ export const templates = {
   ticketNotice: (to: string, subject: string, paragraphs: string[], url: string) =>
     layout(to, subject, paragraphs, { url, label: 'View the ticket' }),
 
+  /** Phase 9: job emails carry no brief, address, phone, note or money (T5, T10). */
+  jobNotice: (to: string, subject: string, paragraphs: string[], url: string, label: string) =>
+    layout(to, subject, paragraphs, { url, label }),
+
   emailVerification: (to: string, url: string) =>
     layout(
       to,

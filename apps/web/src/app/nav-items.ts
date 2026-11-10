@@ -5,6 +5,7 @@ import {
   CalendarClock,
   ClipboardList,
   FileText,
+  HardHat,
   Headset,
   Inbox,
   House,
@@ -15,6 +16,7 @@ import {
   Network,
   Receipt,
   ShieldCheck,
+  Truck,
   UserCog,
   Users,
   Wrench,
@@ -80,6 +82,16 @@ export function navItemsFor(data: CurrentWorkspaceResponse | undefined): NavItem
       end: true,
     },
     providerArea && { to: '/provider/coverage', label: t('nav.coverage'), icon: MapPin },
+    // Phase 9: whoever works jobs — an ACTIVE individual provider, a company
+    // member who answers offers, dispatches or works, an OGS technician.
+    ((data?.kind === 'provider' && !data.restricted) ||
+      (data?.kind === 'PROVIDER_COMPANY' &&
+        (can('assignment.respond') || can('ticket.update_progress') || can('ticket.assign'))) ||
+      (platform && can('assignment.respond'))) && {
+      to: '/jobs',
+      label: t('nav.jobs'),
+      icon: HardHat,
+    },
     providerArea && {
       to: '/provider/availability',
       label: t('nav.availability'),
@@ -96,6 +108,12 @@ export function navItemsFor(data: CurrentWorkspaceResponse | undefined): NavItem
         to: '/platform/eligibility',
         label: t('nav.eligibility'),
         icon: ListChecks,
+      },
+    platform &&
+      can('ticket.assign') && {
+        to: '/platform/dispatch',
+        label: t('nav.dispatch'),
+        icon: Truck,
       },
     platform &&
       can('ticket.read') && {

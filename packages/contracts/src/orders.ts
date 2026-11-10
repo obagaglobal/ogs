@@ -79,6 +79,9 @@ export const orderStatusSchema = z.enum([
   'AWAITING_PAYMENT',
   'PAID',
   'READY_FOR_ASSIGNMENT',
+  // Phase 9 (P9-10): the order follows its job.
+  'IN_DELIVERY',
+  'COMPLETED',
   'CANCELLED',
 ]);
 export const paymentTermsSchema = z.enum(['PREPAY', 'POSTPAID']);
@@ -101,6 +104,8 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   AWAITING_PAYMENT: 'Awaiting payment',
   PAID: 'Paid',
   READY_FOR_ASSIGNMENT: 'Confirmed',
+  IN_DELIVERY: 'In progress',
+  COMPLETED: 'Completed',
   CANCELLED: 'Cancelled',
 };
 

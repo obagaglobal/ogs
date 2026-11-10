@@ -94,8 +94,8 @@
     },
     {
       "code": "ticket.comment",
-      "kinds": ["ORGANISATION", "PROVIDER_COMPANY", "PLATFORM"],
-      "description": "Add public comments to tickets in scope."
+      "kinds": ["ORGANISATION", "PLATFORM"],
+      "description": "Add public comments to tickets in scope. Providers never post in the customer conversation (P9-2)."
     },
     {
       "code": "ticket.confirm_completion",
@@ -130,8 +130,8 @@
     },
     {
       "code": "ticket.internal_note",
-      "kinds": ["PROVIDER_COMPANY", "PLATFORM"],
-      "description": "Read and write internal notes on tickets in scope."
+      "kinds": ["PLATFORM"],
+      "description": "Read and write internal notes on tickets in scope. OGS staff only: providers never see internal notes (P9-2)."
     },
     {
       "code": "ticket.update_progress",
@@ -263,13 +263,7 @@
       "scope": "PROVIDER_COMPANY",
       "name": "Provider technician",
       "description": "Works on assignments given by the company.",
-      "permissions": [
-        "workspace.read",
-        "ticket.read",
-        "ticket.comment",
-        "ticket.internal_note",
-        "ticket.update_progress"
-      ]
+      "permissions": ["workspace.read", "ticket.read", "ticket.update_progress"]
     },
     {
       "code": "super_admin",

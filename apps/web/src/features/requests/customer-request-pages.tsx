@@ -18,6 +18,7 @@ import { FormField } from '@/components/ui/form-field';
 import { Select, Textarea } from '@/components/ui/input';
 import { Breadcrumbs, Stepper } from '@/components/ui/navigation';
 import { t } from '@/i18n';
+import { JobProgressCard } from '@/features/jobs/progress-card';
 import { useRegions } from '@/features/provider/provider-data';
 import { useCurrentWorkspace, useWorkspace } from '@/features/workspace/workspace-state';
 import { api, describeError } from '@/lib/api';
@@ -542,6 +543,10 @@ function RequestDetail({ request }: { request: ServiceRequest }) {
               ) : null}
             </OrderSummary>
           )}
+          {order !== null &&
+          ['READY_FOR_ASSIGNMENT', 'IN_DELIVERY', 'COMPLETED'].includes(order.status) ? (
+            <JobProgressCard source="requests" id={request.id} />
+          ) : null}
           {preOrder || order?.status === 'AWAITING_PAYMENT' ? (
             <Card>
               <h2 className="mb-4 font-display text-lg font-medium">
@@ -591,7 +596,7 @@ function RequestDetail({ request }: { request: ServiceRequest }) {
 function stepOf(request: ServiceRequest): number {
   const order = request.order;
   if (order !== null) {
-    return order.status === 'READY_FOR_ASSIGNMENT' ? 5 : 3;
+    return ['READY_FOR_ASSIGNMENT', 'IN_DELIVERY', 'COMPLETED'].includes(order.status) ? 5 : 3;
   }
   switch (request.status) {
     case 'SUBMITTED':

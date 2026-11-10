@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
+import { resetRateLimits } from './rate-limits';
 import { ACME_TENANT_ID, grantMembership, latestMailText, totp } from './support';
 
 /**
@@ -8,6 +9,10 @@ import { ACME_TENANT_ID, grantMembership, latestMailText, totp } from './support
  * workspace → (membership granted) switch workspace → admin role → forced MFA
  * enrolment → back in, now with the organisation workspace.
  */
+test.beforeAll(async () => {
+  await resetRateLimits();
+});
+
 test('sign up, verify, sign in, switch workspace, enrol in MFA', async ({ page }) => {
   const email = `e2e-${randomUUID().slice(0, 8)}@e2e.test`;
   const password = `e2e passphrase ${randomUUID().slice(0, 8)}`;

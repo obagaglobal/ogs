@@ -391,6 +391,7 @@ model FileMetadata {
   scannedAt        DateTime?         @map("scanned_at") @db.Timestamptz(6)
   createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
   ticketAttachment TicketAttachment?
+  jobEvidence      JobEvidence?
 
   @@index([tenantId, createdAt(sort: Desc)])
   @@index([ownerUserId, createdAt(sort: Desc)])
@@ -547,6 +548,7 @@ model Skill {
   createdAt DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
   providers ProviderSkill[]
   services  ServiceSkill[]
+  jobs      JobSkill[]
 
   @@map("skill")
 }
@@ -587,6 +589,8 @@ model Provider {
   workingHours  ProviderWorkingHours[]
   timeOff       ProviderTimeOff[]
   application   ProviderApplication?
+  jobOffers     JobOffer[]
+  assignments   JobAssignment[]
 
   @@map("provider")
 }
@@ -787,6 +791,7 @@ model Service {
   prices               ServicePrice[]
   skills               ServiceSkill[]
   requests             ServiceRequest[]
+  jobs                 Job[]
 
   @@index([categoryId, status])
   @@index([status, name])
@@ -853,6 +858,10 @@ enum OrderStatus {
   AWAITING_PAYMENT
   PAID
   READY_FOR_ASSIGNMENT
+  /// Phase 9 (P9-10): the job was accepted by an assignee.
+  IN_DELIVERY
+  /// Phase 9 (P9-10): the job was confirmed.
+  COMPLETED
   CANCELLED
 }
 
@@ -989,6 +998,7 @@ model ServiceOrder {
   events           ServiceOrderEvent[]
   payments         Payment[]
   tickets          Ticket[]
+  job              Job?
 
   @@index([customerTenantId, createdAt])
   @@index([customerUserId, createdAt])
@@ -1184,6 +1194,7 @@ model Ticket {
   internalNotes    TicketInternalNote[]
   attachments      TicketAttachment[]
   events           TicketEvent[]
+  jobs             Job[]
 
   @@index([customerTenantId, createdAt])
   @@index([customerUserId, createdAt])
@@ -1255,4 +1266,282 @@ model TicketEvent {
 
   @@index([ticketId, occurredAt])
   @@map("ticket_event")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 9: jobs, offers, assignments and field work (Phase 9 plan §2).
+// A job copies its customer owner (ADR-009) and everything a provider may know
+// (the brief, P9-1), so providers never need a policy on any customer table.
+// Hand-written SQL adds CHECKs, eligibility (app.can_take_job), transition
+// guards, append-only triggers and RLS.
+// ---------------------------------------------------------------------------
+
+enum JobStatus {
+  QUEUED
+  OFFERED
+  ASSIGNED
+  ON_THE_WAY
+  IN_PROGRESS
+  PAUSED
+  AWAITING_CONFIRMATION
+  COMPLETED
+  CANCELLED
+}
+
+enum AssigneeKind {
+  INTERNAL
+  INDIVIDUAL
+  COMPANY
+}
+
+enum JobOfferStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  WITHDRAWN
+}
+
+enum DeclineReason {
+  NOT_AVAILABLE
+  TOO_FAR
+  LACKS_SKILLS
+  WORKLOAD
+  OTHER
+}
+
+enum JobAssignmentStatus {
+  ACTIVE
+  ENDED
+}
+
+enum AssignmentEndReason {
+  REASSIGNED
+  REMOVED
+  TECHNICIAN_CHANGED
+  JOB_COMPLETED
+  JOB_CANCELLED
+  PROVIDER_SUSPENDED
+}
+
+enum CompletionOutcome {
+  CONFIRMED
+  ISSUE_RAISED
+  AUTO_CONFIRMED
+  STAFF_CONFIRMED
+}
+
+/// A piece of dispatchable work: from an order (one per order) or a ticket.
+model Job {
+  id               String          @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  number           String          @unique @db.VarChar(20)
+  serviceOrderId   String?         @unique @map("service_order_id") @db.Uuid
+  ticketId         String?         @map("ticket_id") @db.Uuid
+  customerTenantId String?         @map("customer_tenant_id") @db.Uuid
+  customerUserId   String?         @map("customer_user_id") @db.Uuid
+  /// Organisation name, or "Private customer" (there is no personal name field).
+  customerDisplay  String          @map("customer_display") @db.VarChar(200)
+  serviceId        String?         @map("service_id") @db.Uuid
+  title            String          @db.VarChar(150)
+  /// Requirements copied at creation (P9-11): channels, remote, county; skills in job_skill.
+  allowInternal    Boolean         @default(true) @map("allow_internal")
+  allowIndividual  Boolean         @default(true) @map("allow_individual")
+  allowCompany     Boolean         @default(true) @map("allow_company")
+  onSite           Boolean         @default(true) @map("on_site")
+  remoteAllowed    Boolean         @default(false) @map("remote_allowed")
+  regionCode       String          @map("region_code") @db.VarChar(10)
+  /// The provider-facing brief, written by OGS (P9-1). Never shown to customers.
+  brief            String          @default("") @db.VarChar(4000)
+  siteAddress      String          @map("site_address") @db.VarChar(300)
+  siteContactName  String?         @map("site_contact_name") @db.VarChar(100)
+  siteContactPhone String?         @map("site_contact_phone") @db.VarChar(20)
+  windowFrom       DateTime?       @map("window_from") @db.Date
+  windowTo         DateTime?       @map("window_to") @db.Date
+  status           JobStatus       @default(QUEUED)
+  version          Int             @default(0)
+  assignedAt       DateTime?       @map("assigned_at") @db.Timestamptz(6)
+  startedAt        DateTime?       @map("started_at") @db.Timestamptz(6)
+  completedAt      DateTime?       @map("completed_at") @db.Timestamptz(6)
+  confirmedAt      DateTime?       @map("confirmed_at") @db.Timestamptz(6)
+  cancelReason     String?         @map("cancel_reason") @db.VarChar(500)
+  createdBy        String?         @map("created_by") @db.Uuid
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  serviceOrder     ServiceOrder?   @relation(fields: [serviceOrderId], references: [id], onDelete: Restrict)
+  ticket           Ticket?         @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  service          Service?        @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  skills           JobSkill[]
+  offers           JobOffer[]
+  assignments      JobAssignment[]
+  events           JobEvent[]
+  workNotes        JobWorkNote[]
+  evidence         JobEvidence[]
+  completions      JobCompletion[]
+
+  @@index([status, createdAt])
+  @@index([customerTenantId, createdAt])
+  @@index([customerUserId, createdAt])
+  @@index([ticketId])
+  @@map("job")
+}
+
+model JobSkill {
+  jobId         String         @map("job_id") @db.Uuid
+  skillCode     String         @map("skill_code") @db.VarChar(60)
+  minExperience ExperienceBand @default(UNDER_1_YEAR) @map("min_experience")
+  job           Job            @relation(fields: [jobId], references: [id], onDelete: Restrict)
+  skill         Skill          @relation(fields: [skillCode], references: [code], onDelete: Restrict)
+
+  @@id([jobId, skillCode])
+  @@map("job_skill")
+}
+
+/// An offer to one assignee (P9-4: one PENDING offer per job, partial unique index in SQL).
+model JobOffer {
+  id               String          @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  jobId            String          @map("job_id") @db.Uuid
+  kind             AssigneeKind
+  /// Individual or company offers: the provider.
+  providerId       String?         @map("provider_id") @db.Uuid
+  /// The PLATFORM tenant (internal) or the company's tenant. Null for individuals.
+  assigneeTenantId String?         @map("assignee_tenant_id") @db.Uuid
+  /// Internal offers: the technician.
+  technicianUserId String?         @map("technician_user_id") @db.Uuid
+  offeredBy        String          @default(dbgenerated("app.current_user_id()")) @map("offered_by") @db.Uuid
+  offeredAt        DateTime        @default(now()) @map("offered_at") @db.Timestamptz(6)
+  expiresAt        DateTime        @map("expires_at") @db.Timestamptz(6)
+  status           JobOfferStatus  @default(PENDING)
+  declineReason    DeclineReason?  @map("decline_reason")
+  declineNote      String?         @map("decline_note") @db.VarChar(500)
+  respondedBy      String?         @map("responded_by") @db.Uuid
+  respondedAt      DateTime?       @map("responded_at") @db.Timestamptz(6)
+  version          Int             @default(0)
+  job              Job             @relation(fields: [jobId], references: [id], onDelete: Restrict)
+  provider         Provider?       @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  assignments      JobAssignment[]
+
+  @@index([jobId, offeredAt])
+  @@index([status, expiresAt])
+  @@index([providerId, status])
+  @@index([assigneeTenantId, status])
+  @@index([technicianUserId, status])
+  @@map("job_offer")
+}
+
+/// Who holds a job (one ACTIVE row per job, partial unique index in SQL). Ending
+/// the row ends the holder's access in the same transaction (plan §2.2).
+model JobAssignment {
+  id               String               @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  jobId            String               @map("job_id") @db.Uuid
+  offerId          String               @map("offer_id") @db.Uuid
+  /// Copies for the assignee's "Done" list, which outlives access to the job.
+  jobNumber        String               @map("job_number") @db.VarChar(20)
+  title            String               @db.VarChar(150)
+  /// Copied from the job for RLS (no policy here reads "job": no recursion).
+  customerTenantId String?              @map("customer_tenant_id") @db.Uuid
+  customerUserId   String?              @map("customer_user_id") @db.Uuid
+  kind             AssigneeKind
+  providerId       String?              @map("provider_id") @db.Uuid
+  assigneeTenantId String?              @map("assignee_tenant_id") @db.Uuid
+  /// The person doing the work.
+  technicianUserId String               @map("technician_user_id") @db.Uuid
+  /// What the customer sees (P9-8): a first name only, copied when assigned.
+  technicianName   String?              @map("technician_name") @db.VarChar(60)
+  status           JobAssignmentStatus  @default(ACTIVE)
+  endReason        AssignmentEndReason? @map("end_reason")
+  endNote          String?              @map("end_note") @db.VarChar(500)
+  startedAt        DateTime             @default(now()) @map("started_at") @db.Timestamptz(6)
+  endedAt          DateTime?            @map("ended_at") @db.Timestamptz(6)
+  endedBy          String?              @map("ended_by") @db.Uuid
+  job              Job                  @relation(fields: [jobId], references: [id], onDelete: Restrict)
+  offer            JobOffer             @relation(fields: [offerId], references: [id], onDelete: Restrict)
+  provider         Provider?            @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  events           JobEvent[]
+  workNotes        JobWorkNote[]
+  evidence         JobEvidence[]
+  completions      JobCompletion[]
+
+  @@index([jobId, startedAt])
+  @@index([providerId, status])
+  @@index([assigneeTenantId, status])
+  @@index([technicianUserId, status])
+  @@map("job_assignment")
+}
+
+/// Append-only activity: one row per command. Audience flags are read by RLS.
+model JobEvent {
+  id              String         @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  jobId           String         @map("job_id") @db.Uuid
+  /// The assignment the event belongs to (provider-visible rows need one).
+  assignmentId    String?        @map("assignment_id") @db.Uuid
+  kind            String         @db.VarChar(30)
+  fromValue       String?        @map("from_value") @db.VarChar(40)
+  toValue         String?        @map("to_value") @db.VarChar(40)
+  actorUserId     String?        @default(dbgenerated("app.current_user_id()")) @map("actor_user_id") @db.Uuid
+  reason          String?        @db.VarChar(2000)
+  customerVisible Boolean        @default(false) @map("customer_visible")
+  providerVisible Boolean        @default(false) @map("provider_visible")
+  occurredAt      DateTime       @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  job             Job            @relation(fields: [jobId], references: [id], onDelete: Restrict)
+  assignment      JobAssignment? @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+
+  @@index([jobId, occurredAt])
+  @@index([assignmentId])
+  @@map("job_event")
+}
+
+/// Notes by the assignee's side or staff (P9-9: belong to one assignment). Never customer-visible.
+model JobWorkNote {
+  id           String        @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  jobId        String        @map("job_id") @db.Uuid
+  assignmentId String        @map("assignment_id") @db.Uuid
+  authorUserId String        @default(dbgenerated("app.current_user_id()")) @map("author_user_id") @db.Uuid
+  body         String        @db.VarChar(4000)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  job          Job           @relation(fields: [jobId], references: [id], onDelete: Restrict)
+  assignment   JobAssignment @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+
+  @@index([assignmentId, createdAt])
+  @@index([jobId])
+  @@map("job_work_note")
+}
+
+/// Photo evidence (`job.evidence` files, owned by the customer). Append-only.
+model JobEvidence {
+  id           String        @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  jobId        String        @map("job_id") @db.Uuid
+  assignmentId String        @map("assignment_id") @db.Uuid
+  fileId       String        @unique @map("file_id") @db.Uuid
+  caption      String        @default("") @db.VarChar(200)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  job          Job           @relation(fields: [jobId], references: [id], onDelete: Restrict)
+  assignment   JobAssignment @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+  file         FileMetadata  @relation(fields: [fileId], references: [id], onDelete: Restrict)
+
+  @@index([assignmentId, createdAt])
+  @@index([jobId])
+  @@map("job_evidence")
+}
+
+/// A completion report, then the customer's (or the system's, or staff's) decision.
+model JobCompletion {
+  id             String             @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  jobId          String             @map("job_id") @db.Uuid
+  assignmentId   String             @map("assignment_id") @db.Uuid
+  /// Customer-facing summary of the work.
+  summary        String             @db.VarChar(2000)
+  minutesOnSite  Int?               @map("minutes_on_site")
+  materials      String             @default("") @db.VarChar(1000)
+  evidenceIds    String[]           @default([]) @map("evidence_ids") @db.Uuid
+  submittedBy    String             @default(dbgenerated("app.current_user_id()")) @map("submitted_by") @db.Uuid
+  submittedAt    DateTime           @default(now()) @map("submitted_at") @db.Timestamptz(6)
+  outcome        CompletionOutcome?
+  decidedBy      String?            @map("decided_by") @db.Uuid
+  decidedAt      DateTime?          @map("decided_at") @db.Timestamptz(6)
+  decisionReason String?            @map("decision_reason") @db.VarChar(500)
+  job            Job                @relation(fields: [jobId], references: [id], onDelete: Restrict)
+  assignment     JobAssignment      @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+
+  @@index([jobId, submittedAt])
+  @@map("job_completion")
 }

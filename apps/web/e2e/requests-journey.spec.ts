@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
+import { resetRateLimits } from './rate-limits';
 import {
   createOrganisation,
   createReviewer,
@@ -16,6 +17,10 @@ import {
  * 2. an organisation employee requests a quotation-only service → staff issue
  *    a quotation → the admin accepts → postpaid → "Confirmed".
  */
+test.beforeAll(async () => {
+  await resetRateLimits();
+});
+
 test.describe.configure({ timeout: 240_000 });
 
 const unique = () => randomUUID().slice(0, 8);

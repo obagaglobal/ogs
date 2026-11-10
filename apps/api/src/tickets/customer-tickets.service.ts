@@ -26,6 +26,7 @@ import {
 import { OutboxService } from '../events/outbox.service.js';
 import { FileService, type Download } from '../files/file.service.js';
 import { RateLimiter } from '../identity/rate-limiter.js';
+import { confirmTicketJob } from '../jobs/job-confirmation.js';
 import { idempotent } from '../orders/order-support.js';
 import type { Customer } from '../orders/order-views.js';
 import { attachFiles } from './ticket-files.js';
@@ -332,6 +333,23 @@ export class CustomerTicketsService {
           closure: 'ACCEPTED',
           closedAt: new Date(),
         });
+        // Phase 9 (P9-7): accepting the resolution also confirms the ticket's
+        // job, if its report is waiting. The customer is never asked twice.
+        const jobId = await confirmTicketJob(tx, id, customer.userId);
+        if (jobId !== null) {
+          await this.audit.record(tx, {
+            action: 'job.confirmed',
+            tenantId: customer.tenantId ?? null,
+            entityType: 'job',
+            entityId: jobId,
+            request: meta,
+          });
+          await this.outbox.publish(tx, {
+            type: 'jobs.completed',
+            tenantId: customer.tenantId ?? null,
+            payload: { jobId },
+          });
+        }
         return 'tickets.closed';
       },
     );

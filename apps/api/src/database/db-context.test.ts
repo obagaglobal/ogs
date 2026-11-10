@@ -3,6 +3,7 @@ import { InvalidDbContextError, toSessionSettings } from './db-context.js';
 
 const USER = '01930000-0000-7000-8000-000000000101';
 const TENANT = '01930000-0000-7000-8000-000000000002';
+const PROVIDER = '01930000-0000-7000-8000-000000000303';
 
 describe('toSessionSettings', () => {
   it('personal (user) context sets only the user', () => {
@@ -12,7 +13,22 @@ describe('toSessionSettings', () => {
       'app.is_platform': 'false',
       'app.actor_kind': 'USER',
       'app.job': '',
+      'app.provider_id': '',
     });
+  });
+
+  it('provider context sets the user and the provider, never a tenant (P9-3)', () => {
+    expect(toSessionSettings({ kind: 'provider', userId: USER, providerId: PROVIDER })).toEqual({
+      'app.user_id': USER,
+      'app.tenant_id': '',
+      'app.is_platform': 'false',
+      'app.actor_kind': 'USER',
+      'app.job': '',
+      'app.provider_id': PROVIDER,
+    });
+    expect(() =>
+      toSessionSettings({ kind: 'provider', userId: USER, providerId: 'not-a-uuid' }),
+    ).toThrow(InvalidDbContextError);
   });
 
   it('workspace context sets user and tenant, never platform', () => {
@@ -24,6 +40,7 @@ describe('toSessionSettings', () => {
       'app.is_platform': 'false',
       'app.actor_kind': 'USER',
       'app.job': '',
+      'app.provider_id': '',
     });
   });
 
@@ -34,6 +51,7 @@ describe('toSessionSettings', () => {
       'app.is_platform': 'false',
       'app.actor_kind': '',
       'app.job': '',
+      'app.provider_id': '',
     });
   });
 
@@ -59,6 +77,7 @@ describe('toSessionSettings', () => {
         'app.is_platform': 'false',
         'app.actor_kind': 'SYSTEM',
         'app.job': 'outbox.dispatch',
+        'app.provider_id': '',
       },
     );
     expect(() => toSessionSettings({ kind: 'system', job: 'Bad Job' })).toThrow(

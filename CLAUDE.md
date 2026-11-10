@@ -8,24 +8,26 @@ OGS (ObagaGlobal Services) is an ICT services marketplace for Kenya. It is a pnp
 
 Start with [README.md](README.md), [docs/architecture/overview.md](docs/architecture/overview.md), [docs/DECISIONS.md](docs/DECISIONS.md) and [docs/design/DESIGN_SYSTEM.md](docs/design/DESIGN_SYSTEM.md).
 
+The master specification is at `C:\OGS-private\OGS_MASTER_SPEC.md`, outside the repo on purpose because the repo is public. Read it there; **never copy it, or quote it at length, into the repo**.
+
 ## Status
 
 <!-- Keep this block current: update it whenever a phase PR is opened, merged or approved. -->
 
-| Phase                                                        | State                                                              |
-| ------------------------------------------------------------ | ------------------------------------------------------------------ |
-| 0 Architecture review                                        | Accepted (D-1 … D-18 → ADR-009 … ADR-026)                          |
-| 2 Tenancy, RLS, data foundations                             | Merged to `main` (#1)                                              |
-| 3 Identity, access, first shell                              | Merged to `main` (#2)                                              |
-| 4 Organisations, approvals, invitations, members             | Merged to `main` (#3)                                              |
-| 5 Providers, KYC review, coverage, availability, eligibility | Merged to `main` (#4); §8 refinements approved (ADR-033 … ADR-037) |
-| 6 Service catalogue                                          | Merged to `main` (#7)                                              |
-| 7 Requests, quotations, orders                               | Merged to `main` (#8); §8 delivery notes approved                  |
-| 6b Design system (Kitenge signal)                            | Merged to `main` (#10)                                             |
-| 8 Ticketing and ITSM                                         | Merged to `main` (#11)                                             |
-| 9 Assignment and dispatch                                    | Not started: plan needed                                           |
+| Phase                                                        | State                                                                                                                                    |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| 0 Architecture review                                        | Accepted (D-1 … D-18 → ADR-009 … ADR-026)                                                                                                |
+| 2 Tenancy, RLS, data foundations                             | Merged to `main` (#1)                                                                                                                    |
+| 3 Identity, access, first shell                              | Merged to `main` (#2)                                                                                                                    |
+| 4 Organisations, approvals, invitations, members             | Merged to `main` (#3)                                                                                                                    |
+| 5 Providers, KYC review, coverage, availability, eligibility | Merged to `main` (#4); §8 refinements approved (ADR-033 … ADR-037)                                                                       |
+| 6 Service catalogue                                          | Merged to `main` (#7)                                                                                                                    |
+| 7 Requests, quotations, orders                               | Merged to `main` (#8); §8 delivery notes approved                                                                                        |
+| 6b Design system (Kitenge signal)                            | Merged to `main` (#10)                                                                                                                   |
+| 8 Ticketing and ITSM                                         | Merged to `main` (#11)                                                                                                                   |
+| 9 Assignment and dispatch                                    | Approved (P9-1 … P9-12 → ADR-063 … ADR-074); built on `phase-9/assignment`, PR open into `main`, awaiting green CI and the owner's merge |
 
-Last updated: 2026-11-09.
+Last updated: 2026-11-10.
 
 ## Workflow rules (from the owner)
 
@@ -33,7 +35,7 @@ These rules live here so they never depend on local memory.
 
 - **The owner merges every PR.** "Phase N approved" means you may build Phase N. It never means you may merge any PR.
 - **One phase at a time:**
-  1. Write the plan in `docs/plans/` and wait for "Phase N approved".
+  1. Write the plan in `docs/plans/` (include that phase's items from [`docs/plans/backlog.md`](docs/plans/backlog.md)) and wait for "Phase N approved".
   2. Build and test on a `phase-N/<name>` branch. The whole phase goes into **one PR into `main`**.
   3. Wait for green CI and report it with the PR link.
   4. Don't start the next phase until the owner has merged this phase's PR.

@@ -9,6 +9,13 @@ export type DbContext =
   /** A signed-in user acting in their personal workspace (ADR-009: user-owned rows). */
   | { readonly kind: 'user'; readonly userId: string }
   /**
+   * The individual-provider capacity (Phase 9, P9-3): the person in their
+   * Provider workspace. Sets `app.provider_id`, so job rows assigned to that
+   * provider match, and the person's own customer rows (personal workspace
+   * only) do not. Their provider profile rows still match by user id.
+   */
+  | { readonly kind: 'provider'; readonly userId: string; readonly providerId: string }
+  /**
    * A user acting inside a tenant they belong to. `restricted` is true when the
    * tenant is not ACTIVE (pending, rejected, suspended): the API must then only
    * allow application-status actions (review §5 status gates).
@@ -49,6 +56,8 @@ export interface DbSessionSettings {
   readonly 'app.actor_kind': 'USER' | 'SYSTEM' | '';
   /** The job name of a `system` context ('' otherwise). Identity tables require an identity.* job. */
   readonly 'app.job': string;
+  /** The individual provider of a `provider` context ('' otherwise), Phase 9 (P9-3). */
+  readonly 'app.provider_id': string;
 }
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -79,6 +88,16 @@ export function toSessionSettings(ctx: DbContext): DbSessionSettings {
         'app.is_platform': 'false',
         'app.actor_kind': 'USER',
         'app.job': '',
+        'app.provider_id': '',
+      };
+    case 'provider':
+      return {
+        'app.user_id': uuid(ctx.userId, 'userId'),
+        'app.tenant_id': '',
+        'app.is_platform': 'false',
+        'app.actor_kind': 'USER',
+        'app.job': '',
+        'app.provider_id': uuid(ctx.providerId, 'providerId'),
       };
     case 'workspace':
       return {
@@ -87,6 +106,7 @@ export function toSessionSettings(ctx: DbContext): DbSessionSettings {
         'app.is_platform': 'false',
         'app.actor_kind': 'USER',
         'app.job': '',
+        'app.provider_id': '',
       };
     case 'platform': {
       const reason = ctx.reason.trim();
@@ -101,6 +121,7 @@ export function toSessionSettings(ctx: DbContext): DbSessionSettings {
         'app.is_platform': 'true',
         'app.actor_kind': 'USER',
         'app.job': '',
+        'app.provider_id': '',
       };
     }
     case 'anonymous':
@@ -110,6 +131,7 @@ export function toSessionSettings(ctx: DbContext): DbSessionSettings {
         'app.is_platform': 'false',
         'app.actor_kind': '',
         'app.job': '',
+        'app.provider_id': '',
       };
     case 'system':
       if (!JOB_PATTERN.test(ctx.job)) {
@@ -121,6 +143,7 @@ export function toSessionSettings(ctx: DbContext): DbSessionSettings {
         'app.is_platform': 'false',
         'app.actor_kind': 'SYSTEM',
         'app.job': ctx.job,
+        'app.provider_id': '',
       };
   }
 }

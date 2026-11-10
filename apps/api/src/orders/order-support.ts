@@ -90,6 +90,43 @@ function canonical(value: unknown): string {
   return JSON.stringify(value);
 }
 
+function requestHash(body: unknown): string {
+  return createHash('sha256').update(canonical(body)).digest('hex');
+}
+
+/**
+ * The stored response of an unexpired key, without claiming it (Phase 9: an
+ * upload checks this BEFORE storing the file, so a retry stores nothing).
+ * Same rules as `idempotent`: another body under the key is 422, a key whose
+ * first call has not finished is 409.
+ */
+export async function storedIdempotentResponse(
+  tx: Db,
+  input: IdempotencyInput,
+): Promise<{ readonly found: false } | { readonly found: true; readonly body: unknown }> {
+  const existing = await tx.idempotencyKey.findUnique({
+    where: {
+      userId_scope_route_key: {
+        userId: input.userId,
+        scope: input.scope,
+        route: input.route,
+        key: input.key,
+      },
+    },
+    select: { requestHash: true, responseBody: true, expiresAt: true },
+  });
+  if (existing === null || existing.expiresAt <= new Date()) {
+    return { found: false };
+  }
+  if (existing.requestHash !== requestHash(input.body)) {
+    throw unprocessable('idempotency_key_reused');
+  }
+  if (existing.responseBody === null) {
+    throw conflict('idempotency_in_progress');
+  }
+  return { found: true, body: existing.responseBody };
+}
+
 /**
  * Runs `work` at most once per key, in the caller's transaction. The key row is
  * inserted first: a concurrent call with the same key blocks on its unique
@@ -101,7 +138,7 @@ export async function idempotent<T>(
   input: IdempotencyInput,
   work: () => Promise<T>,
 ): Promise<T> {
-  const hash = createHash('sha256').update(canonical(input.body)).digest('hex');
+  const hash = requestHash(input.body);
   await tx.$executeRaw`
     DELETE FROM idempotency_key
      WHERE user_id = ${input.userId}::uuid AND scope = ${input.scope} AND route = ${input.route}

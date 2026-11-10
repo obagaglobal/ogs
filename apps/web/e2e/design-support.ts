@@ -2,6 +2,13 @@ import { randomUUID } from 'node:crypto';
 import { expect, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { mockPhase7, phase7Storage, PHASE7_PATHS, type Phase7Fixture } from './phase7-fixtures';
 import { mockPhase8, phase8Storage, PHASE8_PATHS, type Phase8Fixture } from './phase8-fixtures';
+import {
+  mockPhase9,
+  phase9Storage,
+  PHASE9_PATHS,
+  PHASE9_READY,
+  type Phase9Fixture,
+} from './phase9-fixtures';
 import { createOrganisation } from './support';
 
 /**
@@ -230,11 +237,11 @@ export interface DesignPage {
   signedIn: boolean;
   /** Text that proves the page has fully rendered (data included). */
   ready: string | RegExp;
-  /** Phase 7 pages answered entirely by API fixtures (phase7-fixtures.ts). */
-  fixture?: Phase7Fixture | Phase8Fixture;
+  /** Pages answered entirely by API fixtures (phase7/8/9-fixtures.ts). */
+  fixture?: Phase7Fixture | Phase8Fixture | Phase9Fixture;
 }
 
-/** The eighteen pages of the visual and accessibility suites (§9 added four, Phase 8 five). */
+/** The pages of the visual and accessibility suites (§9 added four, Phase 8 five, Phase 9 five). */
 export const DESIGN_PAGES: DesignPage[] = [
   { name: 'catalogue', path: '/services', signedIn: false, ready: 'Home Wi-Fi setup' },
   {
@@ -312,17 +319,31 @@ export const DESIGN_PAGES: DesignPage[] = [
     ready: 'Bring a spare',
     fixture: 'staff-ticket',
   },
+  // Phase 9: jobs, dispatch and the live tracker.
+  ...(Object.keys(PHASE9_PATHS) as Phase9Fixture[]).map((fixture): DesignPage => ({
+    name: fixture,
+    path: PHASE9_PATHS[fixture],
+    signedIn: false,
+    ready: PHASE9_READY[fixture],
+    fixture,
+  })),
 ];
 
 const PHASE8_FIXTURES: ReadonlySet<string> = new Set(Object.keys(PHASE8_PATHS));
+const PHASE9_FIXTURES: ReadonlySet<string> = new Set(Object.keys(PHASE9_PATHS));
 
 /** API fixtures and storage for a fixture page (call before navigating). */
 export async function prepareFixture(
   context: BrowserContext,
   page: Page,
-  fixture: Phase7Fixture | Phase8Fixture | undefined,
+  fixture: Phase7Fixture | Phase8Fixture | Phase9Fixture | undefined,
 ): Promise<void> {
   if (fixture === undefined) return;
+  if (PHASE9_FIXTURES.has(fixture)) {
+    await phase9Storage(context, fixture as Phase9Fixture);
+    await mockPhase9(page, fixture as Phase9Fixture);
+    return;
+  }
   if (PHASE8_FIXTURES.has(fixture)) {
     await phase8Storage(context, fixture as Phase8Fixture);
     await mockPhase8(page, fixture as Phase8Fixture);

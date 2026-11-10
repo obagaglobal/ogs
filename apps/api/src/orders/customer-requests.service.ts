@@ -325,6 +325,14 @@ export class CustomerRequestsService {
             tenantId: customer.tenantId ?? null,
             payload: { requestId: id, orderId: order.id },
           });
+          if (postpaid) {
+            // Phase 9: the jobs worker opens the order's job (and its sweep catches misses).
+            await this.outbox.publish(tx, {
+              type: 'jobs.order_ready',
+              tenantId: customer.tenantId ?? null,
+              payload: { orderId: order.id },
+            });
+          }
           return this.view(tx, customer, id);
         },
       ),

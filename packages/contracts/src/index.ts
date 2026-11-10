@@ -16,3 +16,4 @@ export * from './providers.js';
 export * from './catalogue.js';
 export * from './orders.js';
 export * from './tickets.js';
+export * from './jobs.js';

@@ -1,11 +1,15 @@
 import { expect, test, type Page } from '@playwright/test';
+import { resetRateLimits } from './rate-limits';
 import {
   createCustomer,
   customerState,
   mockCatalogue,
+  prepareFixture,
+  ready,
   rememberTheme,
   settle,
 } from './design-support';
+import { PHASE9_PATHS, PHASE9_READY, type Phase9Fixture } from './phase9-fixtures';
 
 /**
  * Phase 6b theme and motif rules:
@@ -14,6 +18,10 @@ import {
  * - the Kitenge motif appears only where allowed, never in tables or forms,
  *   and at most once per signed-in page.
  */
+test.beforeAll(async () => {
+  await resetRateLimits();
+});
+
 test.describe.configure({ mode: 'serial', timeout: 120_000 });
 
 let state: Awaited<ReturnType<typeof customerState>>;
@@ -128,6 +136,29 @@ test('motif: only where allowed, in the expected numbers', async ({ browser }) =
     expect(found.focusable, `${path} motif exposed to assistive tech`).toBe(0);
     if (signedIn)
       expect(found.count, `${path}: at most once when signed in`).toBeLessThanOrEqual(1);
+    await context.close();
+  }
+});
+
+test('motif: Phase 9 job, dispatch and tracker pages (fixtures)', async ({ browser }) => {
+  // [fixture, motifs]: lists with rows and work screens carry none.
+  const expected: [Phase9Fixture, number][] = [
+    ['jobs-list', 0],
+    ['technician-job', 0],
+    ['dispatch-queue', 0],
+    ['dispatch-job', 0],
+    ['job-tracker', 0],
+  ];
+  for (const [fixture, count] of expected) {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await mockCatalogue(page);
+    await prepareFixture(context, page, fixture);
+    await page.goto(PHASE9_PATHS[fixture]);
+    await ready(page, PHASE9_READY[fixture]);
+    const found = await motifs(page);
+    expect(found.count, `${fixture} motif count: ${found.where}`).toBe(count);
+    expect(found.forbidden, `${fixture} motif inside a table or form`).toBe(0);
     await context.close();
   }
 });

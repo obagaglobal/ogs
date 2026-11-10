@@ -41,7 +41,8 @@ export class TenantDb {
                  set_config('app.tenant_id', ${settings['app.tenant_id']}, true),
                  set_config('app.is_platform', ${settings['app.is_platform']}, true),
                  set_config('app.actor_kind', ${settings['app.actor_kind']}, true),
-                 set_config('app.job', ${settings['app.job']}, true)`;
+                 set_config('app.job', ${settings['app.job']}, true),
+                 set_config('app.provider_id', ${settings['app.provider_id']}, true)`;
 
         if (ctx.kind === 'platform') {
           // Review §6.3: every use of platform context is audited, in the same

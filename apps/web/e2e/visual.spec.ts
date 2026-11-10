@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { resetRateLimits } from './rate-limits';
 import {
   createCustomer,
   customerState,
@@ -18,6 +19,10 @@ import {
  *
  * Update: `pnpm --filter @ogs/web test:e2e e2e/visual.spec.ts --update-snapshots`.
  */
+test.beforeAll(async () => {
+  await resetRateLimits();
+});
+
 test.describe.configure({ mode: 'serial', timeout: 120_000 });
 
 const WIDTHS = [

@@ -28,6 +28,10 @@ export const RATE_LIMITS = {
   ticketsPerUser: { limit: 10, windowSeconds: 60 * 60 },
   /** Ticket replies per person. */
   ticketCommentsPerUser: { limit: 60, windowSeconds: 60 * 60 },
+  /** Field-work commands per assignee (Phase 9 plan §2.6): status, notes, reports. */
+  jobCommandsPerUser: { limit: 120, windowSeconds: 60 * 60 },
+  /** Photo uploads per job (Phase 9 plan §2.6). */
+  jobPhotosPerJob: { limit: 60, windowSeconds: 60 * 60 },
 } as const satisfies Record<string, RateLimitRule>;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

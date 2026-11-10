@@ -53,6 +53,16 @@ export const FILE_PURPOSES = {
     maxBytes: 10 * MB,
     allowedTypes: ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'],
   },
+  /**
+   * Photo evidence of field work (Phase 9 plan §2.6). Owned by the job's
+   * customer and uploaded only through the jobs API (FileService.uploadJobEvidence),
+   * never the generic /files route: no owner is allowed there.
+   */
+  'job.evidence': {
+    owners: [],
+    maxBytes: 10 * MB,
+    allowedTypes: ['image/jpeg', 'image/png', 'image/webp'],
+  },
   'user.avatar': {
     owners: ['user'],
     maxBytes: 2 * MB,

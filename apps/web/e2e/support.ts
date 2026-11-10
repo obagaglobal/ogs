@@ -160,3 +160,129 @@ export async function createOrganisation(input: {
   }
   return tenantId;
 }
+
+// ---------------------------------------------------------------- Phase 9 (jobs)
+
+/** A verified user with a password and, optionally, a role in a tenant. */
+async function createUserWithRole(
+  email: string,
+  password: string,
+  tenantId?: string,
+  roleCode?: string,
+): Promise<void> {
+  await maintQuery(
+    `WITH u AS (INSERT INTO app_user (email, status) VALUES ($1, 'ACTIVE') RETURNING id)
+     INSERT INTO credential (user_id, password_hash) SELECT id, $2 FROM u`,
+    [email, hashPassword(password)],
+  );
+  if (tenantId !== undefined && roleCode !== undefined) {
+    await grantMembership(email, tenantId, roleCode);
+  }
+}
+
+/** Approved, active, Wi-Fi skilled in Nairobi (KE-30): eligible for the seeded Wi-Fi services. */
+async function seedApprovedProvider(input: {
+  kind: 'INDIVIDUAL' | 'COMPANY';
+  name: string;
+  ownerEmail?: string;
+  tenantId?: string;
+  applicantEmail: string;
+}): Promise<string> {
+  const providerId = randomUUID();
+  await maintQuery(
+    `INSERT INTO provider (id, kind, tenant_id, owner_user_id, display_name, status, home_region, accepting_work)
+     VALUES ($1, $2, $3, (SELECT id FROM app_user WHERE email = $4), $5, 'ACTIVE', 'KE-30', true)`,
+    [providerId, input.kind, input.tenantId ?? null, input.ownerEmail ?? null, input.name],
+  );
+  await maintQuery(
+    `INSERT INTO provider_application (provider_id, status, applicant_user_id)
+     SELECT $1, 'APPROVED', id FROM app_user WHERE email = $2`,
+    [providerId, input.applicantEmail],
+  );
+  await maintQuery(
+    `INSERT INTO provider_skill (provider_id, skill_code, experience) VALUES ($1, 'wifi', 'YEARS_3_5')`,
+    [providerId],
+  );
+  await maintQuery(`INSERT INTO provider_region (provider_id, region_code) VALUES ($1, 'KE-30')`, [
+    providerId,
+  ]);
+  return providerId;
+}
+
+/** An approved individual provider (signs in to the "provider" workspace). */
+export async function createIndividualProvider(input: {
+  email: string;
+  password: string;
+  name: string;
+}): Promise<string> {
+  await createUserWithRole(input.email, input.password);
+  return seedApprovedProvider({
+    kind: 'INDIVIDUAL',
+    name: input.name,
+    ownerEmail: input.email,
+    applicantEmail: input.email,
+  });
+}
+
+/** An approved provider company with an admin and one technician; returns its tenant id. */
+export async function createProviderCompany(input: {
+  name: string;
+  adminEmail: string;
+  technicianEmail: string;
+  password: string;
+}): Promise<string> {
+  const tenantId = randomUUID();
+  await maintQuery(
+    `INSERT INTO tenant (id, kind, status, name, slug) VALUES ($1, 'PROVIDER_COMPANY', 'ACTIVE', $2, $3)`,
+    [tenantId, input.name, `e2e-pc-${tenantId.slice(0, 8)}`],
+  );
+  await createUserWithRole(input.adminEmail, input.password, tenantId, 'provider_admin');
+  await createUserWithRole(input.technicianEmail, input.password, tenantId, 'provider_technician');
+  await seedApprovedProvider({
+    kind: 'COMPANY',
+    name: input.name,
+    tenantId,
+    applicantEmail: input.adminEmail,
+  });
+  return tenantId;
+}
+
+/**
+ * Runs statements in ONE transaction as ogs_maint, after setting transaction-local
+ * context (triggers such as protect_job_offer read app.is_platform and app.user_id).
+ */
+export async function maintTransaction(
+  settings: { platformUserEmail?: string },
+  statements: [string, unknown[]][],
+): Promise<void> {
+  const connectionString = process.env['DATABASE_MAINT_URL'];
+  if (connectionString === undefined) {
+    throw new Error('DATABASE_MAINT_URL missing (apps/api/.env)');
+  }
+  const client = new pg.Client({ connectionString });
+  await client.connect();
+  try {
+    await client.query('BEGIN');
+    if (settings.platformUserEmail !== undefined) {
+      await client.query(
+        `SELECT set_config('app.is_platform', 'true', true),
+                set_config('app.user_id', (SELECT id::text FROM app_user WHERE email = $1), true)`,
+        [settings.platformUserEmail],
+      );
+    }
+    for (const [sql, params] of statements) {
+      await client.query(sql, params);
+    }
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    await client.end();
+  }
+}
+
+/** An internal OGS technician (PLATFORM tenant, `technician` role). */
+export async function createInternalTechnician(email: string, password: string): Promise<void> {
+  await createUserWithRole(email, password, PLATFORM_TENANT_ID, 'technician');
+}

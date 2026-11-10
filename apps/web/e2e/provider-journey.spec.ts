@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
+import { resetRateLimits } from './rate-limits';
 import {
   createReviewer,
   grantMembership,
@@ -14,6 +15,10 @@ import {
  * a person applies as a provider → OGS staff verify and approve them →
  * the provider sets their availability → staff find them through eligibility.
  */
+test.beforeAll(async () => {
+  await resetRateLimits();
+});
+
 test.describe.configure({ timeout: 180_000 });
 
 const PDF = Buffer.from('%PDF-1.4\n1 0 obj << >> endobj\ntrailer << >>\n%%EOF\n');

@@ -125,12 +125,13 @@ Roles and the `ogs_test` database are created by `infrastructure/docker/postgres
 
 **Context.** `TenantDb.run(ctx, work)` opens one interactive transaction whose first statement sets `app.user_id`, `app.tenant_id`, `app.is_platform` and `app.actor_kind` with `set_config(..., true)` (transaction-local). Policies read them through `app.*()` helper functions that map both "never set" and "reverted to ''" to NULL, so a missing context matches no rows. Context kinds:
 
-| `DbContext` | Sees                                                                                                  |
-| ----------- | ----------------------------------------------------------------------------------------------------- |
-| `user`      | own `app_user` row, own memberships, tenants they belong to                                           |
-| `workspace` | the tenant's rows (+ the user's own rows). `restricted` when the tenant is pending/rejected/suspended |
-| `platform`  | everything; requires a reason; every use writes `platform.context_used` to the audit log              |
-| `system`    | outbox (dispatcher) and, if given a tenant, that tenant's rows; never user data                       |
+| `DbContext` | Sees                                                                                                                                          |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `user`      | own `app_user` row, own memberships, tenants they belong to                                                                                   |
+| `provider`  | the person's individual-provider rows and the jobs assigned to that provider (`app.provider_id`, Phase 9); never their personal customer rows |
+| `workspace` | the tenant's rows (+ the user's own rows). `restricted` when the tenant is pending/rejected/suspended                                         |
+| `platform`  | everything; requires a reason; every use writes `platform.context_used` to the audit log                                                      |
+| `system`    | outbox (dispatcher) and, if given a tenant, that tenant's rows; never user data                                                               |
 
 **Workspace resolution.** `WorkspaceContextService` grants a `workspace` context only for an ACTIVE membership in a tenant that is not CLOSED or deleted. A PLATFORM-tenant membership gives an ordinary workspace context; cross-tenant `platform` context is a separate, permission-gated elevation (Phase 3+).
 
@@ -140,7 +141,7 @@ Roles and the `ogs_test` database are created by `infrastructure/docker/postgres
 
 **Proof.** `apps/api/test/integration` (CI job "Integration tests") covers: pool-of-one context leak (incl. rollback), fail-closed without context, a cross-tenant read/update/delete/insert/move matrix, role hardening, an RLS catalogue guard for every table, 200 concurrent mixed-tenant transactions, audit immutability, outbox atomicity and racing dispatchers, workspace resolution and readiness.
 
-**Not yet:** the assignment-grant branch for providers (ADR-010) arrives with `ServiceAssignment` in Phase 9.
+**Assignment grants (Phase 9, ADR-063).** Providers reach work only through the job tables, and only while they hold an ACTIVE assignment (or a PENDING offer); they have no policy on any customer table. See §13.
 
 ## 7. Identity, sessions and access
 
@@ -421,7 +422,46 @@ any active state → CLOSED (customer withdraws, with a reason) · CLOSED is fin
 
 **Proof.** `tickets.int.test.ts` (T1–T8), `phase8.test.tsx` (component tests) and the Playwright `tickets-journey.spec.ts` (T9 and the web half of T2). The design suites (visual, axe, motif, touch targets) include the five ticket screens.
 
-## 13. Architecture decisions
+## 13. Jobs, offers and field work (Phase 9)
+
+Planned in the [Phase 9 plan](../plans/phase-9-assignment.md); decisions ADR-063 … ADR-074.
+
+**Jobs.** A paid or postpaid order (`jobs.order_ready` event, plus a 5-minute sweep) or a ticket that needs a visit (staff "Send a technician") becomes a `job` (`JOB-2026-000123`). The job copies its customer owner, its requirements (channels, skills, county, remote) and a provider-facing brief written by OGS. Orders follow their job: READY_FOR_ASSIGNMENT → IN_DELIVERY → COMPLETED (ADR-072).
+
+**Who sees what.** Staff (elevated) see everything. The customer sees status, a first name and "OGS technician" / "OGS partner technician", customer-visible activity and the completion report. An assignee sees the brief, the site and the site contact, only while they hold the ACTIVE assignment; before accepting, an offer shows the area only. Providers have no RLS policy on orders, requests, quotations, payments, tickets or any customer table (ADR-063), and never see internal notes (ADR-064). Internal OGS technicians may read the internal notes of the ticket behind their own job.
+
+**Contexts (ADR-065).** The Provider workspace runs in a `provider` DbContext that sets `app.provider_id`; `app.owns_customer_row` ignores personal rows there. Company members use their company workspace; `app.holds_permission(code)` lets a company dispatcher (`ticket.assign`) see all of the company's jobs while a technician sees only those naming them. Internal technicians use the PLATFORM workspace without elevation.
+
+**Eligibility in the database (ADR-073).** `app.can_take_job(job, kind, provider, technician)` is the one definition: approved, ACTIVE, accepting work, active company tenant, allowed channel, every required skill at the minimum experience, county or remote. Triggers check it when an offer is sent, when the assignment is created and when the offer is accepted; `EligibilityService` suggestions are filtered through it. Suspending a provider or company withdraws its offers and releases its jobs in the same transaction; a technician whose membership ends is released too.
+
+**Lifecycle.** `src/jobs/transitions.ts` is the single table (actor, permission, customer/provider visibility). Every command writes one `job_event`, an audit row and usually an outbox event; `protect_job`, `protect_job_offer`, `protect_job_assignment`, `protect_job_work` and `protect_job_completion` are the second guard.
+
+```text
+QUEUED → OFFERED (staff, one pending offer) → ASSIGNED (accept) | QUEUED (decline with reason, expiry, withdrawal)
+ASSIGNED → ON_THE_WAY → IN_PROGRESS ⇄ PAUSED (reason) → AWAITING_CONFIRMATION (completion report)
+AWAITING_CONFIRMATION → COMPLETED (customer, 7-day auto-confirm, or staff with a reason) | IN_PROGRESS (problem reported)
+working states → QUEUED (staff reassign, reason) · any state before COMPLETED → CANCELLED
+```
+
+Offers expire through a delayed `jobs.offer_expire` event plus the sweep; reports auto-confirm through `jobs.auto_confirm` plus the sweep. A ticket job is confirmed when the customer accepts the ticket's resolution (ADR-069).
+
+**Photos.** `job.evidence` files are owned by the job's customer, uploaded only through `POST /jobs/:id/photos` (in the same transaction as the `job_evidence` row) and downloaded only through the jobs API; the generic `/files` routes refuse them. The phone shrinks photos to 1600 px before upload, which also drops EXIF location.
+
+**API.**
+
+| Method and path                                                                                                                                                                                                                  | Access                                                                                            | Purpose                          |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------- |
+| `GET /platform/jobs`, `GET /platform/jobs/:id`, `GET …/candidates`, `PATCH …/brief`, `POST …/offers`, `…/offers/:oid/withdraw`, `…/reassign`, `…/cancel`, `POST /platform/tickets/:id/jobs`                                      | elevation + `ticket.assign`                                                                       | Dispatch                         |
+| `POST /platform/jobs/:id/confirm`                                                                                                                                                                                                | elevation + `ticket.confirm_completion`                                                           | Confirm on the customer's behalf |
+| `GET /platform/orders/:id/job`, `GET /platform/tickets/:id/job`, `GET /platform/jobs/:id/photos/:pid/download`                                                                                                                   | elevation + `ticket.read`                                                                         | Job status on staff pages        |
+| `GET /jobs?view=offers\|active\|done`, `GET /jobs/offers/:oid`, `POST …/accept`, `…/decline`, `GET /jobs/:id`, `POST /jobs/:id/{on-the-way,start,pause,resume,notes,photos,completion,technician}`, `GET …/photos/:pid/download` | Provider, provider-company or (non-elevated) PLATFORM workspace; commands take an Idempotency-Key | Field work                       |
+| `GET /requests/:id/progress`, `POST /requests/:id/job/{confirm,report-problem}`, `GET /tickets/:id/progress`, photo downloads                                                                                                    | customer workspaces                                                                               | Live tracker                     |
+
+**Web.** Assignees get "Jobs" (`/jobs`): offers, active and done tabs; an offer page; a job page with one saffron next step, a call link, notes, photos and a completion report. Commands retry with the same Idempotency-Key and typed text is kept until sent. Staff get "Dispatch" (`/platform/dispatch`): a queue with counts and a job page with the brief editor, suggestions and offer dialog. Customers see a "Progress" card (Stepper + Timeline, polled every 30 s) on request and ticket pages.
+
+**Proof.** `jobs.int.test.ts` (T1–T10), `transitions.test.ts`, `phase9.test.tsx` and the Playwright `jobs-journey.spec.ts` (T11, including a throttled phone). The design suites include five Phase 9 screens. `scripts/check-chunk-budget.mjs` keeps the technician chunk under 60 KB gzip.
+
+## 14. Architecture decisions
 
 | ID  | Decision                                                                  | Status                    |
 | --- | ------------------------------------------------------------------------- | ------------------------- |
