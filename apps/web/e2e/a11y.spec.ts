@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Browser, type Page } from '@playwright/test';
+import { resetRateLimits } from './rate-limits';
 import {
   createCustomer,
   customerState,
@@ -20,6 +21,10 @@ import {
  * - no horizontal scrolling at 360/768/1024/1440 px;
  * - 44 px touch targets for controls on a 360 px phone.
  */
+test.beforeAll(async () => {
+  await resetRateLimits();
+});
+
 test.describe.configure({ mode: 'serial', timeout: 120_000 });
 
 let state: Awaited<ReturnType<typeof customerState>>;

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { resetRateLimits } from './rate-limits';
 import {
   createCustomer,
   customerState,
@@ -17,6 +18,10 @@ import { PHASE9_PATHS, PHASE9_READY, type Phase9Fixture } from './phase9-fixture
  * - the Kitenge motif appears only where allowed, never in tables or forms,
  *   and at most once per signed-in page.
  */
+test.beforeAll(async () => {
+  await resetRateLimits();
+});
+
 test.describe.configure({ mode: 'serial', timeout: 120_000 });
 
 let state: Awaited<ReturnType<typeof customerState>>;

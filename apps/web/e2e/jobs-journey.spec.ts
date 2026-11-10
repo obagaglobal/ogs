@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
+import { resetRateLimits } from './rate-limits';
 import {
   createIndividualProvider,
   createInternalTechnician,
@@ -26,6 +27,10 @@ import {
  *     technician accepts; (c) staff reassign and the technician's open page
  *     turns into "no longer assigned"; (d) staff send a technician from a ticket.
  */
+test.beforeAll(async () => {
+  await resetRateLimits();
+});
+
 test.describe.configure({ timeout: 360_000 });
 
 const unique = () => randomUUID().slice(0, 8);

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { expect, test, type Page, type Response } from '@playwright/test';
+import { resetRateLimits } from './rate-limits';
 import {
   createOrganisation,
   createReviewer,
@@ -19,6 +20,10 @@ import {
  * and an individual, and neither the rendered page nor any API response it
  * loads may contain the canary.
  */
+test.beforeAll(async () => {
+  await resetRateLimits();
+});
+
 test.describe.configure({ timeout: 300_000 });
 
 const unique = () => randomUUID().slice(0, 8);

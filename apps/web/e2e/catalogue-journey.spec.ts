@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
+import { resetRateLimits } from './rate-limits';
 import { createReviewer, grantMembership, PLATFORM_TENANT_ID, totp } from './support';
 
 /**
@@ -7,6 +8,10 @@ import { createReviewer, grantMembership, PLATFORM_TENANT_ID, totp } from './sup
  * publish a service → a signed-out visitor finds it by search and opens it →
  * staff retire it → it is gone for the visitor.
  */
+test.beforeAll(async () => {
+  await resetRateLimits();
+});
+
 test.describe.configure({ timeout: 180_000 });
 
 const unique = () => randomUUID().slice(0, 8);

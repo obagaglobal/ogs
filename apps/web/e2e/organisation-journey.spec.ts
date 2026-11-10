@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
+import { resetRateLimits } from './rate-limits';
 import { createReviewer, latestMailText, PLATFORM_TENANT_ID, totp } from './support';
 
 /**
@@ -8,6 +9,10 @@ import { createReviewer, latestMailText, PLATFORM_TENANT_ID, totp } from './supp
  * the (now MFA-enrolled) admin invites a colleague → the colleague signs up
  * from the invitation and lands in the organisation.
  */
+test.beforeAll(async () => {
+  await resetRateLimits();
+});
+
 test.describe.configure({ timeout: 180_000 });
 
 const PDF = Buffer.from('%PDF-1.4\n1 0 obj << >> endobj\ntrailer << >>\n%%EOF\n');
